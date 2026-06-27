@@ -20,10 +20,10 @@ const Chunks = {
     const [pcx, pcy] = this.chunkOf(scene.player.x, scene.player.y);
     let changed = false;
 
-    // unload chunks beyond the hysteresis radius
+    // unload chunks beyond the hysteresis radius (gfx is an array of layer graphics)
     for (const [key, ch] of loaded){
       if (Math.abs(ch.cx - pcx) > UNLOAD_RADIUS || Math.abs(ch.cy - pcy) > UNLOAD_RADIUS){
-        if (ch.gfx) ch.gfx.destroy();
+        if (ch.gfx) for (const g of ch.gfx) g.destroy();
         loaded.delete(key); changed = true;
       }
     }

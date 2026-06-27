@@ -2,24 +2,27 @@
 // Phase 2: biome-driven, region-tier world generation (deterministic).
 //
 //   landiness(rx,ry) — smooth value-noise field → coherent land/ocean zones.
-//   biomeOf(rx,ry)   — ocean / archipelago / mainland. Mainland only at a local
-//                      landiness PEAK, so mainlands are rarely adjacent and are
-//                      ringed by archipelago (islands hug mainlands).
-//   region(rx,ry)    — the features anchored near region (rx,ry): {lands, reefs,
+//   biomeOf(rx,ry)   — ocean / archipelago / mainland (with a hand-tuned spawn
+//                      neighbourhood). Mainland only at a local landiness PEAK,
+//                      so mainlands are rarely adjacent and ringed by islands.
+//   region(rx,ry)    — features anchored near region (rx,ry): {lands, reefs,
 //                      shallows}. Pure + memoised → identical on every rebuild.
 //   generateChunk    — gathers features from every region within MAX_FEATURE_REACH
 //                      of the chunk, keeping those whose ANCHOR falls in the chunk.
-//                      Neighbour-gathering lets a region place big mainlands and
-//                      long island chains that spill past its own bounds without
-//                      orphaning the features (each is still owned by exactly one
-//                      chunk — the one containing its anchor).
+//
+// Each land feature carries `bw` (a fixed per-landmass band width) so the render
+// layers (beach → jungle → core) are uniform-width regardless of island size.
 const WorldGen = {
   _cache: new Map(),
 
   landiness(rx, ry){ return valueNoise(rx*BIOME_FREQ, ry*BIOME_FREQ, (WORLD_SEED ^ 0x9E3779B9) >>> 0); },
 
   biomeOf(rx, ry){
-    if (Math.floor(STARTER_ANCHOR_X/REGION_SIZE) === rx && Math.floor(STARTER_ANCHOR_Y/REGION_SIZE) === ry) return 'mainland';
+    // — spawn neighbourhood: a dense, hand-tuned starter area —
+    if (rx === 0 && ry === 0)   return 'mainland';                      // starter mainland (NE of spawn)
+    if (rx === -1 && ry === -1) return 'mainland';                      // a second mainland (SW of spawn)
+    if (Math.abs(rx) <= 1 && Math.abs(ry) <= 1) return 'archipelago';   // ring of islands around spawn
+    // — procedural elsewhere —
     const L = this.landiness(rx, ry);
     if (L < ARCH_THRESHOLD) return 'ocean';
     if (L >= MAINLAND_THRESHOLD){
@@ -37,7 +40,7 @@ const WorldGen = {
     const hit = this._cache.get(key);
     if (hit) return hit;
     const built = this._build(rx, ry);
-    if (this._cache.size > 400) this._cache.clear();   // crude cap (regions rebuild deterministically)
+    if (this._cache.size > 400) this._cache.clear();
     this._cache.set(key, built);
     return built;
   },
@@ -51,18 +54,24 @@ const WorldGen = {
     const biome = this.biomeOf(rx, ry);
 
     if (biome === 'mainland'){
-      const starter = (Math.floor(STARTER_ANCHOR_X/REGION_SIZE) === rx && Math.floor(STARTER_ANCHOR_Y/REGION_SIZE) === ry);
-      let ax, ay, minS, maxS;
-      if (starter){ ax = STARTER_ANCHOR_X; ay = STARTER_ANCHOR_Y; minS = STARTER_MAINLAND_MIN; maxS = STARTER_MAINLAND_MAX; }
-      else { const p = interior(); ax = p.x; ay = p.y; minS = MAINLAND_MIN; maxS = MAINLAND_MAX; }
-      this._mainland(r, ax, ay, minS, maxS, lands, reefs, shallows);
+      const starter   = (rx === 0 && ry === 0);
+      const spawnMain = starter || (rx === -1 && ry === -1);            // both spawn mainlands stay starter-sized to fit near spawn
+      let ax, ay;
+      if (starter){ ax = STARTER_ANCHOR_X; ay = STARTER_ANCHOR_Y; }
+      else { const p = interior(); ax = p.x; ay = p.y; }
+      const lenMin = spawnMain ? STARTER_LEN_MIN   : MAINLAND_LEN_MIN;
+      const lenMax = spawnMain ? STARTER_LEN_MAX   : MAINLAND_LEN_MAX;
+      const widMin = spawnMain ? STARTER_WIDTH_MIN : MAINLAND_WIDTH_MIN;
+      const widMax = spawnMain ? STARTER_WIDTH_MAX : MAINLAND_WIDTH_MAX;
+      this._mainland(r, ax, ay, lenMin, lenMax, widMin, widMax, lands, reefs, shallows);
+      if (starter) this._cluster(r, 600, 400, lands, reefs, shallows);   // an extra grouping right at spawn
 
     } else if (biome === 'archipelago'){
       const c = interior();
       this._cluster(r, c.x, c.y, lands, reefs, shallows);
 
     } else if (r() < 0.12){                                  // open ocean: a rare lone outcrop
-      const p = interior(); lands.push(this._island(r, p.x, p.y, [25,55], [20,45], false));
+      const p = interior(); lands.push(this._island(r, p.x, p.y, 25, 55));
     }
 
     const clear = f => Math.hypot(f.cx, f.cy) > START_CLEAR_RADIUS;   // open water around origin
@@ -70,17 +79,21 @@ const WorldGen = {
   },
 
   // ── feature builders ──
-  _island(r, cx, cy, rxR, ryR, multi){
-    const ells = [], lobes = multi ? 2 + Math.floor(r()*2) : 1;
-    for (let l = 0; l < lobes; l++){
-      const ox = multi ? (r()-0.5)*100 : 0, oy = multi ? (r()-0.5)*80 : 0;
-      ells.push({ cx:cx+ox, cy:cy+oy, rx:rxR[0]+r()*(rxR[1]-rxR[0]), ry:ryR[0]+r()*(ryR[1]-ryR[0]) });
+
+  // Irregular island: a central lobe plus several scattered overlapping lobes,
+  // giving a lumpy outline (inlets + jut-outs) instead of a plain circle.
+  _island(r, cx, cy, rMin, rMax){
+    const base = rMin + r()*(rMax - rMin);
+    const ells = [{ cx, cy, rx:base*(0.85+r()*0.3), ry:base*(0.78+r()*0.34) }];
+    const n = 2 + Math.floor(r()*4);                        // 2–5 extra lobes
+    for (let i = 0; i < n; i++){
+      const a = r()*Math.PI*2, off = base*(0.4 + r()*0.6), lr = base*(0.35 + r()*0.5);
+      ells.push({ cx:cx + Math.cos(a)*off, cy:cy + Math.sin(a)*off, rx:lr*(0.8+r()*0.5), ry:lr*(0.8+r()*0.5) });
     }
-    return { cx, cy, ells, multi };
+    return { cx, cy, ells, bw: BAND_MIN + r()*(BAND_MAX - BAND_MIN) };
   },
 
-  // elongated reef parallel to the shore: rocks laid in a long, thin band along
-  // `alongAngle` (the coast tangent). drawReefs uses angle/len/wid for the patch.
+  // elongated reef parallel to the shore (rocks in a thin band along `alongAngle`)
   _reef(r, cx, cy, alongAngle){
     const len = 200 + r()*300, wid = 26 + r()*40;
     const ux = Math.cos(alongAngle), uy = Math.sin(alongAngle), px = -uy, py = ux;
@@ -92,48 +105,55 @@ const WorldGen = {
     return { cx, cy, rocks, angle:alongAngle, len, wid };
   },
 
-  // massive elongated landmass: lobes along a randomly-oriented spine with a
-  // thick middle that tapers toward the ends → "varying thickness"
-  _mainland(r, ax, ay, minS, maxS, lands, reefs, shallows){
-    const W = minS + r()*(maxS - minS), H = minS + r()*(maxS - minS);
-    const theta = r()*Math.PI*2, major = Math.max(W,H)/2, minor = Math.min(W,H)/2;
+  // massive landmass: lobes along a randomly-oriented, possibly-CURVED spine.
+  // length × width are independent (→ blobs to long hotdogs), and the spine bends
+  // for the longer ones (Japan/banana). Reach is kept under the streaming bound.
+  _mainland(r, ax, ay, lenMin, lenMax, widMin, widMax, lands, reefs, shallows){
+    const length = lenMin + r()*(lenMax - lenMin);
+    const width  = Math.min(widMin + r()*(widMax - widMin), length*0.85);
+    const theta = r()*Math.PI*2, major = length/2, minor = width/2;
+    const elong = 1 - minor/major;                         // 0 = round, →1 = long & thin
+    const curveAmp = (r()-0.5)*2 * minor * elong * 1.3;    // bend the spine; only meaningful when elongated
     const ux = Math.cos(theta), uy = Math.sin(theta), px = -uy, py = ux;
-    const ells = [], n = 16 + Math.floor(r()*16);
+    const ells = [], n = 16 + Math.floor(r()*18);
     for (let i = 0; i < n; i++){
       const t = (i/(n-1) - 0.5)*2;
-      const along = t*major*0.85, wob = (r()-0.5)*minor*0.4;
-      const lx = ax + ux*along + px*wob, ly = ay + uy*along + py*wob;
+      const along = t*major*0.85;
+      const curve = curveAmp*(1 - t*t);                    // max bend mid-spine, ends straighter
+      const wob = (r()-0.5)*minor*0.4;
+      const lx = ax + ux*along + px*(curve + wob), ly = ay + uy*along + py*(curve + wob);
       const taper = Math.sqrt(Math.max(0.04, 1 - t*t));
-      const rad = (0.35 + 0.45*taper)*minor*(0.7 + r()*0.4);
-      ells.push({ cx:lx, cy:ly, rx:rad*(0.9+r()*0.25), ry:rad*(0.9+r()*0.25) });
+      const rad = (0.35 + 0.45*taper)*minor*(0.6 + r()*0.55);   // more per-lobe size variation
+      ells.push({ cx:lx, cy:ly, rx:rad*(0.85+r()*0.35), ry:rad*(0.85+r()*0.35) });
     }
-    lands.push({ cx:ax, cy:ay, ells, multi:true });
-    shallows.push({ cx:ax, cy:ay, rx:major*1.4, ry:major*1.4 });
-    const fringeN = 4 + Math.floor(r()*6);                  // islands ring the mainland
-    for (let i = 0; i < fringeN; i++){ const a = r()*Math.PI*2, rad = major + 120 + r()*420; lands.push(this._island(r, ax+Math.cos(a)*rad, ay+Math.sin(a)*rad, [80,150], [60,110], r()<0.3)); }
-    const outN = 3 + Math.floor(r()*4);                     // outcrop garnish
-    for (let i = 0; i < outN; i++){ const a = r()*Math.PI*2, rad = r()*(major + 250); lands.push(this._island(r, ax+Math.cos(a)*rad, ay+Math.sin(a)*rad, [25,55], [20,45], false)); }
-    const reefN = 1 + (r() < 0.6 ? 1 : 0);                  // 1–2 coastal reefs, parallel to the shore (tangent = a + 90°)
+    lands.push({ cx:ax, cy:ay, ells, mainland:true, bw: BAND_MIN + r()*(BAND_MAX - BAND_MIN) });
+    const fringeN = 4 + Math.floor(r()*6);                 // islands ring the mainland
+    for (let i = 0; i < fringeN; i++){ const a = r()*Math.PI*2, rad = major + 140 + r()*440; lands.push(this._island(r, ax+Math.cos(a)*rad, ay+Math.sin(a)*rad, 80, 150)); }
+    const outN = 3 + Math.floor(r()*4);                    // outcrop garnish
+    for (let i = 0; i < outN; i++){ const a = r()*Math.PI*2, rad = r()*(major + 250); lands.push(this._island(r, ax+Math.cos(a)*rad, ay+Math.sin(a)*rad, 25, 55)); }
+    const reefN = 1 + (r() < 0.6 ? 1 : 0);                 // 1–2 coastal reefs, parallel to shore
     for (let i = 0; i < reefN; i++){ const a = r()*Math.PI*2, rad = major + 70 + r()*200; reefs.push(this._reef(r, ax+Math.cos(a)*rad, ay+Math.sin(a)*rad, a + Math.PI/2)); }
   },
 
-  // archipelago: wandering CHAINS of small islands (strings you can thread)
+  // archipelago grouping: small islands SCATTERED across a large radius (several
+  // chunks) with a minimum spacing between them — spread out and evenly gapped
+  // rather than a tight clump or a line.
   _cluster(r, cx, cy, lands, reefs, shallows){
-    const chains = 1 + Math.floor(r()*2);                   // 1–2 chains per region
-    for (let c = 0; c < chains; c++){
-      let x = cx + (r()-0.5)*1400, y = cy + (r()-0.5)*1400;
-      let dir = r()*Math.PI*2;
-      const len = 4 + Math.floor(r()*7);                    // 4–10 islands in the chain
-      for (let i = 0; i < len; i++){
-        lands.push(this._island(r, x, y, [80,150], [60,110], r()<0.2));
-        if (i % 3 === 0) shallows.push({ cx:x, cy:y, rx:520, ry:520 });          // shallows tiled along the chain
-        if (i > 0 && r() < 0.2) lands.push(this._island(r, x+(r()-0.5)*170, y+(r()-0.5)*170, [25,55], [20,45], false));  // outcrop beside
-        dir += (r()-0.5)*1.1;                               // wander the heading
-        const step = 230 + r()*170;
-        x += Math.cos(dir)*step; y += Math.sin(dir)*step;
-      }
-      if (r() < 0.45) reefs.push(this._reef(r, x, y, dir));  // reef trailing the chain, along its run
+    const R = CLUSTER_RADIUS_MIN + r()*(CLUSTER_RADIUS_MAX - CLUSTER_RADIUS_MIN);
+    const target = CLUSTER_MIN + Math.floor(r()*(CLUSTER_MAX - CLUSTER_MIN + 1));
+    const placed = [];
+    let guard = target*25;
+    while (placed.length < target && guard-- > 0){
+      const a = r()*Math.PI*2, rad = Math.sqrt(r())*R;                 // sqrt → even coverage over the disc
+      const x = cx + Math.cos(a)*rad, y = cy + Math.sin(a)*rad;
+      if (placed.some(p => Math.hypot(p.x - x, p.y - y) < ISLAND_GAP)) continue;   // keep them spaced apart
+      placed.push({ x, y });
+      lands.push(this._island(r, x, y, 70, 140));
+      if (placed.length % 3 === 0) shallows.push({ cx:x, cy:y, rx:560, ry:560 });  // shallow zone follows the grouping
+      if (r() < 0.10) lands.push(this._island(r, x + (r()-0.5)*120, y + (r()-0.5)*120, 22, 46));   // tiny outcrop beside
     }
+    const reefN = (r() < 0.5 ? 1 : 0) + (r() < 0.3 ? 1 : 0);            // a couple of reefs around the grouping
+    for (let i = 0; i < reefN && placed.length; i++){ const s = placed[Math.floor(r()*placed.length)]; reefs.push(this._reef(r, s.x + 220, s.y, r()*Math.PI*2)); }
   },
 
   // chunk = features (from every region within MAX_FEATURE_REACH) whose anchor

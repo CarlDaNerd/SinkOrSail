@@ -39,7 +39,7 @@ class GameScene extends Phaser.Scene {
   // with the AI-streaming phase.)
   placeStartPorts(){
     const NAMES = ['Port Royal', 'Tortuga'];
-    const larges = this.islands.filter(is => is.multi && Math.hypot(is.cx, is.cy) < 9000)
+    const larges = this.islands.filter(is => is.mainland && Math.hypot(is.cx, is.cy) < 9000)
                        .sort((a, b) => Math.hypot(a.cx, a.cy) - Math.hypot(b.cx, b.cy));
     const ports = [];
     for (const land of larges){ if (ports.length >= 2) break; const cp = this.findCoastPoint(land, 0); ports.push(new Port(cp.x, cp.y, NAMES[ports.length])); }

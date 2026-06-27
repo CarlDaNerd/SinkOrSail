@@ -49,14 +49,30 @@ const BIOME_FREQ = 0.45;          // value-noise frequency for "landiness" zonin
 const ARCH_THRESHOLD = 0.55;      // landiness ≥ this → archipelago (islands, no mainland)
 const MAINLAND_THRESHOLD = 0.55;  // landiness ≥ this AND a local peak → mainland (so mainlands rarely adjacent)
 const REGION_MARGIN = 1000;       // place feature anchors this far inside their region (keeps mainlands off region edges)
-const MAX_FEATURE_REACH = 3500;   // a chunk gathers features from regions within this (so big mainlands/chains aren't orphaned)
-const MAINLAND_MIN = 2400, MAINLAND_MAX = 3000;                 // mainland bounding box (px) — massive
-const STARTER_MAINLAND_MIN = 1500, STARTER_MAINLAND_MAX = 2100; // friendlier starter hub near origin
+const MAX_FEATURE_REACH = 5000;   // a chunk gathers features from regions within this (so big mainlands/spread groupings aren't orphaned)
+// mainland dimensions: length (along the spine) x width (across) — independent,
+// so shapes range from blobby to long "hotdog"/Japan-style landmasses
+const MAINLAND_LEN_MIN = 2600, MAINLAND_LEN_MAX = 4400;
+const MAINLAND_WIDTH_MIN = 800, MAINLAND_WIDTH_MAX = 2200;
+const STARTER_LEN_MIN = 1900, STARTER_LEN_MAX = 2900;          // friendlier starter hubs near origin
+const STARTER_WIDTH_MIN = 1100, STARTER_WIDTH_MAX = 1900;
 const STARTER_ANCHOR_X = 2000, STARTER_ANCHOR_Y = 1700;  // starter mainland near origin (inside region (0,0))
 
 // ── REEFS ──
 const REEF_DAMAGE = 8;            // hull damage per reef-contact tick
 const REEF_DAMAGE_INTERVAL = 1.0; // seconds between reef damage ticks
+
+// ── LAND RENDERING (fixed-width layer bands, NOT scaled with island size) ──
+const BAND_MIN = 20, BAND_MAX = 60;   // beach + jungle band widths (px), chosen per landmass
+const SHALLOW_BAND = 38;              // shallow-water ring outset around land (px, fixed)
+// Single OPAQUE shallow colour: drawn opaque (not alpha) so overlapping shallow
+// areas never stack into different blues — it's one uniform blue everywhere.
+const SHALLOW_COLOR = 0x1E5468;
+
+// ── ARCHIPELAGO GROUPINGS (large, sparse, spread across several chunks) ──
+const CLUSTER_MIN = 18, CLUSTER_MAX = 38;       // islands per grouping
+const CLUSTER_RADIUS_MIN = 2400, CLUSTER_RADIUS_MAX = 4400;  // grouping spread radius (≈ 3–6 chunks across)
+const ISLAND_GAP = 380;                          // min centre-to-centre spacing between scattered islands
 // full-window canvas; the dev panel is a slide-in overlay drawer (not a layout
 // sibling), so it no longer steals canvas width — toggle it from the edge tab.
 const GAME_W = window.innerWidth, GAME_H = window.innerHeight;
