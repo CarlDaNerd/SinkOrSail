@@ -25,7 +25,7 @@ function drawWorldMap(g, gs){
   for (let yk = c0y; yk <= c1y; yk++) for (let xk = c0x; xk <= c1x; xk++){
     if (!gs.explored.has(xk + ',' + yk)) continue;
     const data = WorldGen.generateChunk(xk, yk);
-    for (const land of data.lands){ g.fillStyle(land.mainland ? 0x3D6E25 : 0x4C8A30, 1); for (const e of land.ells) g.fillCircle(w2x(e.cx), w2y(e.cy), Math.max(0.7, e.rx*s)); }
+    for (const land of data.lands){ g.fillStyle((land.mainland || land.big) ? 0x3D6E25 : 0x4C8A30, 1); for (const e of land.ells) g.fillCircle(w2x(e.cx), w2y(e.cy), Math.max(0.7, e.rx*s)); }
   }
   // ports
   for (const p of gs.navyPorts){ g.fillStyle(0x8AC8E0, 1); g.fillCircle(w2x(p.x), w2y(p.y), 4); g.lineStyle(1.5, 0x2A9EAE, 0.6); g.strokeCircle(w2x(p.x), w2y(p.y), 8); }

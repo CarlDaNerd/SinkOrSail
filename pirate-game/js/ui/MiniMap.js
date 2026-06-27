@@ -14,10 +14,11 @@ function drawMiniMap(g, gs, pl){
   const inWin = (wx, wy) => Math.abs(wx - pl.x) <= halfWx && Math.abs(wy - pl.y) <= halfWy;
   const w2x = wx => cxp + (wx - pl.x)*scale, w2y = wy => cyp + (wy - pl.y)*scale;
 
-  g.fillStyle(0x3D6E25, 0.95);
+  // draw every lobe so medium/large/stripe islands show their real footprint;
+  // big land (mainland + medium/large) reads a touch darker than small islands
   for (const is of gs.islands){
-    if (is.mainland){ for (const e of is.ells) if (inWin(e.cx, e.cy)) g.fillCircle(w2x(e.cx), w2y(e.cy), Math.max(1, e.rx*scale)); }
-    else if (inWin(is.cx, is.cy)) g.fillCircle(w2x(is.cx), w2y(is.cy), Math.max(1, (is.ells[0] ? is.ells[0].rx : 80)*scale));
+    g.fillStyle((is.mainland || is.big) ? 0x3D6E25 : 0x4C8A30, 0.95);
+    for (const e of is.ells) if (inWin(e.cx, e.cy)) g.fillCircle(w2x(e.cx), w2y(e.cy), Math.max(1, e.rx*scale));
   }
   for (const p of gs.navyPorts) if (inWin(p.x, p.y)){ g.fillStyle(0x8AC8E0, 1); g.fillCircle(w2x(p.x), w2y(p.y), 2.5); }
   for (const s of gs.ships){ if (!s.alive || !inWin(s.x, s.y)) continue; const c = { merchant:0xD0AA70, pirate:0xE0503A, navy:0x6AB0D8, privateer:0x6AC060 }[s.faction]; g.fillStyle(c, 1); g.fillCircle(w2x(s.x), w2y(s.y), 1.8); }

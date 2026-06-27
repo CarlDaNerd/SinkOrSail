@@ -31,6 +31,7 @@ const DEBUG = { infAmmo:false, ring:{ active:false, radius:0, age:0, label:'' } 
 // ── fixed structural constants ──
 const SAIL_MULTIPLIERS = [0, 0.55, 1.0];        // 0 none / 1 main / 2 full
 const RAD = Math.PI / 180;
+const TAU = Math.PI * 2;
 const WORLD_SEED = 42;            // fixed → same world every launch (deterministic)
 
 // ── WORLD STREAMING (chunked, effectively unlimited) ──
@@ -47,18 +48,33 @@ const MINIMAP_W = 200, MINIMAP_H = 150;   // corner minimap size (px). Shows 2×
 const MAP_SCALE_INIT = 0.045;             // big map (M): screen-px per world-px
 const MAP_SCALE_MIN = 0.02, MAP_SCALE_MAX = 0.22;
 
-// ── BIOMES / FEATURES ──
-const REGION_SIZE = 4000;         // coarse biome cell (px); a region hosts at most one mainland
-const BIOME_FREQ = 0.45;          // value-noise frequency for "landiness" zoning (lower = bigger zones)
-const ARCH_THRESHOLD = 0.55;      // landiness ≥ this → archipelago (islands, no mainland)
-const MAINLAND_THRESHOLD = 0.55;  // landiness ≥ this AND a local peak → mainland (so mainlands rarely adjacent)
-const REGION_MARGIN = 1000;       // place feature anchors this far inside their region (keeps mainlands off region edges)
-const MAX_FEATURE_REACH = 5000;   // a chunk gathers features from regions within this (so big mainlands/spread groupings aren't orphaned)
-// mainland dimensions: length (along the spine) x width (across) — independent,
-// so shapes range from blobby to long "hotdog"/Japan-style landmasses
-const MAINLAND_LEN_MIN = 2600, MAINLAND_LEN_MAX = 4400;
+// ── BIOMES (rarity ladder, ocean-heavy) ──────────────────────────────────
+// Driven by the coherent landiness noise so land regions clump together —
+// long empty hauls broken by occasional bunched-up grouping zones. Per region:
+//   L < OCEAN_LANDINESS                  → ocean    (most common; rare lone landmark)
+//   OCEAN ≤ L < DENSE_LANDINESS          → sparse   (a few scattered islands)
+//   L ≥ DENSE_LANDINESS, non-peak        → dense    (a big island grouping)
+//   L ≥ MAINLAND_LANDINESS & local peak  → mainland (rare, ringed by open water)
+const REGION_SIZE = 4000;         // coarse biome cell (px); one mainland max per region
+const BIOME_FREQ = 0.45;          // landiness-noise frequency (lower = bigger zones)
+const OCEAN_LANDINESS = 0.55;     // below → open ocean (most common)
+const DENSE_LANDINESS = 0.73;     // at/above (non-peak) → dense grouping; below → sparse scatter
+const MAINLAND_LANDINESS = 0.66;  // a strict local landiness peak at/above this → mainland (rare)
+const REGION_MARGIN = 1000;       // place feature anchors this far inside their region
+const MAX_FEATURE_REACH = 5000;   // a chunk gathers features from regions within this
+
+// ── ISLAND SIZE TIERS — footprint RADIUS (half-span) px. Every shape archetype
+// is built to FIT inside this radius (stripes included), so a tier's span ≈ 2×
+// these numbers regardless of archetype — no more giant elongated outliers. ──
+const TIER_TINY   = [25, 75];     // span ~50–150 px   (outcrops / garnish)
+const TIER_SMALL  = [100, 225];   // span ~200–450 px
+const TIER_MEDIUM = [300, 700];   // span ~600–1400 px
+const TIER_LARGE  = [750, 1200];  // span ~1500–2400 px
+
+// mainland: independent length × width (blob → long curved "hotdog"/Japan)
+const MAINLAND_LEN_MIN = 2600, MAINLAND_LEN_MAX = 3800;   // kept ≤ region size so a continent stays within its cell
 const MAINLAND_WIDTH_MIN = 800, MAINLAND_WIDTH_MAX = 2200;
-const STARTER_LEN_MIN = 1900, STARTER_LEN_MAX = 2900;          // friendlier starter hubs near origin
+const STARTER_LEN_MIN = 1900, STARTER_LEN_MAX = 2900;          // friendlier starter mainlands near origin
 const STARTER_WIDTH_MIN = 1100, STARTER_WIDTH_MAX = 1900;
 const STARTER_ANCHOR_X = 2000, STARTER_ANCHOR_Y = 1700;  // starter mainland near origin (inside region (0,0))
 
@@ -73,10 +89,19 @@ const SHALLOW_BAND = 38;              // shallow-water ring outset around land (
 // areas never stack into different blues — it's one uniform blue everywhere.
 const SHALLOW_COLOR = 0x1E5468;
 
-// ── ARCHIPELAGO GROUPINGS (large, sparse, spread across several chunks) ──
-const CLUSTER_MIN = 18, CLUSTER_MAX = 38;       // islands per grouping
-const CLUSTER_RADIUS_MIN = 2400, CLUSTER_RADIUS_MAX = 4400;  // grouping spread radius (≈ 3–6 chunks across)
-const ISLAND_GAP = 380;                          // min centre-to-centre spacing between scattered islands
+// ── GROUPINGS ───────────────────────────────────────────────────────────────
+// Islands are spaced EDGE-TO-EDGE (centre distance > rad₁+rad₂+gap) so they never
+// overlap. Groupings anchor near their region CENTRE (± CLUSTER_JITTER) so two
+// neighbouring groupings on the 4000px region grid stay clear of each other.
+const DENSE_COUNT_MIN = 7, DENSE_COUNT_MAX = 13;         // islands in a big (dense) grouping
+const DENSE_RADIUS_MIN = 1100, DENSE_RADIUS_MAX = 1400;  // contained spread (stays inside its region, with an ocean buffer)
+const SPARSE_COUNT_MIN = 2, SPARSE_COUNT_MAX = 5;        // islands in a sparse scatter
+const SPARSE_RADIUS_MIN = 900, SPARSE_RADIUS_MAX = 1400;
+const DENSE_GAP = 220;                                   // min edge-to-edge spacing in a dense grouping
+const SPARSE_GAP = 480;                                  // wider edge-to-edge spacing in a sparse scatter
+const CLUSTER_JITTER = 180;                              // anchor groupings near the region centre ± this (so neighbours stay apart)
+const OCEAN_LONE_CHANCE = 0.12;                          // ocean region: chance of a lone landmark island
+const OCEAN_SCATTER_CHANCE = 0.08;                       // ocean region: chance of a few tiny outcrops
 // full-window canvas; the dev panel is a slide-in overlay drawer (not a layout
 // sibling), so it no longer steals canvas width — toggle it from the edge tab.
 const GAME_W = window.innerWidth, GAME_H = window.innerHeight;
