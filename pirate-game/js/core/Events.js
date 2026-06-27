@@ -12,12 +12,16 @@
 // Keep events for REACTIONS multiple features care about. Tight ordered flow
 // (movement -> collision) stays as direct calls — don't event-ify everything.
 const EV = {
-  SHIP_SUNK:      'ship:sunk',       // { ship, by }            — Combat.onHit at hull<=0
-  SHIP_HIT:       'ship:hit',        // { ship, by, amount }    — Combat.onHit
-  DOCK_ENTERED:   'dock:entered',    // { port }                — GameScene dock flow (player)
-  SHIP_DOCKED:    'ship:docked',     // { ship, port }          — Docks.occupy (bot ships, M5)
-  SHIP_UNDOCKED:  'ship:undocked',   // { ship, port }          — Docks.release (bot ships, M5)
-  SHIP_BOARDED:   'ship:boarded',    // { target }              — boarding (M4)
-  SHIP_CAPTURED:  'ship:captured',   // { ship }                — capture (M5)
-  WEATHER_CHANGED:'weather:changed', // { type }                — weather (M11)
+  SHIP_SUNK:     'ship:sunk',      // { ship, by }            — Combat.onHit at hull<=0
+  SHIP_HIT:      'ship:hit',       // { ship, by, amount }    — Combat.onHit
+  DOCK_ENTERED:  'dock:entered',   // { port }                — GameScene dock flow
+  SHIP_BOARDED:  'ship:boarded',   // { target }              — boarding (M4)
+  SHIP_CAPTURED: 'ship:captured',  // { ship }                — capture (M5)
+  SHIP_DOCKED:   'ship:docked',    // { ship, port }          — docks (MD)
+  SHIP_UNDOCKED: 'ship:undocked',  // { ship, port }          — docks (MD)
+  TRADE:         'trade',          // { port, commodity, side, qty, gold } — port economy (M8)
+  PORT_DEFENSE_TRIGGERED:'port:defense', // { port }          — cannon towers fire (M8)
+  PORT_CAPTURED: 'port:captured',  // { port }                — port capture (replaces home base)
+  PRIZE_DELIVERED:'prize:delivered',// { ship, port }         — towed prize reached an owned port (M5 runners)
+  WEATHER_CHANGED:'weather:changed',// { type }               — weather (M11)
 };

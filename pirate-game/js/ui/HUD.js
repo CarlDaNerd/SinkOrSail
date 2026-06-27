@@ -67,8 +67,8 @@ class HUD {
     const hp = Math.max(0, pl.hull/pl.maxHull);
     g.fillStyle(0x223040, 1); g.fillRect(20, 80, 150, 5); g.fillStyle(hp < 0.35 ? 0xE0503A : 0x4CA84C, 1); g.fillRect(20, 80, 150*hp, 5);
     this.tHull.setText('HULL ' + Math.ceil(pl.hull));
-    this.tAmmo.setText('AMMO ' + pl.ammo); this.tGold.setText('GOLD ' + pl.gold);
-    this.tCrew.setText('CREW 20');
+    this.tAmmo.setText('AMMO ' + pl.ammo); this.tGold.setText('GOLD ' + pl.gold + '  BANK ' + (pl.bank || 0));
+    this.tCrew.setText('CREW ' + (pl.crew || CREW_DEFAULT) + (typeof ShipTier !== 'undefined' && pl.tier ? ('/' + ShipTier.minCrew(pl) + ' ' + ShipTier.specOf(pl).name + (ShipTier.understaffed(pl) ? ' !' : '')) : ''));
     this.tCoord.setText(Math.round(pl.x) + ',' + Math.round(pl.y));
     // wanted level (standing 0..-100 → 0..5 pips)
     const wl = Math.min(5, Math.max(0, Math.ceil(-gs.navyStanding / 20))), hostile = gs.navyHostile();
@@ -118,9 +118,16 @@ class HUD {
       g.fillStyle(0x0E1820, 0.94); g.fillRect(x, y, w, h);
       g.lineStyle(2, 0x2A9EAE, 0.6); g.strokeRect(x, y, w, h);
       const repairNeed = pl.maxHull - pl.hull, ammoNeed = pl.maxAmmo - pl.ammo;
-      const l1 = repairNeed <= 0 ? '[1] Hull fully repaired' : '[1] Repair hull  —  ' + Math.ceil(repairNeed * REPAIR_COST_PER_HP) + 'g';
-      const l2 = ammoNeed   <= 0 ? '[2] Ammo full'           : '[2] Restock ammo  —  ' + (ammoNeed * AMMO_COST_PER_UNIT) + 'g';
-      this.tDockMenu.setText('⚓  ' + gs.dockPort.name + '   (saved)\n\nGOLD  ' + (pl.bank || 0) + '\n\n' + l1 + '\n' + l2 + '\n\n[F] Depart').setVisible(true);
+      const port = gs.dockPort;
+      const l1 = repairNeed <= 0 ? '[1] Hull fully repaired' : '[1] Repair hull  - ' + Math.ceil(repairNeed * REPAIR_COST_PER_HP) + 'g';
+      const l2 = ammoNeed   <= 0 ? '[2] Ammo full'           : '[2] Restock ammo  - ' + (ammoNeed * AMMO_COST_PER_UNIT) + 'g';
+      let cargoStr = '(empty)';
+      if (pl.hold){ const parts = []; for (const c of COMMODITIES){ const q = pl.hold.items[c]; if (q) parts.push((COMMODITY_INFO[c] ? COMMODITY_INFO[c].glyph : c) + q); } if (parts.length) cargoStr = parts.join(' '); }
+      const typeLabel = port.type || 'Port';
+      const src = port.sourceCommodity;
+      const l4 = src ? ('[4] Buy ' + src + '  - ' + PortEconomy.sellPrice(port, src) + 'g/ea') : '[4] -';
+      const crewCost = Math.round(CREW_HIRE_COST * (PORT_TYPES[port.type] && PORT_TYPES[port.type].crewDiscount ? 0.6 : 1));
+      this.tDockMenu.setText('Dock: ' + port.name + '  (' + typeLabel + ')\n\nBANK ' + (pl.bank||0) + 'g   CREW ' + (pl.crew||CREW_DEFAULT) + '   HOLD ' + cargoStr + '\n\n' + l1 + '\n' + l2 + '\n[3] Sell all cargo\n' + l4 + '\n[5] Hire crew  - ' + crewCost + 'g\n\n[F] Depart').setVisible(true);
       this.tDockPrompt.setVisible(false);
     } else if (gs.nearPort){
       let msg;

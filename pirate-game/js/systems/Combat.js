@@ -4,11 +4,18 @@
 const Combat = {
   // side: 'port' (heading-90) | 'star' (heading+90)
   fire(scene, ship, side){
-    const cd = ship.faction === 'player' ? P.cooldown : P.cooldown*1.8;     // ENEMY_COOLDOWN_MULT
+    const cd = ship.faction === 'player' ? P.cooldown * (typeof crewReloadMult !== 'undefined' ? crewReloadMult(ship) : 1) : P.cooldown*1.8;     // ENEMY_COOLDOWN_MULT (player reload scaled by crew)
     if (ship.faction === 'player'){ if ((ship.ammo <= 0 && !DEBUG.infAmmo) || ship.fire[side] > 0) return; }
     else { if (ship.fire > 0) return; }
     const fa = (ship.heading + (side === 'port' ? -90 : 90) + 360)%360;
-    const n = P.balls, half = (n - 1)/2;
+    // ball count: AI uses the fixed P.balls; the player's broadside scales with
+    // the ship tier's cannon count (split across both sides) and is reduced when
+    // understaffed (ShipTier.cannonsUsable). Clamped so volleys stay readable.
+    let n = P.balls;
+    if (ship.faction === 'player' && typeof ShipTier !== 'undefined' && ship.tier){
+      n = Math.max(1, Math.min(12, Math.round(ShipTier.cannonsUsable(ship) / 2)));
+    }
+    const half = (n - 1)/2;
     for (let b = 0; b < n; b++){
       const ang = fa + (b - half)*P.spread;
       scene.cannonballs.push(Cannonball.create(
@@ -37,7 +44,13 @@ const Combat = {
     if (target.hull <= 0){ target.alive = false; this.spawnLoot(scene, target); scene.events.emit(EV.SHIP_SUNK, { ship: target, by: ball.ownerFaction }); }
   },
 
-  spawnLoot(scene, s){ scene.loot.push(Loot.create(s.x, s.y, Loot.valueFor(s.faction))); },
+  spawnLoot(scene, s){
+    if (s.faction === 'merchant' && s.cargo && s.cargo.qty > 0){
+      scene.loot.push(Loot.createCommodity(s.x, s.y, s.cargo.commodity, s.cargo.qty));
+    } else {
+      scene.loot.push(Loot.create(s.x, s.y, Loot.valueFor(s.faction)));
+    }
+  },
 
   updateCannonballs(scene, dt){
     const cb = scene.cannonballs;
@@ -56,9 +69,16 @@ const Combat = {
       // hits a ship?
       if (!hit){
         for (const s of scene.ships){
-          if (!s.alive || s.id === b.owner) continue;
+          if (!s.alive || s.beingTowed || s.id === b.owner) continue;
           if (b.ownerFaction === s.faction) continue;          // no friendly fire within same faction
           if (Math.hypot(b.x - s.x, b.y - s.y) < 24){ this.onHit(scene, b, s); hit = true; break; }
+        }
+      }
+      // hits a port? (only the player can damage a port, and only un-owned ones)
+      if (!hit && b.ownerFaction === 'player' && typeof PortCaptureSystem !== 'undefined'){
+        for (const port of scene.navyPorts){
+          if (port.owner === 'player') continue;               // don't shell your own ports
+          if (Math.hypot(b.x - port.x, b.y - port.y) < 20){ PortCaptureSystem.damagePort(scene, port); hit = true; break; }
         }
       }
       if (hit) cb.splice(i, 1);
@@ -70,9 +90,19 @@ const Combat = {
       const l = scene.loot[i]; l.age += dts;
       if (l.age > l.life){ scene.loot.splice(i, 1); continue; }
       if (scene.player.hull > 0 && Math.hypot(l.x - scene.player.x, l.y - scene.player.y) < 36){  // LOOT_COLLECT_RADIUS
-        scene.player.gold += l.value; scene.player.ammo = Math.min(scene.player.maxAmmo, scene.player.ammo + 6);
-        scene.flashPopup(l.x, l.y, '+' + l.value + 'g', 0xF0C840);
-        scene.loot.splice(i, 1);
+        if (l.kind === 'commodity'){
+          const took = Cargo.add(scene.player.hold, l.commodity, l.qty);
+          if (took > 0){
+            scene.flashPopup(l.x, l.y, '+' + took + ' ' + (COMMODITY_INFO[l.commodity] ? COMMODITY_INFO[l.commodity].glyph : '?'), COMMODITY_INFO[l.commodity] ? COMMODITY_INFO[l.commodity].color : 0xF0C840);
+            l.qty -= took;
+          }
+          if (l.qty > 0){ continue; }      // hold full: leave the rest on the water
+          scene.loot.splice(i, 1);
+        } else {
+          scene.player.gold += l.value; scene.player.ammo = Math.min(scene.player.maxAmmo, scene.player.ammo + 6);
+          scene.flashPopup(l.x, l.y, '+' + l.value + 'g', 0xF0C840);
+          scene.loot.splice(i, 1);
+        }
       }
     }
   },

@@ -8,16 +8,16 @@
 //   onDock(scene, port)    — convenience hook fired when the player docks
 //
 // To add a feature: write its file, add its <script> tag, and push it into
-// Systems.list via registerSystems() (bottom of this file). GameScene never has
-// to grow a new hardcoded call.
+// Systems.list (see registerSystems() at the bottom of this file). GameScene
+// never has to grow a new hardcoded call.
 //
 // ORDERING IS LOAD-BEARING. The registry runs systems in array order. The tight,
 // inherently-ordered core (input -> movement -> collision -> ship separation ->
 // cannonballs -> loot) stays as DIRECT calls in GameScene.update(); the registry
-// is for features that want to be independently addable (bank, weather, zoom,
-// bounties, capture). A system's update() runs at the point in the frame where
-// GameScene calls Systems.update() — currently late, after AI and combat
-// resolution, before draw.
+// is for features that want to be independently addable (weather, bounties,
+// bank, capture/runners, zoom). A system's update() runs at the point in the
+// frame where GameScene calls Systems.update() — currently late, after AI and
+// combat resolution, before draw.
 //
 // All hooks are optional and null-guarded, so a system can implement only what
 // it needs (a pure draw overlay, an init-only state owner, etc.).
@@ -46,9 +46,16 @@ const Systems = {
 // (not-yet-written) system never crashes the build — it's simply skipped.
 function registerSystems(){
   const candidates = [
-    typeof BankSystem    !== 'undefined' ? BankSystem    : null,   // M0
-    typeof WeatherSystem !== 'undefined' ? WeatherSystem : null,   // M11
-    typeof ZoomSystem    !== 'undefined' ? ZoomSystem    : null,   // M7
+    // economy / world feature systems plug in here as they're built:
+    typeof ShipTier      !== 'undefined' ? ShipTier      : null,
+    typeof CommoditySystem !== 'undefined' ? CommoditySystem : null,
+    typeof BankSystem    !== 'undefined' ? BankSystem    : null,
+    typeof ZoomSystem    !== 'undefined' ? ZoomSystem    : null,
+    typeof WeatherSystem !== 'undefined' ? WeatherSystem : null,
+    typeof DefenseSystem !== 'undefined' ? DefenseSystem : null,
+    typeof PortCaptureSystem !== 'undefined' ? PortCaptureSystem : null,
+    typeof BoardingSystem !== 'undefined' ? BoardingSystem : null,
+    typeof CrewSystem    !== 'undefined' ? CrewSystem    : null,
   ];
   for (const c of candidates) if (c) Systems.add(c);
 }
