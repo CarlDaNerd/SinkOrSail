@@ -78,13 +78,13 @@ class HUD {
   drawDock(g){
     const gs = this.gs, pl = gs.player;
     if (gs.docked && gs.dockPort){
-      const w = 380, h = 168, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
+      const w = 400, h = 188, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
       g.fillStyle(0x0E1820, 0.94); g.fillRect(x, y, w, h);
       g.lineStyle(2, 0x2A9EAE, 0.6); g.strokeRect(x, y, w, h);
       const repairNeed = pl.maxHull - pl.hull, ammoNeed = pl.maxAmmo - pl.ammo;
       const l1 = repairNeed <= 0 ? '[1] Hull fully repaired' : '[1] Repair hull  —  ' + Math.ceil(repairNeed * REPAIR_COST_PER_HP) + 'g';
       const l2 = ammoNeed   <= 0 ? '[2] Ammo full'           : '[2] Restock ammo  —  ' + (ammoNeed * AMMO_COST_PER_UNIT) + 'g';
-      this.tDockMenu.setText('⚓  ' + gs.dockPort.name + '\n\nGOLD  ' + pl.gold + '\n\n' + l1 + '\n' + l2 + '\n\n[F] Depart').setVisible(true);
+      this.tDockMenu.setText('⚓  ' + gs.dockPort.name + '   (saved)\n\nGOLD  ' + pl.gold + '\n\n' + l1 + '\n' + l2 + '\n\n[F] Depart').setVisible(true);
       this.tDockPrompt.setVisible(false);
     } else if (gs.nearPort){
       let msg;

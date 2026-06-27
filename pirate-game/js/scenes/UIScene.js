@@ -17,11 +17,14 @@ class UIScene extends Phaser.Scene {
 
     // pause menu
     this.menuBg = this.add.graphics().setScrollFactor(0).setDepth(130);
-    this.menuTitle = this.add.text(GAME_W/2, GAME_H/2 - 86, 'PAUSED', { fontFamily:'ui-monospace,monospace', fontSize:'24px', color:'#D4C890', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(131);
-    this.btnResume = this._btn(GAME_W/2, GAME_H/2 - 24, 'Resume',       () => { this.gs.menuOpen = false; });
-    this.btnReset  = this._btn(GAME_W/2, GAME_H/2 + 26, 'Reset Game',   () => { this.gs.resetGame(); });
-    this.btnTuning = this._btn(GAME_W/2, GAME_H/2 + 76, 'Tuning Panel', () => { if (globalThis.SOS_toggleTuning) globalThis.SOS_toggleTuning(); });
-    this._menuObjs = [this.menuBg, this.menuTitle, this.btnResume, this.btnReset, this.btnTuning];
+    this.menuTitle = this.add.text(GAME_W/2, GAME_H/2 - 150, 'PAUSED', { fontFamily:'ui-monospace,monospace', fontSize:'24px', color:'#D4C890', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(131);
+    this.btnResume   = this._btn(GAME_W/2, GAME_H/2 - 100, 'Resume',           () => { this.gs.menuOpen = false; });
+    this.btnNew      = this._btn(GAME_W/2, GAME_H/2 -  58, 'New Game',         () => { this.gs.resetGame(); });
+    this.btnLoad     = this._btn(GAME_W/2, GAME_H/2 -  16, 'Load Last Save',   () => { this.gs.loadGame(); });
+    this.btnDownload = this._btn(GAME_W/2, GAME_H/2 +  26, 'Download Save',    () => { Save.exportSaved(); });
+    this.btnImport   = this._btn(GAME_W/2, GAME_H/2 +  68, 'Import Save File', () => { this.gs.importGame(); });
+    this.btnTuning   = this._btn(GAME_W/2, GAME_H/2 + 110, 'Tuning Panel',     () => { if (globalThis.SOS_toggleTuning) globalThis.SOS_toggleTuning(); });
+    this._menuObjs = [this.menuBg, this.menuTitle, this.btnResume, this.btnNew, this.btnLoad, this.btnDownload, this.btnImport, this.btnTuning];
     for (const o of this._menuObjs) o.setVisible(false);
   }
 
@@ -49,11 +52,13 @@ class UIScene extends Phaser.Scene {
     const open = gs.menuOpen;
     for (const o of this._menuObjs) o.setVisible(open);
     if (open){
-      const bw = 320, bh = 240, bx = GAME_W/2 - bw/2, by = GAME_H/2 - bh/2;
+      const bw = 340, bh = 360, bx = GAME_W/2 - bw/2, by = GAME_H/2 - bh/2;
       this.menuBg.clear();
       this.menuBg.fillStyle(0x0A1119, 0.72); this.menuBg.fillRect(0, 0, GAME_W, GAME_H);
       this.menuBg.fillStyle(0x0E1820, 0.97); this.menuBg.fillRect(bx, by, bw, bh);
       this.menuBg.lineStyle(2, 0x2A9EAE, 0.5); this.menuBg.strokeRect(bx, by, bw, bh);
+      const hasSave = Save.exists();
+      this.btnLoad.setAlpha(hasSave ? 1 : 0.4); this.btnDownload.setAlpha(hasSave ? 1 : 0.4);   // grey out with no save
       const panelOn = !!(document.getElementById('panel') && document.getElementById('panel').classList.contains('open'));
       this.btnTuning.setText('Tuning Panel: ' + (panelOn ? 'ON' : 'OFF'));
     }

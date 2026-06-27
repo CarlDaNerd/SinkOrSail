@@ -6,7 +6,7 @@
 class GameScene extends Phaser.Scene {
   constructor(){ super('GameScene'); }
 
-  create(){
+  create(data){
     this.eprng = makePRNG(WORLD_SEED*7 + 13);          // enemy/event PRNG; terrain self-seeds per chunk
     this.cameras.main.setBackgroundColor('#15263C');   // no bounds — the world streams infinitely
 
@@ -38,6 +38,9 @@ class GameScene extends Phaser.Scene {
     this.input.on('pointermove', (p) => { if (!this.mapOpen || !p.isDown) return; this.mapFollow = false; this.mapCenterX -= (p.position.x - p.prevPosition.x)/this.mapScale; this.mapCenterY -= (p.position.y - p.prevPosition.y)/this.mapScale; this.mapDirty = true; });
 
     this.missions = new MissionLoader(this); this.missions.scan();
+
+    // continuing a saved run? apply it now that the scene is fully built
+    if (data && data.load){ const s = Save.read(); if (s) Save.apply(this, s); }
   }
 
   // Anchor two ports on the COAST of the nearest large landmasses to origin (the
@@ -82,6 +85,9 @@ class GameScene extends Phaser.Scene {
     if (this.mapOpen){ this.mapFollow = true; this.mapCenterX = this.player.x; this.mapCenterY = this.player.y; this.mapScale = MAP_SCALE_INIT; this.mapDirty = true; }
   }
   toggleMenu(){ this.menuOpen = !this.menuOpen; }
+  // pause-menu load helpers
+  loadGame(){ const s = Save.read(); if (s && Save.apply(this, s)) this.flashPopup(this.player.x, this.player.y - 30, 'GAME LOADED', 0x8AAAC8); this.menuOpen = false; }
+  importGame(){ Save.importFile(s => { if (s && Save.apply(this, s)){ this.flashPopup(this.player.x, this.player.y - 30, 'SAVE IMPORTED', 0x8AAAC8); } this.menuOpen = false; }); }
   // map keeps updating while you sail: follow the ship (until dragged) + key zoom
   updateMap(dts){
     if (this.mapFollow){ this.mapCenterX = this.player.x; this.mapCenterY = this.player.y; }
@@ -189,7 +195,7 @@ class GameScene extends Phaser.Scene {
       if (this.nearPort && Phaser.Input.Keyboard.JustDown(this.keys.F)){
         if (this.navyHostile()) this.flashPopup(pl.x, pl.y, 'PORT CLOSED — WANTED', 0xE0503A);
         else if (this.inCombat()) this.flashPopup(pl.x, pl.y, "CAN'T DOCK IN COMBAT", 0xE0503A);
-        else { this.docked = true; this.dockPort = this.nearPort; pl.vel = 0; }
+        else { this.docked = true; this.dockPort = this.nearPort; pl.vel = 0; if (Save.write(this)) this.flashPopup(pl.x, pl.y - 40, 'GAME SAVED', 0x8AAAC8); }   // auto-save on docking
       }
     }
 
