@@ -102,15 +102,6 @@
       <div class="row"><label>Out-of-combat delay <span class="val" id="v_regenDelay"></span></label><input type="range" id="regenDelay" min="1" max="12" step="1"></div>
     </div>
 
-    <div class="grp" data-g="flag">FLAG (COLORS)</div>
-    <div class="body">
-      <div id="flagBtns" style="display:flex;gap:6px;">
-        <button id="flagNeutral" style="flex:1;background:#1a2c3c;color:#D4C890;border:1px solid #2a3a4a;padding:8px 0;font-size:9.5px;letter-spacing:1px;cursor:pointer;font-family:inherit;">NEUTRAL</button>
-        <button id="flagPirate" style="flex:1;background:#1a2c3c;color:#D4C890;border:1px solid #2a3a4a;padding:8px 0;font-size:9.5px;letter-spacing:1px;cursor:pointer;font-family:inherit;">PIRATE ☠</button>
-      </div>
-      <div id="flagStatus" style="font-size:9px;color:#6a8298;margin-top:6px;line-height:1.5;"></div>
-    </div>
-
     <label style="display:flex;align-items:center;gap:7px;font-size:9.5px;color:#8AAAC8;margin-top:6px;cursor:pointer;user-select:none;">
       <input type="checkbox" id="infAmmo" style="accent-color:#2A9EAE;"> infinite ammo (testing)
     </label>
@@ -121,11 +112,6 @@
       <button id="copy">COPY CONSTS</button>
     </div>
     <textarea id="constsOut" readonly spellcheck="false"></textarea>
-
-    <div id="standing">
-      <div class="s"><span>NAVY STANDING</span><span id="navyStandVal"></span></div>
-      <div class="bar"><div id="navyStandBar"></div></div>
-    </div>
 
     <div id="keys">
       <b>A/D · ←/→</b> turn &nbsp; <b>W/S</b> sails<br>

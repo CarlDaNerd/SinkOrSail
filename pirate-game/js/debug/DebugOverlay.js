@@ -20,25 +20,7 @@
 
   function sc(){ return game.scene.getScene('GameScene'); }
 
-  const fN = document.getElementById('flagNeutral'), fP = document.getElementById('flagPirate');
-  if (fN) fN.addEventListener('click', () => { const s = sc(); if (s) s.requestFlag('neutral'); });
-  if (fP) fP.addEventListener('click', () => { const s = sc(); if (s) s.requestFlag('pirate'); });
-
-  // flag status / button state (GameScene may not exist until the menu starts it)
-  setInterval(() => {
-    const s = sc(); if (!s || !s.flag) return;
-    const el = document.getElementById('flagStatus'); if (!el) return;
-    const bN = document.getElementById('flagNeutral'), bP = document.getElementById('flagPirate');
-    bN.style.background = (s.flag === 'neutral' && !s.flagPending) ? '#2A9EAE' : '#1a2c3c';
-    bP.style.background = (s.flag === 'pirate'  && !s.flagPending) ? '#7A3020' : '#1a2c3c';
-    let msg = '';
-    if (s.inCombat()){ msg = '⚠ locked — in combat'; bN.disabled = bP.disabled = true; bN.style.opacity = bP.style.opacity = 0.4; }
-    else { bN.disabled = bP.disabled = false; bN.style.opacity = bP.style.opacity = 1;
-      if (s.flagPending){ const t = Math.max(0, (s.flagChangeAt - s.time.now/1000)).toFixed(1); msg = 'raising ' + s.flagPending + ' colors… ' + t + 's'; }
-      else msg = 'flying ' + s.flag + ' colors' + (s.flag === 'pirate' ? ' — pirates ignore you, navy hostile' : '');
-    }
-    el.textContent = msg;
-  }, 120);
+  // (flag controls + the navy-standing/wanted readout now live on the in-game HUD)
 
   document.querySelectorAll('.grp').forEach(h => h.addEventListener('click', () => h.classList.toggle('collapsed')));
   const rst = document.getElementById('reset');   if (rst) rst.addEventListener('click', () => { Object.assign(P, DEFAULTS); syncPanel(); });
@@ -73,15 +55,6 @@ const FLAG_RAISE_DELAY_S=${P.flagDelay}, FLAG_COMBAT_LOCK_S=${P.flagCombatLock};
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => flash('COPIED')).catch(() => { try { document.execCommand('copy'); flash('COPIED'); } catch(e){ flash('SELECT+COPY'); } });
     else { try { document.execCommand('copy'); flash('COPIED'); } catch(e){ flash('SELECT+COPY'); } }
   });
-
-  // live navy-standing readout
-  setInterval(() => {
-    const s = sc(); if (!s || s.navyStanding === undefined) return;
-    const v = s.navyStanding;
-    document.getElementById('navyStandVal').textContent = v.toFixed(0) + (v <= P.navyThresh ? ' (HOSTILE)' : '');
-    const bar = document.getElementById('navyStandBar'); const pct = (v + 100)/100;
-    bar.style.width = (pct*100) + '%'; bar.style.background = v <= P.navyThresh ? '#E0503A' : v < -10 ? '#E0A040' : '#4CA84C';
-  }, 200);
 
   // ── tuning panel show/hide (edge tab + backtick hotkey) ──
   const panelEl = document.getElementById('panel');
