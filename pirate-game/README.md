@@ -1,96 +1,122 @@
-# Pirate — Combat + Factions V1 (modular)
+# Sink or Sail
 
-A top-down Age of Sail sandbox in Phaser 3. This is the modular port of the
-single-file prototype (`../pirate-combat-v1.html`), restructured per §3 of the
-handoff doc (`../pirate-game-handoff-v2.md`). Behavior matches the prototype —
-the prototype remains the behavioral oracle.
+A top-down Age of Sail pirate sandbox in Phaser 3 — sail an effectively
+unlimited, procedurally-streamed ocean; raid merchants, dodge the navy, trade
+commodities, capture ships and ports, and grow from a Dinghy to a Leviathan.
+No build step; plain classic `<script>` tags sharing one global scope.
+
+> Branch note: the most feature-complete build lives on `feature-batch-2`.
+> `main` carries the core game; feature work lands on branches first.
 
 ## Run it
 
 No build step. Two options:
 
-- **Double-click `index.html`** — works from `file://` (classic `<script>` tags).
-  Requires internet the first time for the Phaser CDN.
-- **Local server** (avoids any `file://` quirks):
+- **Double-click `index.html`** — works from `file://`. Needs internet the first
+  time for the Phaser CDN.
+- **Local server** (avoids `file://` quirks):
   ```
   cd pirate-game
-  python -m http.server 8000
-  # open http://localhost:8000
+  python -m http.server 8000      # open http://localhost:8000
   ```
 
 Click or press ENTER on the title screen to set sail.
 
 ## Controls
 
-| Key            | Action                              |
-|----------------|-------------------------------------|
-| A / D · ← / →  | Turn                                |
-| W / S          | Raise / lower sails (0→1→2)          |
-| Q / E          | Port / starboard broadside          |
-| F              | Dock at a port (when in range)      |
-| R              | Reset / revive ship                 |
-| `` ` ``        | Show / hide the tuning panel        |
-| (panel)        | Switch flag (neutral / pirate)      |
+| Key             | Action                                                        |
+|-----------------|---------------------------------------------------------------|
+| A / D · ← / →   | Turn                                                          |
+| W / S           | Raise / lower sails (none → main → full)                      |
+| Q / E           | Port / starboard broadside (volley scales with ship tier)    |
+| B               | Capture — a port if you're next to one shelled ≤20% hull, else the nearest ship ≤20% hull (tow the prize home) |
+| F               | Dock at a port in range / depart                              |
+| M               | Toggle the big map · drag to pan · Z / X (or wheel) to zoom   |
+| Esc             | Pause menu                                                    |
+| `` ` ``         | Show / hide the dev tuning panel                              |
+| HUD buttons     | Switch flag (neutral / pirate)                                |
 
-**Ports.** Sail within range of a port marker and press **F** to dock: repair
-hull (the only way to heal above the 30% out-of-combat regen cap), restock ammo,
-or depart — both cost gold. Ports are navy-controlled, so you can't dock while
-WANTED or mid-combat. Docking freezes the world like a pause menu.
+**At a dock:** `1` repair hull · `2` restock ammo · `3` sell all cargo ·
+`4` buy the port's source commodity · `5` hire crew · `F` depart. Docking
+auto-saves. The camera auto-zooms in during battle (no scroll zoom).
 
-The right-hand panel is the **dev tuning overlay** (`js/debug/DebugOverlay.js`):
-live sliders, flag buttons, infinite-ammo toggle, range-ring visualizer, and a
-"copy constants" button. It is dev-only — deleting that one `<script>` tag and
-the `#panel` markup ships a clean build.
+## Features
+
+- **Sailing & combat** — wind-relative speed with an in-irons no-go zone, a
+  parameterized turn curve, and port/starboard broadsides whose ball count scales
+  with your ship's cannon count.
+- **Factions & flags** — merchants, pirates, navy, privateers, each with their
+  own AI. Fly neutral or pirate colours; crimes witnessed within navy line of
+  sight raise your **wanted** level until the navy turns hostile.
+- **Streamed, biome world** — an unlimited chunk-streamed ocean. Regions follow
+  an ocean-heavy rarity ladder (open ocean → sparse scatter → dense grouping →
+  rare mainland), with five island **size tiers** and shape archetypes
+  (blob / stripe / crescent / ring / peninsula), edge-to-edge spacing (no
+  overlap), and hull-damaging **reefs**. Fully deterministic from `WORLD_SEED`.
+- **Ship tiers** — Dinghy → Sloop → Brigantine → Galleon → Man-o'-War →
+  Leviathan. Tier sets hull, cannons, cargo storage, and crew caps. You start a
+  Dinghy at half crew; enemies roll weighted tiers (higher tiers rarer).
+- **Crew** — more crew = faster sailing and faster reload (bonus shrinks by
+  tier, capped); understaffed ships are slower with fewer guns. Hire at ports.
+- **Economy** — 6 commodities and cargo holds; typed ports (Trading Hub, Lumber
+  Yard, farms, mines, …) with seeded buy/sell prices. A persistent **bank**
+  (banked gold survives sinking/reset; on-ship gold doesn't) funds repairs,
+  restocks, and hires.
+- **Port capture** — shell a port below 20% hull and press **B** to take it.
+  Owned ports let you dock/bank/repair (even while wanted) and stop their cannon
+  towers firing on you.
+- **Ship capture** — board a ship at ≤20% hull, take its cargo, and **tow** the
+  empty prize back to one of your ports to deliver it (the runner pipeline hook).
+- **Cannon-tower defense** — Trading Hubs and cities fire on hostile ships.
+- **Camera zoom** — auto zoom-in during battle (1.4×), smoothly out otherwise.
+- **Weather** — one effect at a time every few minutes: rain, snow (icebergs),
+  tsunami, cyclone, storm. Ship-only status effects; **wind is never touched.**
+- **Maps & fog** — a heading-arrow corner minimap and a draggable/zoomable M-map
+  that reveals only where you've explored.
+- **Save** — auto-saves on docking (localStorage + file export/import); managed
+  from the Esc pause menu. The world regenerates from seed, so saves are tiny.
+- **Weather & Zoom toggle** — a pause-menu checkbox turns the battle-zoom and
+  weather systems on/off.
+
+## Architecture
+
+- **No bundler / no ES modules.** Plain classic scripts share one global scope;
+  `index.html` loads them in dependency order. Systems are namespaced globals
+  whose methods take `scene` as the first argument.
+- **`GameScene`** holds the mutable run state and orchestrates the per-frame
+  loop; **`UIScene`** runs in parallel on top for the HUD, maps, and menus.
+- **System registry + event bus** (`core/SystemRegistry.js`, `core/Events.js`) —
+  feature systems (bank, zoom, weather, ship tiers, crew, commodities, port
+  economy, defense, port capture, boarding) are drop-in: they implement any of
+  `init / update / draw / onDock`, subscribe to `EV.*` events, and register in
+  `registerSystems()`. `GameScene` never grows a hardcoded call per feature.
+- **Frame-rate independence** — `dt` (per-frame) and `dts` (per-second) are
+  derived in `GameScene.update()` and threaded everywhere.
+- **Tuning** — gameplay numbers live in `constants.js`; the `` ` `` panel
+  (`debug/DebugOverlay.js`) edits many live. Most balance values are
+  placeholders meant to be dialed in by feel.
 
 ## Structure
 
 ```
 index.html                 — DOM + ordered <script> tags (no game logic)
 js/
-  constants.js             — DEFAULTS / P (live config) / DEBUG + fixed consts
-  main.js                  — Phaser config + launch; exposes global `game`
-  utils/      PRNG, MathUtils (pure)
-  systems/    SailingPhysics, CollisionSystem, Steering, FactionSystem,
-              FlagSystem, Combat, AI
-  world/      WorldGen (per-chunk gen), ChunkManager (streaming),
-              Island (render/bake), Port, Visibility
-  entities/   Player, Enemy, Cannonball, Loot   (data factories)
-  ui/         WindCompass, MiniMap, HUD
-  scenes/     BootScene → MenuScene → GameScene (+ parallel UIScene)
-  debug/      DebugOverlay (tuning panel — dev only)
-  missions/   MissionLoader (stub; JSON missions later)
-missions/                  — empty (JSON mission files later)
-assets/                    — empty (procedural art for now)
+  constants.js             — all tuned constants (sailing, world, tiers, economy, …)
+  main.js                  — Phaser config + launch
+  core/      Events (EV bus), SystemRegistry (feature plug-in point)
+  utils/     PRNG, MathUtils
+  systems/   SailingPhysics, CollisionSystem, Steering, FactionSystem, FlagSystem,
+             Combat, AI, ShipTier, CommoditySystem, BankSystem, CrewSystem,
+             ZoomSystem, WeatherSystem, PortEconomy, DefenseSystem,
+             PortCaptureSystem, BoardingSystem, SaveSystem
+  world/     WorldGen (biome/region gen), ChunkManager (streaming),
+             Island (render/bake), Port (+ dock slots), Visibility
+  entities/  Player, Enemy, Cannonball, Loot
+  ui/        WindCompass, MiniMap, WorldMap, HUD
+  scenes/    BootScene → MenuScene → GameScene (+ parallel UIScene)
+  debug/     DebugOverlay (dev tuning panel)
+  missions/  MissionLoader (stub)
+docs/                       — design docs / PRDs / build notes
 ```
 
-## How it fits together
-
-- **No bundler / no ES modules.** Plain classic scripts share one global scope;
-  `index.html` loads them in dependency order. Systems are namespaced globals
-  (`Combat`, `AI`, `Collision`, …) whose methods take `scene` as the first arg.
-- **`GameScene`** holds all mutable run state and orchestrates the per-frame
-  loop, delegating to the system modules. It exposes a thin facade
-  (`navyHostile()`, `inCombat()`, `requestFlag()`, `spawnFleet()`) so the HUD
-  and debug panel have a stable API.
-- **`UIScene`** runs parallel to `GameScene` (last in the scene list, so it
-  renders on top and updates after), reading live state each frame.
-- **Frame-rate independence** is preserved: `dt` (per-frame) and `dts`
-  (per-second) are derived in `GameScene.update()` and threaded through.
-- **Streamed world.** The world is an effectively unlimited, chunk-streamed
-  ocean. `ChunkManager` keeps a window of chunks loaded around the player (inner
-  3×3 always loaded, outer ring budgeted) and syncs `scene.islands` (land) and
-  `scene.reefs` to the union of loaded chunks — so collision / visibility /
-  steering keep working unchanged, just on nearby terrain.
-- **Biomes (region tier).** `WorldGen` decides each ~4000px region's biome from a
-  smooth value-noise "landiness" field (so oceans, archipelago belts, and
-  mainlands cluster instead of forming a checkerboard): **ocean** (most common),
-  **archipelago** (island pockets), and **mainland** (rare — only at a local
-  landiness peak, so mainlands are rarely adjacent and are ringed by islands).
-  Each region's features (mainland + fringe islands + outcrops + **reefs** +
-  shallow patches) are anchored inside the region; a chunk owns the features
-  whose anchor falls in it (a mainland's body may overflow into neighbours).
-  Everything is a pure function of `(WORLD_SEED, region)`, so it's deterministic
-  and visit-order independent. A starter mainland is guaranteed near the origin.
-  Reefs **damage the hull on contact** (they don't block); ports sit on a
-  landmass **coast** so you can dock. Next phases: per-chunk AI spawning, then
-  fog + the draggable M-map, then local A* pathfinding.
+_All gameplay numbers are placeholders to tune to feel._
