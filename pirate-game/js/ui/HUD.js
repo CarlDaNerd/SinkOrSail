@@ -7,13 +7,20 @@ class HUD {
     this.s = scene;     // UIScene — owns the text/graphics objects
     this.gs = gs;       // GameScene — the data source
     this.g = scene.add.graphics().setScrollFactor(0).setDepth(100);
+    // minimap drawn into its own graphics, clipped by a rectangular mask so
+    // islands never spill past the edges
+    const mmx = GAME_W - MINIMAP_W - 12, mmy = 12;
+    this.miniG = scene.add.graphics().setScrollFactor(0).setDepth(100);
+    const mmMask = scene.make.graphics({ add: false });
+    mmMask.fillStyle(0xffffff, 1); mmMask.fillRect(mmx, mmy, MINIMAP_W, MINIMAP_H);
+    this.miniG.setMask(mmMask.createGeometryMask());
     const mk = (x, y, sz, col, o) => scene.add.text(x, y, '', { fontFamily:'ui-monospace,monospace', fontSize:sz + 'px', color:col }).setScrollFactor(0).setDepth(101).setOrigin(o ? 0.5 : 0, 0);
     this.tSpeed = mk(20, 16, 12, '#D4C890'); this.tSail = mk(20, 38, 12, '#D4C890');
     this.tHull = mk(20, 82, 11, '#D4C890'); this.tAmmo = mk(20, 100, 11, '#D4C890'); this.tGold = mk(110, 100, 11, '#F0C840');
     this.tIrons  = scene.add.text(GAME_W/2, GAME_H*0.30, '', { fontFamily:'ui-monospace,monospace', fontSize:'18px', color:'#E0503A', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
     this.tStatus = scene.add.text(GAME_W/2, 26, '', { fontFamily:'ui-monospace,monospace', fontSize:'14px', color:'#E0503A', fontStyle:'bold' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
     this.tOver   = scene.add.text(GAME_W/2, GAME_H/2, '', { fontFamily:'ui-monospace,monospace', fontSize:'30px', color:'#E0503A', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(102);
-    this.cx = GAME_W - 66 - 128; this.cy = 66; this.cr = 40;
+    this.cx = GAME_W - MINIMAP_W - 66; this.cy = 66; this.cr = 40;   // left of the (larger) minimap
     this.tScale = scene.add.text(GAME_W/2, GAME_H - 22, '', { fontFamily:'ui-monospace,monospace', fontSize:'10px', color:'#D4C890' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
     // docking
     this.tDockPrompt = scene.add.text(GAME_W/2, GAME_H - 96, '', { fontFamily:'ui-monospace,monospace', fontSize:'13px', color:'#F0C840', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(103);
@@ -50,10 +57,12 @@ class HUD {
     let banner = hostile ? '★ WANTED — NAVY HOSTILE' : '';
     if (this.gs.flag === 'pirate'){ banner = (banner ? banner + '   ' : '') + '☠ PIRATE COLORS FLYING'; }
     this.tStatus.setText(banner).setColor(hostile ? '#E0503A' : '#D0A030');
-    this.tOver.setText(pl.hull <= 0 ? 'YOU SANK\nrefresh or press R' : '');
-    // compass + mini-map
+    this.tOver.setText(pl.hull <= 0 ? 'YOU SANK\npress Esc → Reset Game' : '');
+    // compass
     drawWindCompass(g, pl, this.cx, this.cy, this.cr);
-    drawMiniMap(g, this.gs, pl);
+    // minimap content (masked/clipped) + a small tan border (unmasked, crisp)
+    drawMiniMap(this.miniG, this.gs, pl);
+    g.lineStyle(1.5, 0xD2B48C, 1); g.strokeRect(GAME_W - MINIMAP_W - 12, 12, MINIMAP_W, MINIMAP_H);
     // bottom-center pixel scale bar (200px world reference)
     const camZoom = this.gs.cameras.main.zoom;                  // 1 in this build → screen px == world px
     const ref = 200*camZoom, bx = GAME_W/2 - ref/2, by = GAME_H - 26;

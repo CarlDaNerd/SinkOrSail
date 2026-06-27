@@ -17,6 +17,11 @@ class GameScene extends Phaser.Scene {
     this.cannonballs = []; this.loot = []; this.popups = [];
 
     this.islands = []; this.reefs = [];                // active sets — filled by the chunk manager
+    this.explored = new Set();                          // chunk keys you've sailed near (for the big map)
+    this.menuOpen = false;                              // pause menu (Esc)
+    this.mapOpen = false; this.mapDirty = false;        // big map (M) — non-pausing chart
+    this.mapFollow = true;                              // chart tracks the ship until you drag it
+    this.mapCenterX = 0; this.mapCenterY = 0; this.mapScale = MAP_SCALE_INIT;
     Chunks.init(this);                                 // stream terrain around the player
     this.navyPorts = this.placeStartPorts();
     Island.drawPortMarkers(this);
@@ -28,7 +33,9 @@ class GameScene extends Phaser.Scene {
     this.follow = this.add.rectangle(this.player.x, this.player.y, 1, 1, 0, 0);
     this.cameras.main.startFollow(this.follow, true, 0.08, 0.08);
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,R,F,ESC,ONE,TWO');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,M,Z,X');
+    this.input.on('wheel', (p, over, dx, dy) => { if (!this.mapOpen) return; this.mapScale = Phaser.Math.Clamp(this.mapScale * (dy < 0 ? 1.12 : 0.892), MAP_SCALE_MIN, MAP_SCALE_MAX); this.mapDirty = true; });
+    this.input.on('pointermove', (p) => { if (!this.mapOpen || !p.isDown) return; this.mapFollow = false; this.mapCenterX -= (p.position.x - p.prevPosition.x)/this.mapScale; this.mapCenterY -= (p.position.y - p.prevPosition.y)/this.mapScale; this.mapDirty = true; });
 
     this.missions = new MissionLoader(this); this.missions.scan();
   }
@@ -69,6 +76,32 @@ class GameScene extends Phaser.Scene {
     return { x:cx, y:cy };
   }
 
+  // ── maps + pause menu ──
+  toggleMap(){
+    this.mapOpen = !this.mapOpen;
+    if (this.mapOpen){ this.mapFollow = true; this.mapCenterX = this.player.x; this.mapCenterY = this.player.y; this.mapScale = MAP_SCALE_INIT; this.mapDirty = true; }
+  }
+  toggleMenu(){ this.menuOpen = !this.menuOpen; }
+  // map keeps updating while you sail: follow the ship (until dragged) + key zoom
+  updateMap(dts){
+    if (this.mapFollow){ this.mapCenterX = this.player.x; this.mapCenterY = this.player.y; }
+    if (this.keys.Z.isDown) this.mapScale = Math.max(MAP_SCALE_MIN, this.mapScale*(1 - 1.6*dts));
+    if (this.keys.X.isDown) this.mapScale = Math.min(MAP_SCALE_MAX, this.mapScale*(1 + 1.6*dts));
+    this.mapDirty = true;
+  }
+  // full run restart (the Reset Game menu button)
+  resetGame(){
+    this.player = Player.create(0, 0);
+    this.navyStanding = 0;
+    this.flag = 'neutral'; this.flagPending = null; this.flagChangeAt = 0;
+    this.docked = false; this.dockPort = null; this.nearPort = null;
+    this.cannonballs.length = 0; this.loot.length = 0; this.popups.length = 0;
+    this.ships = []; Enemy.spawnFleet(this);
+    this.explored.clear();
+    this.follow.setPosition(0, 0);
+    this.menuOpen = false; this.mapOpen = false;
+  }
+
   // ── thin facade so UI / debug callers have a stable scene API ──
   navyHostile(){ return FactionSystem.navyHostile(this); }
   inCombat(){ return FlagSystem.inCombat(this); }
@@ -102,17 +135,19 @@ class GameScene extends Phaser.Scene {
     const pl = this.player;
     if (DEBUG.infAmmo) pl.ammo = pl.maxAmmo;
 
-    // R always works (incl. after sinking) to reset/revive — read OUTSIDE the alive-gate (§15)
-    if (Phaser.Input.Keyboard.JustDown(this.keys.R)){
-      pl.x = 0; pl.y = 0; pl.vel = 0; pl.heading = 180;
-      pl.hull = pl.maxHull; pl.ammo = pl.maxAmmo; pl.wake = []; pl.fire = { port:0, star:0 };
-      this.flag = 'neutral'; this.flagPending = null;
-      this.docked = false; this.dockPort = null;
+    // ── overlay toggles (M = map, Esc = pause menu); not while docked ──
+    if (!this.docked){
+      if (!this.menuOpen && Phaser.Input.Keyboard.JustDown(this.keys.M)) this.toggleMap();
+      if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)){ if (this.mapOpen) this.mapOpen = false; else this.toggleMenu(); }
     }
 
-    // ── docked: world is frozen; the dock menu owns input ──
+    // ── pause menu: world frozen; buttons handled in UIScene ──
+    if (this.menuOpen){ this.draw(); return; }
+    // (the big map does NOT pause — sailing continues; it's handled after the sim)
+
+    // ── docked: world is frozen; F departs, 1/2 buy ──
     if (this.docked){
-      if (Phaser.Input.Keyboard.JustDown(this.keys.F) || Phaser.Input.Keyboard.JustDown(this.keys.ESC)){ this.docked = false; this.dockPort = null; }
+      if (Phaser.Input.Keyboard.JustDown(this.keys.F)){ this.docked = false; this.dockPort = null; }
       else if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) this.repairAtPort();
       else if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) this.restockAtPort();
       this.draw();                                   // keep the (frozen) world visible behind the menu
@@ -143,6 +178,7 @@ class GameScene extends Phaser.Scene {
     }
 
     Chunks.update(this);                           // stream terrain in/out around the player
+    for (const k of this._chunks.keys()) this.explored.add(k);   // remember where you've sailed (big-map fog)
 
     // dock proximity + enter (F). Ports are navy-controlled: no docking while
     // WANTED or mid-combat — recover standing / break off first.
@@ -175,6 +211,7 @@ class GameScene extends Phaser.Scene {
     for (let i = this.popups.length - 1; i >= 0; i--){ this.popups[i].age += dts; this.popups[i].y -= 12*dts; if (this.popups[i].age > this.popups[i].life) this.popups.splice(i, 1); }
     if (DEBUG.ring.active){ DEBUG.ring.age += dts; if (DEBUG.ring.age > 2.2) DEBUG.ring.active = false; }
 
+    if (this.mapOpen) this.updateMap(dts);         // live chart while sailing (non-pausing)
     this.draw();
   }
 

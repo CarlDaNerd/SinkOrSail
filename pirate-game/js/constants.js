@@ -41,7 +41,11 @@ const WORLD_CAP = 50000;          // soft cap: ships clamp to ±this (keeps coor
 const ISLAND_PAD = 290;           // keep island bodies inside their chunk (clean per-chunk ownership)
 const START_CLEAR_RADIUS = 700;   // open water kept around the world origin (player start)
 const SPAWN_RANGE = 3000;         // Phase-1 fleet spawns within this of origin
-const MINIMAP_RANGE = 3500;       // minimap shows ±this around the player (world units)
+
+// ── MAPS ──
+const MINIMAP_W = 200, MINIMAP_H = 150;   // corner minimap size (px). Shows 2× the screen's view.
+const MAP_SCALE_INIT = 0.045;             // big map (M): screen-px per world-px
+const MAP_SCALE_MIN = 0.02, MAP_SCALE_MAX = 0.22;
 
 // ── BIOMES / FEATURES ──
 const REGION_SIZE = 4000;         // coarse biome cell (px); a region hosts at most one mainland

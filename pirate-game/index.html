@@ -42,12 +42,13 @@
   #standing .s { display:flex; justify-content:space-between; }
   #standing .bar { height:5px; background:#223040; margin-top:1px; }
   #standing .bar > div { height:100%; }
+  #panel:not(.open) #panelTab { display:none; }   /* hide the tuning sidebar entirely until toggled from the menu */
 </style>
 </head>
 <body>
 <div id="wrap">
   <div id="game"></div>
-  <div id="panel" class="open">
+  <div id="panel">
     <div id="panelTab" title="Toggle tuning panel ( ` )">⚙ TUNE</div>
     <div id="panelInner">
     <h1>COMBAT + FACTIONS V1</h1>
@@ -129,8 +130,8 @@
     <div id="keys">
       <b>A/D · ←/→</b> turn &nbsp; <b>W/S</b> sails<br>
       <b>Q</b> port broadside &nbsp; <b>E</b> starboard<br>
-      <b>R</b> reset ship &nbsp; <b>respawn</b> = new fleet<br>
-      <b>`</b> show/hide this panel<br>
+      <b>F</b> dock &nbsp; <b>M</b> map &nbsp; <b>Esc</b> menu<br>
+      <b>`</b> show/hide this panel &nbsp; <b>respawn</b> = new fleet<br>
       <span style="color:#5a7088">blue=you · tan=merchant · red=pirate · cyan=navy · green=privateer</span>
     </div>
     </div><!-- /#panelInner -->
@@ -165,6 +166,7 @@
 <!-- ui -->
 <script src="js/ui/WindCompass.js"></script>
 <script src="js/ui/MiniMap.js"></script>
+<script src="js/ui/WorldMap.js"></script>
 <script src="js/ui/HUD.js"></script>
 <!-- missions -->
 <script src="js/missions/MissionLoader.js"></script>

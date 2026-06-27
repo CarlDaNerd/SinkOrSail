@@ -88,6 +88,7 @@ const FLAG_RAISE_DELAY_S=${P.flagDelay}, FLAG_COMBAT_LOCK_S=${P.flagCombatLock};
   const tabEl = document.getElementById('panelTab');
   let panelOpen = !!(panelEl && panelEl.classList.contains('open'));
   function setPanel(open){ panelOpen = open; if (panelEl) panelEl.classList.toggle('open', open); if (tabEl) tabEl.textContent = open ? '✕ HIDE' : '⚙ TUNE'; }
+  globalThis.SOS_toggleTuning = () => setPanel(!panelOpen);   // called by the in-game pause-menu button
   if (tabEl){ tabEl.textContent = panelOpen ? '✕ HIDE' : '⚙ TUNE'; tabEl.addEventListener('click', () => setPanel(!panelOpen)); }
   document.addEventListener('keydown', e => { if (e.key === '`'){ e.preventDefault(); setPanel(!panelOpen); } });
 
