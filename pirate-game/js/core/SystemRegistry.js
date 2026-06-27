@@ -1,0 +1,61 @@
+// ── core/SystemRegistry.js ──
+// The plug-in point that makes features drop-in. A "system" is a plain object
+// that MAY implement any of:
+//
+//   init(scene)            — once, in GameScene.create(); set up scene.<slice>
+//   update(scene, dt, dts) — every frame, in registry order
+//   draw(scene, g)         — every frame after the core draw; g = scene.gfxWorld
+//   onDock(scene, port)    — convenience hook fired when the player docks
+//
+// To add a feature: write its file, add its <script> tag, and push it into
+// Systems.list (see registerSystems() at the bottom of this file). GameScene
+// never has to grow a new hardcoded call.
+//
+// ORDERING IS LOAD-BEARING. The registry runs systems in array order. The tight,
+// inherently-ordered core (input -> movement -> collision -> ship separation ->
+// cannonballs -> loot) stays as DIRECT calls in GameScene.update(); the registry
+// is for features that want to be independently addable (weather, bounties,
+// bank, capture/runners, zoom). A system's update() runs at the point in the
+// frame where GameScene calls Systems.update() — currently late, after AI and
+// combat resolution, before draw.
+//
+// All hooks are optional and null-guarded, so a system can implement only what
+// it needs (a pure draw overlay, an init-only state owner, etc.).
+const Systems = {
+  list: [],
+
+  // register a system object. Safe to call repeatedly with the same object —
+  // it won't double-add (handy for hot-reload during dev).
+  add(system){
+    if (!system || this.list.indexOf(system) !== -1) return;
+    this.list.push(system);
+  },
+
+  init(scene){ for (const s of this.list) if (s.init) s.init(scene); },
+  update(scene, dt, dts){ for (const s of this.list) if (s.update) s.update(scene, dt, dts); },
+  draw(scene, g){ for (const s of this.list) if (s.draw) s.draw(scene, g); },
+
+  // fired by GameScene when the player docks; lets bank/bounty/menu systems
+  // react without GameScene knowing they exist.
+  onDock(scene, port){ for (const s of this.list) if (s.onDock) s.onDock(scene, port); },
+};
+
+// ── registration ──────────────────────────────────────────────────────────
+// One place that declares which feature systems are active, in run order.
+// Adding a feature = add its global here. Guarded with typeof so a missing
+// (not-yet-written) system never crashes the build — it's simply skipped.
+function registerSystems(){
+  const candidates = [
+    // economy / world feature systems plug in here as they're built:
+    typeof ShipTier      !== 'undefined' ? ShipTier      : null,
+    typeof CommoditySystem !== 'undefined' ? CommoditySystem : null,
+    typeof BankSystem    !== 'undefined' ? BankSystem    : null,
+    typeof ZoomSystem    !== 'undefined' ? ZoomSystem    : null,
+    typeof WeatherSystem !== 'undefined' ? WeatherSystem : null,
+    typeof DefenseSystem !== 'undefined' ? DefenseSystem : null,
+    typeof PortCaptureSystem !== 'undefined' ? PortCaptureSystem : null,
+    typeof BoardingSystem !== 'undefined' ? BoardingSystem : null,
+    typeof CrewSystem    !== 'undefined' ? CrewSystem    : null,
+  ];
+  for (const c of candidates) if (c) Systems.add(c);
+}

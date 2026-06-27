@@ -67,6 +67,11 @@ const Island = {
       pg.lineStyle(1, 0x2A9EAE, 0.16); pg.strokeCircle(np.x, np.y, DOCK_RADIUS);
       pg.fillStyle(0x8AC8E0, 0.9); pg.fillCircle(np.x, np.y, 9);
       pg.lineStyle(2, 0x2A9EAE, 0.4); pg.strokeCircle(np.x, np.y, 16);
+      // dock slots (berths): hollow = free, filled = occupied
+      if (np.docks){ for (const d of np.docks){ const sx = np.x + d.dx, sy = np.y + d.dy;
+        if (d.occupantId){ pg.fillStyle(0xE0A040, 0.9); pg.fillRect(sx - 4, sy - 4, 8, 8); }
+        else { pg.lineStyle(1.5, 0x8AC8E0, 0.7); pg.strokeRect(sx - 4, sy - 4, 8, 8); }
+      } }
     }
   },
 };

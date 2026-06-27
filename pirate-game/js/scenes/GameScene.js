@@ -33,7 +33,7 @@ class GameScene extends Phaser.Scene {
     this.follow = this.add.rectangle(this.player.x, this.player.y, 1, 1, 0, 0);
     this.cameras.main.startFollow(this.follow, true, 0.08, 0.08);
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,M,Z,X');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,M,Z,X,B');
     this.input.on('wheel', (p, over, dx, dy) => { if (!this.mapOpen) return; this.mapScale = Phaser.Math.Clamp(this.mapScale * (dy < 0 ? 1.12 : 0.892), MAP_SCALE_MIN, MAP_SCALE_MAX); this.mapDirty = true; });
     this.input.on('pointermove', (p) => { if (!this.mapOpen || !p.isDown) return; this.mapFollow = false; this.mapCenterX -= (p.position.x - p.prevPosition.x)/this.mapScale; this.mapCenterY -= (p.position.y - p.prevPosition.y)/this.mapScale; this.mapDirty = true; });
 
@@ -41,6 +41,9 @@ class GameScene extends Phaser.Scene {
 
     // continuing a saved run? apply it now that the scene is fully built
     if (data && data.load){ const s = Save.read(); if (s) Save.apply(this, s); }
+
+    registerSystems();        // declare active feature systems (core/SystemRegistry.js)
+    Systems.init(this);       // each feature sets up its own scene.<slice>
   }
 
   // Anchor two ports on the COAST of the nearest large landmasses to origin (the
@@ -49,13 +52,16 @@ class GameScene extends Phaser.Scene {
   // with the AI-streaming phase.)
   placeStartPorts(){
     const NAMES = ['Port Royal', 'Tortuga'];
+    const TYPES = ['TradingHub', 'LumberYard'];
+    const slotsForType = (type) => { const s = PORT_TYPES[type].slots; return s[0] + Math.floor(this.eprng() * (s[1] - s[0] + 1)); };
+    const mk = (x, y, i) => { const p = new Port(x, y, NAMES[i], slotsForType(TYPES[i])); PortEconomy.assignType(p, TYPES[i], this.eprng); return p; };
     const larges = this.islands.filter(is => is.mainland && Math.hypot(is.cx, is.cy) < 9000)
                        .sort((a, b) => Math.hypot(a.cx, a.cy) - Math.hypot(b.cx, b.cy));
     const ports = [];
-    for (const land of larges){ if (ports.length >= 2) break; const cp = this.findCoastPoint(land, 0); ports.push(new Port(cp.x, cp.y, NAMES[ports.length])); }
-    if (ports.length === 1){ const cp = this.findCoastPoint(larges[0], Math.PI); ports.push(new Port(cp.x, cp.y, NAMES[1])); }  // 2nd harbour on the far coast
+    for (const land of larges){ if (ports.length >= 2) break; const cp = this.findCoastPoint(land, 0); ports.push(mk(cp.x, cp.y, ports.length)); }
+    if (ports.length === 1){ const cp = this.findCoastPoint(larges[0], Math.PI); ports.push(mk(cp.x, cp.y, 1)); }  // 2nd harbour on the far coast
     const fb = [{ x:1900, y:-1400 }, { x:-1500, y:1500 }];
-    while (ports.length < 2){ const p = fb[ports.length]; ports.push(new Port(p.x, p.y, NAMES[ports.length])); }
+    while (ports.length < 2){ const p = fb[ports.length]; ports.push(mk(p.x, p.y, ports.length)); }
     return ports;
   }
 
@@ -120,19 +126,36 @@ class GameScene extends Phaser.Scene {
   repairAtPort(){
     const pl = this.player, need = pl.maxHull - pl.hull;
     if (need <= 0) return;
-    const spend = Math.min(pl.gold, Math.ceil(need * REPAIR_COST_PER_HP));
+    const spend = Math.min((pl.bank||0), Math.ceil(need * REPAIR_COST_PER_HP));
     if (spend <= 0){ this.flashPopup(pl.x, pl.y, 'NO GOLD', 0xE0503A); return; }
     pl.hull = Math.min(pl.maxHull, pl.hull + spend / REPAIR_COST_PER_HP);
-    pl.gold -= spend;
+    pl.bank -= spend;
     this.flashPopup(pl.x, pl.y - 20, 'REPAIRED', 0x4CA84C);
   }
   restockAtPort(){
     const pl = this.player, need = pl.maxAmmo - pl.ammo;
     if (need <= 0) return;
-    const units = Math.min(need, Math.floor(pl.gold / AMMO_COST_PER_UNIT));
+    const units = Math.min(need, Math.floor((pl.bank||0) / AMMO_COST_PER_UNIT));
     if (units <= 0){ this.flashPopup(pl.x, pl.y, 'NO GOLD', 0xE0503A); return; }
-    pl.ammo += units; pl.gold -= units * AMMO_COST_PER_UNIT;
+    pl.ammo += units; pl.bank -= units * AMMO_COST_PER_UNIT;
     this.flashPopup(pl.x, pl.y - 20, '+' + units + ' AMMO', 0xF0C840);
+  }
+  // sell the entire hold at this port's buy prices (gold -> bank)
+  sellAllAtPort(){
+    const pl = this.player, port = this.dockPort; if (!port || !pl.hold) return;
+    let goldGained = 0, unitsSold = 0;
+    for (const c of COMMODITIES){ const have = Cargo.qty(pl.hold, c); if (have > 0){ const unit = PortEconomy.buyPrice(port, c); const sold = PortEconomy.sell(this, port, c, have); unitsSold += sold; goldGained += sold * unit; } }
+    if (unitsSold > 0) this.flashPopup(pl.x, pl.y - 20, '+' + goldGained + 'g SOLD', 0xF0C840);
+    else this.flashPopup(pl.x, pl.y, 'NO CARGO', 0xE0503A);
+  }
+  // buy this port's source commodity up to capacity / affordability
+  buySourceAtPort(){
+    const pl = this.player, port = this.dockPort; if (!port) return;
+    const c = port.sourceCommodity;
+    if (!c){ this.flashPopup(pl.x, pl.y, 'NOTHING TO BUY', 0xE0503A); return; }
+    const got = PortEconomy.buy(this, port, c, Cargo.free(pl.hold));
+    if (got > 0) this.flashPopup(pl.x, pl.y - 20, '+' + got + ' ' + (COMMODITY_INFO[c] ? COMMODITY_INFO[c].glyph : '?'), COMMODITY_INFO[c] ? COMMODITY_INFO[c].color : 0xF0C840);
+    else this.flashPopup(pl.x, pl.y, "CAN'T BUY", 0xE0503A);
   }
 
   update(time, delta){
@@ -153,23 +176,33 @@ class GameScene extends Phaser.Scene {
 
     // ── docked: world is frozen; F departs, 1/2 buy ──
     if (this.docked){
-      if (Phaser.Input.Keyboard.JustDown(this.keys.F)){ this.docked = false; this.dockPort = null; }
+      if (Phaser.Input.Keyboard.JustDown(this.keys.F)){ if (this.dockPort) Docks.release(this, this.dockPort, this.player); this.docked = false; this.dockPort = null; }
       else if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) this.repairAtPort();
       else if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) this.restockAtPort();
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.THREE)) this.sellAllAtPort();
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.FOUR)) this.buySourceAtPort();
       this.draw();                                   // keep the (frozen) world visible behind the menu
       return;
     }
 
-    if (pl.hull > 0){
+    if (pl.hull > 0 && !(typeof BoardingSystem !== 'undefined' && BoardingSystem.isPinned(this))){
       if (Phaser.Input.Keyboard.JustDown(this.keys.W)) pl.sailState = Math.min(2, pl.sailState + 1);
       if (Phaser.Input.Keyboard.JustDown(this.keys.S)) pl.sailState = Math.max(0, pl.sailState - 1);
       if (Phaser.Input.Keyboard.JustDown(this.keys.Q)) Combat.fire(this, pl, 'port');
+      if (Phaser.Input.Keyboard.JustDown(this.keys.B)){
+        let used = false;
+        if (typeof PortCaptureSystem !== 'undefined') used = PortCaptureSystem.tryCapture(this);
+        if (!used && typeof BoardingSystem !== 'undefined') used = BoardingSystem.tryBoard(this);
+        if (!used) this.flashPopup(pl.x, pl.y, 'NOTHING TO CAPTURE', 0xE0503A);
+      }
       if (Phaser.Input.Keyboard.JustDown(this.keys.E)) Combat.fire(this, pl, 'star');
       const td = calcTurnDegS(pl.vel)*dts;
       if (this.cursors.left.isDown  || this.keys.A.isDown) pl.heading = (pl.heading - td + 360)%360;
       if (this.cursors.right.isDown || this.keys.D.isDown) pl.heading = (pl.heading + td)%360;
       const wa = windOff(pl.heading, P.windFrom);
-      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState];
+      const weatherMult = (typeof WeatherSystem !== 'undefined' && this.weather) ? WeatherSystem.speedMult(this) : 1;
+      const crewMult = (typeof crewSpeedMult !== 'undefined') ? crewSpeedMult(pl) : 1;
+      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState]*weatherMult*crewMult;
       pl.vel += (tgt - pl.vel)*Math.min((tgt > pl.vel ? P.accel : P.decel)*dt, 1);
       Collision.moveShip(this, pl, dt);
       // reefs: drag + periodic hull damage while grounded (they don't block, they hurt)
@@ -193,9 +226,11 @@ class GameScene extends Phaser.Scene {
       let best = DOCK_RADIUS;
       for (const p of this.navyPorts){ const dd = Math.hypot(pl.x - p.x, pl.y - p.y); if (dd < best){ best = dd; this.nearPort = p; } }
       if (this.nearPort && Phaser.Input.Keyboard.JustDown(this.keys.F)){
-        if (this.navyHostile()) this.flashPopup(pl.x, pl.y, 'PORT CLOSED — WANTED', 0xE0503A);
+        const mine = this.nearPort.owner === 'player';
+        if (this.navyHostile() && !mine) this.flashPopup(pl.x, pl.y, 'PORT CLOSED — WANTED', 0xE0503A);
         else if (this.inCombat()) this.flashPopup(pl.x, pl.y, "CAN'T DOCK IN COMBAT", 0xE0503A);
-        else { this.docked = true; this.dockPort = this.nearPort; pl.vel = 0; if (Save.write(this)) this.flashPopup(pl.x, pl.y - 40, 'GAME SAVED', 0x8AAAC8); }   // auto-save on docking
+        else if (Docks.isFull(this.nearPort)) this.flashPopup(pl.x, pl.y, 'DOCKS FULL', 0xE0503A);
+        else { Docks.occupy(this, this.nearPort, pl); this.docked = true; this.dockPort = this.nearPort; pl.vel = 0; this.events.emit(EV.DOCK_ENTERED, { port: this.nearPort }); Systems.onDock(this, this.nearPort); if (Save.write(this)) this.flashPopup(pl.x, pl.y - 40, 'GAME SAVED', 0x8AAAC8); }   // auto-save on docking
       }
     }
 
@@ -210,12 +245,14 @@ class GameScene extends Phaser.Scene {
       if (outOfCombat && pl.hull < cap){ pl.hull = Math.min(cap, pl.hull + P.regenRate*dts); }
     }
 
-    for (const s of this.ships){ if (s.alive) AI.update(this, s, dt, dts); }
+    for (const s of this.ships){ if (s.alive && !s.beingTowed) AI.update(this, s, dt, dts); }
     Collision.resolveShipCollisions(this);
     Combat.updateCannonballs(this, dt);
     Combat.updateLoot(this, dts);
     for (let i = this.popups.length - 1; i >= 0; i--){ this.popups[i].age += dts; this.popups[i].y -= 12*dts; if (this.popups[i].age > this.popups[i].life) this.popups.splice(i, 1); }
     if (DEBUG.ring.active){ DEBUG.ring.age += dts; if (DEBUG.ring.age > 2.2) DEBUG.ring.active = false; }
+
+    Systems.update(this, dt, dts);   // feature systems (weather, bounties, bank, zoom, ...) run late
 
     if (this.mapOpen) this.updateMap(dts);         // live chart while sailing (non-pausing)
     this.draw();
@@ -226,9 +263,9 @@ class GameScene extends Phaser.Scene {
     // wakes
     const drawWake = (s, col) => { if (s.wake.length < 2) return; gw.lineStyle(2, col, 0.28); for (let i = 1; i < s.wake.length; i += 2){ const a = s.wake[i - 1], b = s.wake[i]; gw.lineBetween(a.x, a.y, b.x, b.y); } };
     drawWake(this.player, 0xA0CCD8);
-    for (const s of this.ships) if (s.alive) drawWake(s, 0x88AABB);
+    for (const s of this.ships) if (s.alive && !s.beingTowed) drawWake(s, 0x88AABB);
     // loot
-    for (const l of this.loot){ const fade = l.age > l.life - 2 ? (l.life - l.age)/2 : 1; gw.fillStyle(0xF0C840, 0.85*fade); gw.fillCircle(l.x, l.y, 7); gw.lineStyle(2, 0xF0C840, 0.4*fade); gw.strokeCircle(l.x, l.y, 12); }
+    for (const l of this.loot){ const fade = l.age > l.life - 2 ? (l.life - l.age)/2 : 1; const lc = (l.kind === 'commodity' && COMMODITY_INFO[l.commodity]) ? COMMODITY_INFO[l.commodity].color : 0xF0C840; gw.fillStyle(lc, 0.85*fade); gw.fillCircle(l.x, l.y, 7); gw.lineStyle(2, lc, 0.4*fade); gw.strokeCircle(l.x, l.y, 12); }
     // debug range ring (world space, centered on player)
     if (DEBUG.ring.active && this.player.hull > 0){
       const fade = 1 - DEBUG.ring.age/2.2;
@@ -237,11 +274,13 @@ class GameScene extends Phaser.Scene {
     }
     // ships
     const gs = this.gfxShips; gs.clear();
-    for (const s of this.ships) if (s.alive) this.drawShip(gs, s);
+    for (const s of this.ships) if (s.alive && !s.beingTowed) this.drawShip(gs, s);
     if (this.player.hull > 0) this.drawShip(gs, this.player);
     // cannonballs
     const gf = this.gfxFx; gf.clear(); gf.fillStyle(0x201810, 1);
     for (const b of this.cannonballs){ gf.fillCircle(b.x, b.y, 3); }
+    Island.drawPortMarkers(this);    // refresh dock-slot occupancy markers
+    Systems.draw(this, gw);          // feature overlays (weather, boarding, defense, ...) on the world layer
   }
 
   drawShip(g, s){
@@ -253,7 +292,13 @@ class GameScene extends Phaser.Scene {
     g.fillStyle(colors[0], 1); g.fillEllipse(0, 0, 20, 40);
     g.fillStyle(colors[1], 1); g.fillEllipse(0, 2, 13, 30);
     g.lineStyle(2.5, 0x2A1404, 1); g.lineBetween(-11, -3, 11, -3); g.lineBetween(0, -18, 0, -26);
-    if (s.sailState > 0){ const h = s.sailState === 2 ? 18 : 10; g.fillStyle(0xD4C48C, 0.9); g.fillRect(-9, -3, 18, h); }
+    if (s.sailState > 0){ const h = s.sailState === 2 ? 18 : 10; g.fillStyle(0xD4C48C, 0.9); g.fillRect(-9, -3, 18, h);
+      if (s.faction === 'merchant' && s.cargo && COMMODITY_INFO[s.cargo.commodity]){
+        const ci = COMMODITY_INFO[s.cargo.commodity];
+        g.fillStyle(ci.color, 1); g.fillRect(-4, -3 + h/2 - 4, 8, 8);
+        g.lineStyle(1, 0x2A1404, 0.8); g.strokeRect(-4, -3 + h/2 - 4, 8, 8);
+      }
+    }
     g.fillStyle(0x2A1404, 1); g.fillCircle(0, -3, 3.5);
     // stern flagpole + flag (local coords: stern is +y / downward)
     let flagColor = null;
