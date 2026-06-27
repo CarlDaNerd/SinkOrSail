@@ -19,6 +19,7 @@ class GameScene extends Phaser.Scene {
     this.islands = []; this.reefs = [];                // active sets — filled by the chunk manager
     this.explored = new Set();                          // chunk keys you've sailed near (for the big map)
     this.menuOpen = false;                              // pause menu (Esc)
+    this.extrasOn = EXTRAS_DEFAULT;                      // battle-zoom + weather toggle (pause-menu checkbox)
     this.mapOpen = false; this.mapDirty = false;        // big map (M) — non-pausing chart
     this.mapFollow = true;                              // chart tracks the ship until you drag it
     this.mapCenterX = 0; this.mapCenterY = 0; this.mapScale = MAP_SCALE_INIT;
@@ -38,6 +39,9 @@ class GameScene extends Phaser.Scene {
     this.input.on('pointermove', (p) => { if (!this.mapOpen || !p.isDown) return; this.mapFollow = false; this.mapCenterX -= (p.position.x - p.prevPosition.x)/this.mapScale; this.mapCenterY -= (p.position.y - p.prevPosition.y)/this.mapScale; this.mapDirty = true; });
 
     this.missions = new MissionLoader(this); this.missions.scan();
+
+    registerSystems();        // declare active feature systems (core/SystemRegistry.js)
+    Systems.init(this);       // each feature sets up its own scene.<slice> (e.g. pl.bank)
 
     // continuing a saved run? apply it now that the scene is fully built
     if (data && data.load){ const s = Save.read(); if (s) Save.apply(this, s); }
@@ -97,7 +101,9 @@ class GameScene extends Phaser.Scene {
   }
   // full run restart (the Reset Game menu button)
   resetGame(){
+    const keepBank = (this.player && typeof this.player.bank === 'number') ? this.player.bank : 0;
     this.player = Player.create(0, 0);
+    this.player.bank = keepBank;                    // banked gold survives a full reset
     this.navyStanding = 0;
     this.flag = 'neutral'; this.flagPending = null; this.flagChangeAt = 0;
     this.docked = false; this.dockPort = null; this.nearPort = null;
@@ -120,18 +126,18 @@ class GameScene extends Phaser.Scene {
   repairAtPort(){
     const pl = this.player, need = pl.maxHull - pl.hull;
     if (need <= 0) return;
-    const spend = Math.min(pl.gold, Math.ceil(need * REPAIR_COST_PER_HP));
+    const spend = Math.min(pl.bank, Math.ceil(need * REPAIR_COST_PER_HP));   // spend from the bank (gold is swept on dock)
     if (spend <= 0){ this.flashPopup(pl.x, pl.y, 'NO GOLD', 0xE0503A); return; }
     pl.hull = Math.min(pl.maxHull, pl.hull + spend / REPAIR_COST_PER_HP);
-    pl.gold -= spend;
+    pl.bank -= spend;
     this.flashPopup(pl.x, pl.y - 20, 'REPAIRED', 0x4CA84C);
   }
   restockAtPort(){
     const pl = this.player, need = pl.maxAmmo - pl.ammo;
     if (need <= 0) return;
-    const units = Math.min(need, Math.floor(pl.gold / AMMO_COST_PER_UNIT));
+    const units = Math.min(need, Math.floor(pl.bank / AMMO_COST_PER_UNIT));  // spend from the bank
     if (units <= 0){ this.flashPopup(pl.x, pl.y, 'NO GOLD', 0xE0503A); return; }
-    pl.ammo += units; pl.gold -= units * AMMO_COST_PER_UNIT;
+    pl.ammo += units; pl.bank -= units * AMMO_COST_PER_UNIT;
     this.flashPopup(pl.x, pl.y - 20, '+' + units + ' AMMO', 0xF0C840);
   }
 
@@ -169,7 +175,8 @@ class GameScene extends Phaser.Scene {
       if (this.cursors.left.isDown  || this.keys.A.isDown) pl.heading = (pl.heading - td + 360)%360;
       if (this.cursors.right.isDown || this.keys.D.isDown) pl.heading = (pl.heading + td)%360;
       const wa = windOff(pl.heading, P.windFrom);
-      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState];
+      const wMult = (typeof WeatherSystem !== 'undefined') ? WeatherSystem.speedMult(this) : 1;   // rain slow (1 otherwise)
+      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState]*wMult;
       pl.vel += (tgt - pl.vel)*Math.min((tgt > pl.vel ? P.accel : P.decel)*dt, 1);
       Collision.moveShip(this, pl, dt);
       // reefs: drag + periodic hull damage while grounded (they don't block, they hurt)
@@ -195,7 +202,7 @@ class GameScene extends Phaser.Scene {
       if (this.nearPort && Phaser.Input.Keyboard.JustDown(this.keys.F)){
         if (this.navyHostile()) this.flashPopup(pl.x, pl.y, 'PORT CLOSED — WANTED', 0xE0503A);
         else if (this.inCombat()) this.flashPopup(pl.x, pl.y, "CAN'T DOCK IN COMBAT", 0xE0503A);
-        else { this.docked = true; this.dockPort = this.nearPort; pl.vel = 0; if (Save.write(this)) this.flashPopup(pl.x, pl.y - 40, 'GAME SAVED', 0x8AAAC8); }   // auto-save on docking
+        else { this.docked = true; this.dockPort = this.nearPort; pl.vel = 0; this.events.emit(EV.DOCK_ENTERED, { port: this.nearPort }); Systems.onDock(this, this.nearPort); if (Save.write(this)) this.flashPopup(pl.x, pl.y - 40, 'GAME SAVED', 0x8AAAC8); }   // sweep gold->bank, then auto-save
       }
     }
 
@@ -218,6 +225,8 @@ class GameScene extends Phaser.Scene {
     if (DEBUG.ring.active){ DEBUG.ring.age += dts; if (DEBUG.ring.age > 2.2) DEBUG.ring.active = false; }
 
     if (this.mapOpen) this.updateMap(dts);         // live chart while sailing (non-pausing)
+
+    Systems.update(this, dt, dts);                 // feature systems (bank, ...) run late, before draw
     this.draw();
   }
 
@@ -242,6 +251,8 @@ class GameScene extends Phaser.Scene {
     // cannonballs
     const gf = this.gfxFx; gf.clear(); gf.fillStyle(0x201810, 1);
     for (const b of this.cannonballs){ gf.fillCircle(b.x, b.y, 3); }
+
+    Systems.draw(this, gw);                          // feature overlays draw on the world layer
   }
 
   drawShip(g, s){

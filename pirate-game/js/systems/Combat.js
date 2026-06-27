@@ -28,12 +28,13 @@ const Combat = {
 
   onHit(scene, ball, target){
     target.hull -= P.damage;
+    scene.events.emit(EV.SHIP_HIT, { ship: target, by: ball.ownerFaction, amount: P.damage });
     if (ball.ownerFaction === 'player'){
       target.hostileToPlayer = true;
       if (target.faction === 'privateer') target.hitsByPlayer++;
       if (target.faction !== 'pirate') FactionSystem.reportCrime(scene, target.x, target.y); // pirate-hunting is lawful
     }
-    if (target.hull <= 0){ target.alive = false; this.spawnLoot(scene, target); }
+    if (target.hull <= 0){ target.alive = false; this.spawnLoot(scene, target); scene.events.emit(EV.SHIP_SUNK, { ship: target, by: ball.ownerFaction }); }
   },
 
   spawnLoot(scene, s){ scene.loot.push(Loot.create(s.x, s.y, Loot.valueFor(s.faction))); },

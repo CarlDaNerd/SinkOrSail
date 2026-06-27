@@ -112,3 +112,25 @@ const HULL_LEN = 20, HULL_BEAM = 10;            // semi-length / half-beam of hu
 const DOCK_RADIUS = 320;          // sail within this of a port (center) to dock
 const REPAIR_COST_PER_HP = 2;     // gold per hull point repaired
 const AMMO_COST_PER_UNIT = 1;     // gold per ammo unit restocked
+
+// ── FEATURE SYSTEMS (registry-driven; togglable from the pause menu) ─────────
+const EXTRAS_DEFAULT = true;      // battle-zoom + weather on by default (menu checkbox flips scene.extrasOn)
+
+// ── M7 ZOOM ── auto zoom-IN during battle only; NO scroll/manual zoom ──
+const ZOOM_DEFAULT = 1.0;         // normal sailing zoom
+const ZOOM_BATTLE_LEVEL = 1.4;    // camera zoom while in combat — edit to taste
+const ZOOM_LERP = 0.02;           // smoothing toward the target zoom (per 1/60s)
+
+// ── M11 WEATHER ── one effect at a time, rolled every few minutes; never touches WIND ──
+const WEATHER_INTERVAL_MIN_S = 120, WEATHER_INTERVAL_MAX_S = 300;   // 2–5 min between effects
+const WEATHER_TYPES = ['rain', 'snow', 'tsunami', 'cyclone', 'storm'];
+// rain — gentle speed tax; ends on distance OR time
+const RAIN_SPEED_MULT = 0.75, RAIN_DURATION_S = 45, RAIN_DURATION_PX = 10000;
+// snow — drifting icebergs damage the hull on contact
+const SNOW_DURATION_S = 40, SNOW_ICEBERG_COUNT = 14, SNOW_ICEBERG_DAMAGE = 12, SNOW_ICEBERG_INTERVAL = 1.0;
+// tsunami — only near land; shoves the ship toward the nearest island (survivable)
+const TSUNAMI_ISLAND_PROXIMITY_PX = 1800, TSUNAMI_PUSH_S = 6, TSUNAMI_PUSH_SPEED = 2.2;
+// cyclone — pulls the ship toward a centre; one big hit at the eye
+const CYCLONE_DURATION_S = 16, CYCLONE_RADIUS = 900, CYCLONE_PULL = 1.4, CYCLONE_DAMAGE_PCT = 50;
+// storm — lightning strikes can break the sail (capped to half) until a port repair
+const STORM_DURATION_S = 20, STORM_STRIKE_INTERVAL_S = 2.5, STORM_SAIL_HIT_CHANCE_PCT = 45, STORM_BROKEN_SAIL_MAX_STATE = 1;

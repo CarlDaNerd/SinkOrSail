@@ -127,6 +127,9 @@
 <!-- ── load order: dependencies first, scene classes before main, debug after main ── -->
 <!-- foundation -->
 <script src="js/constants.js"></script>
+<!-- core: event bus + system registry (load right after constants, before anything that uses them) -->
+<script src="js/core/Events.js"></script>
+<script src="js/core/SystemRegistry.js"></script>
 <script src="js/utils/PRNG.js"></script>
 <script src="js/utils/MathUtils.js"></script>
 <script src="js/systems/SailingPhysics.js"></script>
@@ -151,6 +154,10 @@
 <script src="js/systems/AI.js"></script>
 <!-- save -->
 <script src="js/systems/SaveSystem.js"></script>
+<!-- feature systems (registry-driven; registered in SystemRegistry.js) -->
+<script src="js/systems/BankSystem.js"></script>
+<script src="js/systems/ZoomSystem.js"></script>
+<script src="js/systems/WeatherSystem.js"></script>
 <!-- ui -->
 <script src="js/ui/WindCompass.js"></script>
 <script src="js/ui/MiniMap.js"></script>

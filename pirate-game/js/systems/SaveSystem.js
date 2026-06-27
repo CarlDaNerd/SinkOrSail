@@ -12,7 +12,7 @@ const Save = {
     const p = scene.player;
     return {
       v: this.VERSION, seed: WORLD_SEED, t: Date.now(),
-      px: p.x, py: p.y, ph: p.heading, hull: p.hull, ammo: p.ammo, gold: p.gold, sail: p.sailState,
+      px: p.x, py: p.y, ph: p.heading, hull: p.hull, ammo: p.ammo, gold: p.gold, bank: p.bank, sail: p.sailState,
       standing: scene.navyStanding, flag: scene.flag,
       explored: Array.from(scene.explored),
     };
@@ -34,7 +34,7 @@ const Save = {
     if (!s || s.v !== this.VERSION) return false;
     const p = scene.player;
     p.x = s.px; p.y = s.py; p.heading = s.ph; p.vel = 0;
-    p.hull = s.hull; p.ammo = s.ammo; p.gold = s.gold; p.sailState = s.sail;
+    p.hull = s.hull; p.ammo = s.ammo; p.gold = s.gold; p.bank = (typeof s.bank === 'number') ? s.bank : (p.bank || 0); p.sailState = s.sail;
     p.fire = { port:0, star:0 }; p.wake = []; p.lastHitAt = -99; p.lastFiredAt = -99;
     scene.navyStanding = s.standing; scene.flag = s.flag; scene.flagPending = null;
     scene.explored = new Set(s.explored || []);

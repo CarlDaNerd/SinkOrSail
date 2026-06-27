@@ -74,6 +74,10 @@ const Island = {
       pg.lineStyle(1, 0x2A9EAE, 0.16); pg.strokeCircle(np.x, np.y, DOCK_RADIUS);
       pg.fillStyle(0x8AC8E0, 0.9); pg.fillCircle(np.x, np.y, 9);
       pg.lineStyle(2, 0x2A9EAE, 0.4); pg.strokeCircle(np.x, np.y, 16);
+      if (np.docks) for (const d of np.docks){          // MD berths along the quay
+        const bx = np.x + d.dx, by = np.y + d.dy;
+        pg.fillStyle(d.occupantId ? 0xE0A040 : 0x2A9EAE, 0.85); pg.fillRect(bx - 3, by - 3, 6, 6);
+      }
     }
   },
 };

@@ -7,7 +7,7 @@ const Player = {
       x, y, heading:180, vel:0, sailState:2,
       hull:130, maxHull:130, ammo:48, maxAmmo:48, gold:0,
       fire:{ port:0, star:0 }, wake:[], id:'player', faction:'player',
-      lastHitAt:-99, lastFiredAt:-99,
+      lastHitAt:-99, lastFiredAt:-99, sailBroken:false,
     };
   },
 };
