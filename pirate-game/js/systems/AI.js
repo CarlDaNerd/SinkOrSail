@@ -1,0 +1,135 @@
+// ── systems/AI.js ──
+// Per-faction state machines (handoff §9). Each picks a desired heading + sail
+// + fire intent; then we steer (avoidLand → avoidIrons), turn, accelerate, move
+// and fire. Maneuvering only — combat resolution lives in Combat.js.
+const AI = {
+  nearestPirate(scene, s, maxRange){
+    let tp = null, tpd = maxRange;
+    for (const o of scene.ships){ if (o.faction !== 'pirate' || !o.alive) continue; const od = dist(s, o); if (od < tpd){ tpd = od; tp = o; } }
+    return tp;
+  },
+
+  cruise(scene, s){
+    if (dist(s, s.waypoint) < 100){ s.waypoint = { x:s.x + (scene.eprng() - 0.5)*3000, y:s.y + (scene.eprng() - 0.5)*3000 }; }
+    return { targetHeading:angleTo(s, s.waypoint), desiredSail: s.faction === 'merchant' ? 2 : 1 };
+  },
+
+  patrolHome(scene, s){
+    const home = s.home || { x:s.x, y:s.y };
+    if (!s.waypoint || dist(s, s.waypoint) < 90){
+      const a = scene.eprng()*Math.PI*2, rr = 150 + scene.eprng()*Math.min(P.navyLeash*0.7, 500);
+      s.waypoint = { x:home.x + Math.cos(a)*rr, y:home.y + Math.sin(a)*rr };
+    }
+    return { targetHeading:angleTo(s, s.waypoint), desiredSail:1 };
+  },
+
+  // turn perpendicular to the target; fire the right side when 70–110° off bearing
+  combatManeuver(s, target, d){
+    const toT = angleTo(s, target);
+    const perp1 = (toT + 90)%360, perp2 = (toT - 90 + 360)%360;
+    const th = (Math.abs(angleDiff(s.heading, perp1)) < Math.abs(angleDiff(s.heading, perp2))) ? perp1 : perp2;
+    let wantFire = null;
+    const ad = Math.abs(angleDiff(s.heading, toT));
+    if (ad > 70 && ad < 110 && s.fire <= 0){ wantFire = angleDiff(s.heading, toT) > 0 ? 1 : -1; }
+    return { targetHeading:th, desiredSail:1, wantFire };
+  },
+
+  update(scene, s, dt, dts){
+    const pl = scene.player;
+    const d = dist(s, pl);
+    let targetHeading = s.heading, desiredSail = 2, wantFire = null;
+    const playerPirateFlag = scene.flag === 'pirate';
+
+    if (s.faction === 'merchant'){
+      // flee only if threatened: pirate flag shown, OR provoked, OR player is WANTED
+      const threatened = playerPirateFlag || s.hostileToPlayer || FactionSystem.navyHostile(scene);
+      const willFight = s.hostileToPlayer && (s._fightRoll === undefined ? (s._fightRoll = scene.eprng()*100) : s._fightRoll) < P.merchFight;
+      if (willFight && d < P.merchFlee){
+        ({ targetHeading, desiredSail, wantFire } = AI.combatManeuver(s, pl, d)); s.state = 'fight';
+      } else if (threatened && d < P.merchFlee){
+        targetHeading = (angleTo(s, pl) + 180)%360; desiredSail = 2; s.state = 'flee';
+      } else { ({ targetHeading, desiredSail } = AI.cruise(scene, s)); s.state = 'cruise'; }
+
+    } else if (s.faction === 'pirate'){
+      const DETECT = 440, ATK = 260;
+      // pirate flag = fellow pirate: they leave you alone (unless you've hit them)
+      const friendlyToPlayer = playerPirateFlag && !s.hostileToPlayer;
+      if (!friendlyToPlayer && d < DETECT){
+        if (d < ATK){ ({ targetHeading, desiredSail, wantFire } = AI.combatManeuver(s, pl, d)); s.state = 'attack'; }
+        else { targetHeading = angleTo(s, pl); desiredSail = 2; s.state = 'pursue'; }
+      } else { ({ targetHeading, desiredSail } = AI.cruise(scene, s)); s.state = 'cruise'; }
+
+    } else if (s.faction === 'navy'){
+      // continuously spot pirate colors within sight (land blocks the view) → hostile
+      if (playerPirateFlag && Visibility.canSee(scene, s.x, s.y, pl.x, pl.y, P.navySight)){
+        if (!s.hostileToPlayer){ s.hostileToPlayer = true;
+          if (!scene._coloresSeen){ scene.navyStanding = Math.max(-100, scene.navyStanding - P.crimePenalty); scene.flashPopup(pl.x, pl.y, 'COLORS SEEN', 0xE0503A); scene._coloresSeen = true; setTimeout(() => { scene._coloresSeen = false; }, 1500); }
+        }
+      }
+      // forgiveness: drop the grudge once the player is no longer a threat AND out of contact
+      if (s.hostileToPlayer && !FactionSystem.navyHostile(scene) && !playerPirateFlag){
+        const stillSees = Visibility.canSee(scene, s.x, s.y, pl.x, pl.y, P.navySight);
+        if (!stillSees || d > P.navySight*1.2){ s.hostileToPlayer = false; }
+      }
+      const hostile = FactionSystem.navyHostile(scene) || s.hostileToPlayer;
+      const homeD = s.home ? Math.hypot(s.x - s.home.x, s.y - s.home.y) : 0;
+      const leashed = s.home && homeD > P.navyLeash;
+      // A hostile navy engages a player it can see, REGARDLESS of the leash —
+      // the leash governs only idle patrol/return, never an active hunt. (Escape
+      // by breaking line-of-sight or outrunning sight range; forgiveness then
+      // clears the grudge.) Checking the leash first made a witnessing navy turn
+      // tail for home instead of attacking.
+      if (hostile && d < P.navyAttack){
+        ({ targetHeading, desiredSail, wantFire } = AI.combatManeuver(s, pl, d)); s.state = 'attack';
+      } else if (hostile && d < P.navySight){
+        targetHeading = angleTo(s, pl); desiredSail = 2; s.state = 'pursue';
+      } else if (leashed){
+        targetHeading = angleTo(s, s.home); desiredSail = 2; s.state = 'return';
+      } else {
+        // not engaging the player → hunt pirates near home
+        const tp = AI.nearestPirate(scene, s, P.navyAttack*1.4);
+        if (tp){ const td = dist(s, tp);
+          if (td < P.navyAttack){ ({ targetHeading, desiredSail, wantFire } = AI.combatManeuver(s, tp, td)); s.state = 'hunt'; }
+          else { targetHeading = angleTo(s, tp); desiredSail = 2; s.state = 'chase'; }
+        } else { ({ targetHeading, desiredSail } = AI.patrolHome(scene, s)); s.state = 'patrol'; }
+      }
+
+    } else if (s.faction === 'privateer'){
+      const hostile = FactionSystem.navyHostile(scene) || s.hitsByPlayer >= P.privHits;
+      const lawful = scene.navyStanding > P.privLawful;
+      if (hostile){
+        if (d < P.navyAttack){ ({ targetHeading, desiredSail, wantFire } = AI.combatManeuver(s, pl, d)); s.state = 'attack'; }
+        else { targetHeading = angleTo(s, pl); desiredSail = 2; s.state = 'pursue'; }
+      } else if (lawful){
+        // hunt pirates, biased toward ones near the player so they feel like they help your fight
+        let tp = null, tpd = 1e9;
+        for (const o of scene.ships){ if (o.faction !== 'pirate' || !o.alive) continue;
+          const od = dist(s, o), score = od + (dist(o, pl) < P.privAssist ? -150 : 0);
+          if (score < tpd){ tpd = score; tp = o; } }
+        if (tp && dist(s, tp) < P.privAssist){
+          if (dist(s, tp) < 260){ ({ targetHeading, desiredSail, wantFire } = AI.combatManeuver(s, tp, dist(s, tp))); s.state = 'assist'; }
+          else { targetHeading = angleTo(s, tp); desiredSail = 2; s.state = 'hunt'; }
+        } else { ({ targetHeading, desiredSail } = AI.patrolHome(scene, s)); s.state = 'guard'; }
+      } else { ({ targetHeading, desiredSail } = AI.patrolHome(scene, s)); s.state = 'wary'; }
+    }
+
+    // steer around land first, then ensure the chosen heading is sailable (not in irons)
+    targetHeading = Steering.avoidLand(scene, s, targetHeading);
+    targetHeading = Steering.avoidIrons(targetHeading);
+
+    // turn toward the (clamped) target heading
+    const diff = angleDiff(s.heading, targetHeading);
+    const tr = calcTurnDegS(s.vel)*0.7*dts;
+    s.heading = (s.heading + Math.sign(diff)*Math.min(Math.abs(diff), tr) + 360)%360;
+    s.sailState = desiredSail;
+    // speed (faction speed factor: merchants slower, navy slightly slower)
+    const wa = windOff(s.heading, P.windFrom);
+    const sf = s.faction === 'merchant' ? 0.8 : s.faction === 'navy' ? 0.92 : 1.0;
+    const tspd = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[s.sailState]*sf;
+    s.vel += (tspd - s.vel)*Math.min(0.012*dt, 1);
+    Collision.moveShip(scene, s, dt);
+    scene.pushWake(s);
+    if (s.fire > 0) s.fire -= dts;
+    if (wantFire !== null) Combat.fireEnemy(scene, s, wantFire);
+  },
+};

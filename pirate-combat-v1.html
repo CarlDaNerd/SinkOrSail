@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pirate — Combat + Factions V1</title>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<style>
+  html, body { margin:0; padding:0; background:#0b1622; overflow:hidden; font-family:ui-monospace,"SF Mono",Menlo,monospace; }
+  #wrap { display:flex; width:100vw; height:100vh; }
+  #game { flex:0 0 auto; }
+  #panel { flex:1 1 auto; min-width:236px; max-width:320px; height:100vh; box-sizing:border-box;
+    background:#0E1820; color:#D4C890; padding:13px 15px; overflow-y:auto; border-left:1px solid #2a3a4a; }
+  #panel h1 { font-size:12px; letter-spacing:2px; margin:0 0 3px; }
+  #panel .sub { font-size:9.5px; color:#6a8298; margin:0 0 10px; line-height:1.4; }
+  .row { margin-bottom:9px; }
+  .row label { display:flex; justify-content:space-between; font-size:9.5px; color:#8AAAC8; margin-bottom:2px; }
+  .row label .val { color:#F0C840; }
+  .row input[type=range] { width:100%; accent-color:#2A9EAE; height:3px; }
+  .grp { font-size:8.5px; letter-spacing:1.5px; color:#5a7088; border-bottom:1px solid #243240; padding-bottom:3px; margin:14px 0 8px; cursor:pointer; user-select:none; }
+  .grp::before { content:"▾ "; color:#3a5068; }
+  .grp.collapsed::before { content:"▸ "; }
+  .grp.collapsed + .body { display:none; }
+  #btns { display:flex; gap:6px; margin-top:14px; }
+  #btns button { flex:1; background:#1a2c3c; color:#D4C890; border:1px solid #2a3a4a; padding:7px 0; font-size:9.5px; letter-spacing:1px; cursor:pointer; font-family:inherit; }
+  #btns button:hover { background:#243a4e; }
+  #constsOut { display:none; width:100%; box-sizing:border-box; margin-top:10px; height:180px; background:#0b1622; color:#8AAAC8; border:1px solid #2a3a4a; font-family:inherit; font-size:9px; line-height:1.45; padding:8px; resize:vertical; white-space:pre; }
+  #keys { font-size:9px; color:#4a6076; margin-top:14px; line-height:1.7; }
+  #keys b { color:#8AAAC8; }
+  #standing { margin-top:12px; font-size:9.5px; line-height:1.7; }
+  #standing .s { display:flex; justify-content:space-between; }
+  #standing .bar { height:5px; background:#223040; margin-top:1px; }
+  #standing .bar > div { height:100%; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="game"></div>
+  <div id="panel">
+    <h1>COMBAT + FACTIONS V1</h1>
+    <p class="sub">Click headers to collapse. Sliders apply live.</p>
+
+    <div class="grp" data-g="sail">SAILING</div>
+    <div class="body">
+      <div class="row"><label>Max speed <span class="val" id="v_maxSpeed"></span></label><input type="range" id="maxSpeed" min="0.5" max="4" step="0.05"></div>
+      <div class="row"><label>No-go zone <span class="val" id="v_noGo"></span></label><input type="range" id="noGo" min="20" max="70" step="1"></div>
+      <div class="row"><label>Peak turn <span class="val" id="v_turnPeak"></span></label><input type="range" id="turnPeak" min="20" max="160" step="2"></div>
+      <div class="row"><label>Min turn <span class="val" id="v_turnMin"></span></label><input type="range" id="turnMin" min="2" max="40" step="1"></div>
+    </div>
+
+    <div class="grp" data-g="combat">BROADSIDE</div>
+    <div class="body">
+      <div class="row"><label>Balls / volley <span class="val" id="v_balls"></span></label><input type="range" id="balls" min="1" max="6" step="1"></div>
+      <div class="row"><label>Spread <span class="val" id="v_spread"></span></label><input type="range" id="spread" min="0" max="30" step="1"></div>
+      <div class="row"><label>Cannon speed <span class="val" id="v_cannonSpeed"></span></label><input type="range" id="cannonSpeed" min="2" max="10" step="0.5"></div>
+      <div class="row"><label>Cooldown <span class="val" id="v_cooldown"></span></label><input type="range" id="cooldown" min="0.3" max="2.5" step="0.05"></div>
+      <div class="row"><label>Damage <span class="val" id="v_damage"></span></label><input type="range" id="damage" min="5" max="40" step="1"></div>
+      <div class="row"><label>Range (life) <span class="val" id="v_cannonLife"></span></label><input type="range" id="cannonLife" min="0.5" max="2.5" step="0.1"></div>
+    </div>
+
+    <div class="grp" data-g="navy">NAVY</div>
+    <div class="body">
+      <div class="row"><label>Sight (witness) <span class="val" id="v_navySight"></span></label><input type="range" id="navySight" min="200" max="700" step="20"></div>
+      <div class="row"><label>Hostile threshold <span class="val" id="v_navyThresh"></span></label><input type="range" id="navyThresh" min="-100" max="0" step="5"></div>
+      <div class="row"><label>Attack range <span class="val" id="v_navyAttack"></span></label><input type="range" id="navyAttack" min="200" max="500" step="20"></div>
+      <div class="row"><label>Leash radius <span class="val" id="v_navyLeash"></span></label><input type="range" id="navyLeash" min="300" max="1500" step="50"></div>
+      <div class="row"><label>Standing recovery/s <span class="val" id="v_navyRecover"></span></label><input type="range" id="navyRecover" min="0" max="5" step="0.2"></div>
+      <div class="row"><label>Crime penalty <span class="val" id="v_crimePenalty"></span></label><input type="range" id="crimePenalty" min="5" max="60" step="5"></div>
+    </div>
+
+    <div class="grp" data-g="merch">MERCHANTS</div>
+    <div class="body">
+      <div class="row"><label>Flee range <span class="val" id="v_merchFlee"></span></label><input type="range" id="merchFlee" min="150" max="500" step="20"></div>
+      <div class="row"><label>Fight-back chance <span class="val" id="v_merchFight"></span></label><input type="range" id="merchFight" min="0" max="100" step="5"></div>
+    </div>
+
+    <div class="grp" data-g="priv">PRIVATEERS (ALLIES)</div>
+    <div class="body">
+      <div class="row"><label>Hits before hostile <span class="val" id="v_privHits"></span></label><input type="range" id="privHits" min="1" max="8" step="1"></div>
+      <div class="row"><label>Assist range <span class="val" id="v_privAssist"></span></label><input type="range" id="privAssist" min="200" max="700" step="20"></div>
+      <div class="row"><label>Help if standing &gt; <span class="val" id="v_privLawful"></span></label><input type="range" id="privLawful" min="-60" max="0" step="5"></div>
+    </div>
+
+    <div class="grp" data-g="surv">SURVIVAL</div>
+    <div class="body">
+      <div class="row"><label>Regen cap (% hull) <span class="val" id="v_regenCap"></span></label><input type="range" id="regenCap" min="0" max="60" step="5"></div>
+      <div class="row"><label>Regen rate /s <span class="val" id="v_regenRate"></span></label><input type="range" id="regenRate" min="0" max="6" step="0.5"></div>
+      <div class="row"><label>Out-of-combat delay <span class="val" id="v_regenDelay"></span></label><input type="range" id="regenDelay" min="1" max="12" step="1"></div>
+    </div>
+
+    <div class="grp" data-g="flag">FLAG (COLORS)</div>
+    <div class="body">
+      <div id="flagBtns" style="display:flex;gap:6px;">
+        <button id="flagNeutral" style="flex:1;background:#1a2c3c;color:#D4C890;border:1px solid #2a3a4a;padding:8px 0;font-size:9.5px;letter-spacing:1px;cursor:pointer;font-family:inherit;">NEUTRAL</button>
+        <button id="flagPirate" style="flex:1;background:#1a2c3c;color:#D4C890;border:1px solid #2a3a4a;padding:8px 0;font-size:9.5px;letter-spacing:1px;cursor:pointer;font-family:inherit;">PIRATE ☠</button>
+      </div>
+      <div id="flagStatus" style="font-size:9px;color:#6a8298;margin-top:6px;line-height:1.5;"></div>
+    </div>
+
+    <label style="display:flex;align-items:center;gap:7px;font-size:9.5px;color:#8AAAC8;margin-top:6px;cursor:pointer;user-select:none;">
+      <input type="checkbox" id="infAmmo" style="accent-color:#2A9EAE;"> infinite ammo (testing)
+    </label>
+
+    <div id="btns">
+      <button id="reset">RESET</button>
+      <button id="respawn">RESPAWN FLEET</button>
+      <button id="copy">COPY CONSTS</button>
+    </div>
+    <textarea id="constsOut" readonly spellcheck="false"></textarea>
+
+    <div id="standing">
+      <div class="s"><span>NAVY STANDING</span><span id="navyStandVal"></span></div>
+      <div class="bar"><div id="navyStandBar"></div></div>
+    </div>
+
+    <div id="keys">
+      <b>A/D · ←/→</b> turn &nbsp; <b>W/S</b> sails<br>
+      <b>Q</b> port broadside &nbsp; <b>E</b> starboard<br>
+      <b>R</b> reset ship &nbsp; <b>respawn</b> = new fleet<br>
+      <span style="color:#5a7088">blue=you · tan=merchant · red=pirate · cyan=navy · green=privateer</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── tunables ──
+const DEFAULTS = {
+  maxSpeed:2, accel:0.006, decel:0.007, windFrom:315, noGo:30, dwLoss:0.20,
+  turnPeak:94, turnPeakAt:58, turnMin:12, turnFull:50,
+  balls:3, spread:10, cannonSpeed:5.5, cooldown:2, damage:10, cannonLife:1.0,
+  navySight:540, navyThresh:-40, navyAttack:300, navyLeash:850, navyRecover:2, crimePenalty:25,
+  merchFlee:310, merchFight:20,
+  privHits:3, privAssist:460, privLawful:-15,
+  regenCap:30, regenRate:1.5, regenDelay:5,
+  flagDelay:1.2, flagCombatLock:5,
+};
+const P = { ...DEFAULTS };
+const DEBUG = { infAmmo:false, ring:{active:false, radius:0, age:0, label:''} };
+const SAIL_MULTIPLIERS=[0,0.55,1.0], RAD=Math.PI/180;
+const WORLD_W=6000, WORLD_H=6000, WORLD_SEED=42;
+const GAME_W=Math.min(1280, window.innerWidth-262), GAME_H=window.innerHeight;
+const SHIP_RADIUS=22, WAKE_LENGTH=60, WAKE_MIN_SPEED=0.2;
+const HULL_LEN=20, HULL_BEAM=10; // semi-length / half-beam of hull body (matches drawn ellipse, bowsprit excluded)
+
+function makePRNG(seed){let s=seed>>>0;return()=>{s=(Math.imul(1664525,s)+1013904223)>>>0;return s/4294967296;};}
+function windOff(h,w){let d=Math.abs(h-w)%360;return d>180?360-d:d;}
+function angleTo(f,t){return (Math.atan2(t.x-f.x,-(t.y-f.y))*180/Math.PI+360)%360;}
+function angleDiff(a,b){let d=(b-a+360)%360;return d>180?d-360:d;}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+function calcTargetSpeed(wa){ if(wa<P.noGo)return 0; if(wa<90)return P.maxSpeed*(0.5+0.5*(wa-P.noGo)/(90-P.noGo)); return P.maxSpeed*(1.0-P.dwLoss*(wa-90)/90); }
+function calcTurnDegS(vel){
+  const x=Math.min(vel/P.maxSpeed,1), px=P.turnPeakAt/100, peak=P.turnPeak, minV=P.turnMin, fullV=P.turnPeak*P.turnFull/100;
+  if(x<=px){const t=px===0?1:x/px;return minV+(peak-minV)*(1-(1-t)*(1-t));}
+  const t=(x-px)/(1-px);return peak+(fullV-peak)*(t*t);
+}
+
+class GameScene extends Phaser.Scene {
+  constructor(){ super('GameScene'); }
+  create(){
+    this.wprng=makePRNG(WORLD_SEED);
+    this.eprng=makePRNG(WORLD_SEED*7+13); // separate enemy PRNG (doc note 7)
+    this.cameras.main.setBounds(0,0,WORLD_W,WORLD_H).setBackgroundColor('#15263C');
+    this.islands=this.genWorld();
+    this.navyPorts=[]; this.placeNavyPorts();
+    this.bakeIslands(); this.border();
+
+    this.player={x:WORLD_W/2,y:WORLD_H/2,heading:180,vel:0,sailState:2,hull:130,maxHull:130,ammo:48,maxAmmo:48,gold:0,fire:{port:0,star:0},wake:[],id:'player',faction:'player',lastHitAt:-99,lastFiredAt:-99};
+    this.navyStanding=0; // 0 = neutral/friendly, negative = wanted
+    this.flag='neutral';          // 'neutral' | 'pirate'
+    this.flagPending=null;        // flag being raised, applies after delay
+    this.flagChangeAt=0;          // time the pending flag takes effect
+    this.cannonballs=[]; this.loot=[]; this.popups=[];
+    this.ships=[]; this.spawnFleet();
+
+    this.gfxWorld=this.add.graphics().setDepth(4);  // wakes, loot
+    this.gfxShips=this.add.graphics().setDepth(10);
+    this.gfxFx=this.add.graphics().setDepth(11);
+    this.follow=this.add.rectangle(this.player.x,this.player.y,1,1,0,0);
+    this.cameras.main.startFollow(this.follow,true,0.08,0.08);
+    this.cursors=this.input.keyboard.createCursorKeys();
+    this.keys=this.input.keyboard.addKeys('W,A,S,D,Q,E,R');
+    this.hud=new HUD(this);
+  }
+
+  placeNavyPorts(){
+    // pick 2 large landmasses, mark a point near them as navy home
+    const large=this.islands.filter(i=>i.multi);
+    for(let i=0;i<2 && i<large.length;i++){ this.navyPorts.push({x:large[i].cx, y:large[i].cy}); }
+    if(this.navyPorts.length<2){ this.navyPorts.push({x:WORLD_W*0.3,y:WORLD_H*0.3},{x:WORLD_W*0.7,y:WORLD_H*0.7}); }
+  }
+
+  genWorld(){
+    const r=this.wprng, islands=[];
+    const place=(count,rxR,ryR,minDist,multi)=>{
+      for(let i=0;i<count;i++){
+        let ok=false,att=0,cx,cy;
+        while(!ok&&att++<40){ cx=280+r()*(WORLD_W-560); cy=280+r()*(WORLD_H-560);
+          if(Math.hypot(cx-WORLD_W/2,cy-WORLD_H/2)<380)continue;
+          ok=islands.every(is=>Math.hypot(is.cx-cx,is.cy-cy)>minDist); }
+        if(!ok)continue;
+        const ells=[], lobes=multi?3+Math.floor(r()*3):1;
+        for(let l=0;l<lobes;l++){ const ox=multi?(r()-0.5)*140:0, oy=multi?(r()-0.5)*120:0;
+          ells.push({cx:cx+ox,cy:cy+oy,rx:rxR[0]+r()*(rxR[1]-rxR[0]),ry:ryR[0]+r()*(ryR[1]-ryR[0])}); }
+        islands.push({cx,cy,ells,multi});
+      }
+    };
+    place(5,[110,200],[85,170],600,true); place(13,[45,85],[36,70],220,false); place(18,[15,35],[12,28],100,false);
+    return islands;
+  }
+  bakeIslands(){
+    const g=this.add.graphics().setDepth(1);
+    for(const is of this.islands)for(const e of is.ells){g.fillStyle(0x2A9EAE,0.45);g.fillEllipse(e.cx,e.cy,e.rx*2.35,e.ry*2.35);}
+    for(const is of this.islands)for(const e of is.ells){g.fillStyle(0xC8905A,1);g.fillEllipse(e.cx,e.cy,e.rx*2,e.ry*2);}
+    for(const is of this.islands){ if(!is.multi&&is.ells[0].rx<36){const e=is.ells[0];g.fillStyle(0x685848,1);g.fillEllipse(e.cx,e.cy,e.rx*1.1,e.ry*1.1);continue;}
+      for(const e of is.ells){g.fillStyle(0x3D6E25,1);g.fillEllipse(e.cx,e.cy,e.rx*1.56,e.ry*1.56);} }
+    for(const is of this.islands){ if(!is.multi&&is.ells[0].rx<36)continue;
+      for(const e of is.ells){g.fillStyle(0x2B5018,1);g.fillEllipse(e.cx,e.cy,e.rx,e.ry);} }
+    // navy port markers
+    const pg=this.add.graphics().setDepth(2);
+    for(const np of this.navyPorts){ pg.fillStyle(0x8AC8E0,0.9); pg.fillCircle(np.x,np.y,9); pg.lineStyle(2,0x2A9EAE,0.4); pg.strokeCircle(np.x,np.y,16); }
+  }
+  border(){ const g=this.add.graphics().setDepth(2); g.lineStyle(2,0x2A9EAE,0.3); g.strokeRect(0,0,WORLD_W,WORLD_H); }
+
+  spawnFleet(){
+    this.ships.length=0;
+    const r=this.eprng;
+    const spawn=(faction,hull,n,homeIdx)=>{
+      for(let i=0;i<n;i++){
+        let x,y,att=0;
+        do{ x=300+r()*(WORLD_W-600); y=300+r()*(WORLD_H-600); att++; }
+        while(att<30 && (this.checkIsland(x,y,40).hit || Math.hypot(x-WORLD_W/2,y-WORLD_H/2)<450));
+        const home = (faction==='navy'||faction==='privateer') ? this.navyPorts[homeIdx%this.navyPorts.length] : null;
+        this.ships.push({
+          id:faction+'_'+i, faction, x,y, heading:r()*360, vel:0, sailState:2,
+          hull, maxHull:hull, fire:0, wake:[],
+          state:'cruise', waypoint:{x:300+r()*(WORLD_W-600),y:300+r()*(WORLD_H-600)},
+          home, hostileToPlayer:false, hitsByPlayer:0, alive:true,
+        });
+      }
+    };
+    spawn('merchant',50,5,0);
+    spawn('pirate',75,3,0);
+    spawn('navy',90,5,0);
+    spawn('privateer',70,2,0);
+  }
+
+  checkIsland(x,y,radius){
+    for(const is of this.islands)for(const e of is.ells){
+      const nx=(x-e.cx)/(e.rx+radius), ny=(y-e.cy)/(e.ry+radius);
+      if(nx*nx+ny*ny<1){const a=Math.atan2(y-e.cy,x-e.cx);return{hit:true,nx:Math.cos(a),ny:Math.sin(a)};}
+    } return{hit:false};
+  }
+
+  // Hull-shaped island test: samples points along the ship's centerline (matches the
+  // drawn hull ellipse rx≈10/ry≈20, bowsprit excluded). Lets a ship thread narrow gaps
+  // when pointed through them, while the long hull still can't sit sideways on a reef.
+  checkIslandHull(s){
+    const sin=Math.sin(s.heading*RAD), cos=Math.cos(s.heading*RAD);
+    const halfLen=HULL_LEN, beam=HULL_BEAM; // semi-length / half-width of the hull body
+    // sample stern, mid, bow along the long axis, each as a beam-radius circle
+    for(const off of [-halfLen*0.7, 0, halfLen*0.7]){
+      const px=s.x+sin*off, py=s.y-cos*off;
+      const c=this.checkIsland(px,py,beam);
+      if(c.hit) return c;
+    }
+    return {hit:false};
+  }
+
+  // does land block the straight line between two points? (sampled along the segment)
+  losBlocked(ax,ay,bx,by){
+    const d=Math.hypot(bx-ax,by-ay);
+    const steps=Math.max(2,Math.ceil(d/40)); // sample ~every 40px
+    for(let i=1;i<steps;i++){
+      const t=i/steps, x=ax+(bx-ax)*t, y=ay+(by-ay)*t;
+      // use beach radius (0 padding) so only solid land blocks, not the shallow ring
+      if(this.checkIsland(x,y,0).hit) return true;
+    }
+    return false;
+  }
+  // can `observer` see `target`: within range AND not blocked by land
+  canSee(ox,oy,tx,ty,range){
+    if(Math.hypot(tx-ox,ty-oy)>=range) return false;
+    return !this.losBlocked(ox,oy,tx,ty);
+  }
+
+  // crime witnessed by any navy within sight?  drops standing.
+  reportCrime(x,y){
+    // grace window: one witnessed incident shouldn't re-penalize every single volley
+    const now=this.time.now/1000;
+    if(this._lastCrimeAt!==undefined && now-this._lastCrimeAt < 1.5){
+      // still register that navy is watching (keeps them aware) but don't re-penalize
+      for(const s of this.ships){ if(s.faction==='navy'&&s.alive&&this.canSee(s.x,s.y,x,y,P.navySight)){ s.hostileToPlayer=true; return; } }
+      return;
+    }
+    for(const s of this.ships){
+      if(s.faction!=='navy'||!s.alive)continue;
+      if(this.canSee(s.x,s.y,x,y,P.navySight)){
+        this.navyStanding=Math.max(-100,this.navyStanding-P.crimePenalty);
+        this._lastCrimeAt=now;
+        s.hostileToPlayer=true;
+        this.flashPopup(x,y,'WITNESSED',0xE0503A);
+        return;
+      }
+    }
+  }
+  flashPopup(x,y,txt,color){ this.popups.push({x,y,txt,color,age:0,life:1.2}); }
+
+  fire(ship,side){
+    const cd = ship.faction==='player' ? P.cooldown : P.cooldown*1.8;
+    if(ship.faction==='player'){ if((ship.ammo<=0&&!DEBUG.infAmmo)||ship.fire[side]>0)return; }
+    else { if(ship.fire>0)return; }
+    const fa=(ship.heading+(side==='port'?-90:90)+360)%360;
+    const n=P.balls, half=(n-1)/2;
+    for(let b=0;b<n;b++){
+      const ang=fa+(b-half)*P.spread;
+      this.cannonballs.push({
+        x:ship.x+Math.sin(fa*RAD)*20, y:ship.y-Math.cos(fa*RAD)*20,
+        vx:Math.sin(ang*RAD)*P.cannonSpeed, vy:-Math.cos(ang*RAD)*P.cannonSpeed,
+        owner:ship.id, ownerFaction:ship.faction, age:0,
+      });
+    }
+    if(ship.faction==='player'){ if(!DEBUG.infAmmo) ship.ammo=Math.max(0,ship.ammo-n); ship.fire[side]=cd;
+      this.player.lastFiredAt=this.time.now/1000; // for flag-lock "in combat" window
+    }
+    else ship.fire=cd;
+  }
+  fireEnemy(ship,sideSign){ this.fire(ship, sideSign>0?'star':'port'); }
+
+  // a ball from `ownerFaction` hit a ship of `targetFaction` — should it register / provoke?
+  onHit(ball, target, dt){
+    target.hull-=P.damage;
+    if(ball.ownerFaction==='player'){
+      target.hostileToPlayer=true;
+      if(target.faction==='privateer'){ target.hitsByPlayer++; }
+      // attacking pirates is lawful — only hitting a non-pirate in navy sight is a crime
+      if(target.faction!=='pirate'){ this.reportCrime(target.x,target.y); }
+    }
+    if(target.hull<=0){ target.alive=false; this.spawnLoot(target); }
+  }
+
+  spawnLoot(s){
+    const base = s.faction==='pirate'?44 : s.faction==='navy'?50 : s.faction==='privateer'?40 : 28;
+    this.loot.push({x:s.x,y:s.y,value:base,age:0,life:10});
+  }
+
+  update(time,delta){
+    const dt=Math.min(delta,50)/(1000/60);
+    const dts=delta/1000;
+    const pl=this.player;
+    if(DEBUG.infAmmo) pl.ammo=pl.maxAmmo;
+    // R always works (incl. after sinking) to reset/revive the ship
+    if(Phaser.Input.Keyboard.JustDown(this.keys.R)){
+      pl.x=WORLD_W/2; pl.y=WORLD_H/2; pl.vel=0; pl.heading=180;
+      pl.hull=pl.maxHull; pl.ammo=pl.maxAmmo; pl.wake=[]; pl.fire={port:0,star:0};
+      this.flag='neutral'; this.flagPending=null;
+    }
+    if(pl.hull>0){
+      if(Phaser.Input.Keyboard.JustDown(this.keys.W))pl.sailState=Math.min(2,pl.sailState+1);
+      if(Phaser.Input.Keyboard.JustDown(this.keys.S))pl.sailState=Math.max(0,pl.sailState-1);
+      if(Phaser.Input.Keyboard.JustDown(this.keys.Q))this.fire(pl,'port');
+      if(Phaser.Input.Keyboard.JustDown(this.keys.E))this.fire(pl,'star');
+      const td=calcTurnDegS(pl.vel)*dts;
+      if(this.cursors.left.isDown||this.keys.A.isDown)pl.heading=(pl.heading-td+360)%360;
+      if(this.cursors.right.isDown||this.keys.D.isDown)pl.heading=(pl.heading+td)%360;
+      const wa=windOff(pl.heading,P.windFrom);
+      const tgt=calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState];
+      pl.vel+=(tgt-pl.vel)*Math.min((tgt>pl.vel?P.accel:P.decel)*dt,1);
+      this.moveShip(pl,dt);
+      if(pl.fire.port>0)pl.fire.port-=dts; if(pl.fire.star>0)pl.fire.star-=dts;
+      this.follow.setPosition(pl.x,pl.y);
+      this.pushWake(pl);
+    }
+
+    // navy standing recovers toward 0
+    if(this.navyStanding<0) this.navyStanding=Math.min(0,this.navyStanding+P.navyRecover*dts);
+    this.resolveFlag();
+
+    // capped out-of-combat hull regen: only heals up to regenCap% of maxHull, only when not recently hit
+    if(pl.hull>0){
+      const cap=pl.maxHull*P.regenCap/100;
+      const outOfCombat=(this.time.now/1000 - pl.lastHitAt) > P.regenDelay;
+      if(outOfCombat && pl.hull<cap){ pl.hull=Math.min(cap,pl.hull+P.regenRate*dts); }
+    }
+
+    for(const s of this.ships){ if(s.alive) this.updateAI(s,dt,dts); }
+    this.resolveShipCollisions();
+    this.updateCannonballs(dt);
+    this.updateLoot(dts);
+    for(let i=this.popups.length-1;i>=0;i--){ this.popups[i].age+=dts; this.popups[i].y-=12*dts; if(this.popups[i].age>this.popups[i].life)this.popups.splice(i,1); }
+    if(DEBUG.ring.active){ DEBUG.ring.age+=dts; if(DEBUG.ring.age>2.2) DEBUG.ring.active=false; }
+
+    this.draw();
+    this.hud.update(pl, windOff(pl.heading,P.windFrom));
+  }
+
+  moveShip(s,dt){
+    const stepX=Math.sin(s.heading*RAD)*s.vel*dt;
+    const stepY=-Math.cos(s.heading*RAD)*s.vel*dt;
+    const ox=s.x, oy=s.y;
+    let nx=Phaser.Math.Clamp(s.x+stepX,60,WORLD_W-60);
+    let ny=Phaser.Math.Clamp(s.y+stepY,60,WORLD_H-60);
+    // test hull at the prospective spot
+    s.x=nx; s.y=ny;
+    let col=this.checkIslandHull(s);
+    if(!col.hit) return;            // clear — move committed
+    // blocked: slide along coast — keep only the along-shore motion component
+    const dot=stepX*col.nx+stepY*col.ny;
+    const sx=stepX-dot*col.nx, sy=stepY-dot*col.ny;
+    s.x=Phaser.Math.Clamp(ox+sx,60,WORLD_W-60);
+    s.y=Phaser.Math.Clamp(oy+sy,60,WORLD_H-60);
+    if(!this.checkIslandHull(s).hit){ s.vel*=0.94; return; }   // grazed past
+    // still stuck: revert, gentle outward nudge, big speed loss
+    s.x=ox; s.y=oy;
+    if(this.checkIslandHull(s).hit){
+      s.x=Phaser.Math.Clamp(ox+col.nx*2,60,WORLD_W-60);
+      s.y=Phaser.Math.Clamp(oy+col.ny*2,60,WORLD_H-60);
+    }
+    s.vel*=0.5;
+  }
+
+  // soft circular separation so ships can't occupy the same pixel
+  resolveShipCollisions(){
+    const all=[];
+    if(this.player.hull>0) all.push(this.player);
+    for(const s of this.ships) if(s.alive) all.push(s);
+    const min=HULL_BEAM*2.4; // hulls roughly touch beam-to-beam before separating
+    for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){
+      const a=all[i], b=all[j];
+      const dx=b.x-a.x, dy=b.y-a.y; let d=Math.hypot(dx,dy);
+      if(d>0 && d<min){
+        const overlap=(min-d)/2, ux=dx/d, uy=dy/d;
+        const ax=a.x-ux*overlap, ay=a.y-uy*overlap;
+        const bx=b.x+ux*overlap, by=b.y+uy*overlap;
+        const aOld={x:a.x,y:a.y}; a.x=ax; a.y=ay; if(this.checkIslandHull(a).hit){a.x=aOld.x;a.y=aOld.y;}
+        const bOld={x:b.x,y:b.y}; b.x=bx; b.y=by; if(this.checkIslandHull(b).hit){b.x=bOld.x;b.y=bOld.y;}
+        a.vel*=0.92; b.vel*=0.92;
+      }
+    }
+  }
+  pushWake(s){ if(s.vel>WAKE_MIN_SPEED){ s.wake.push({x:s.x-Math.sin(s.heading*RAD)*16,y:s.y+Math.cos(s.heading*RAD)*16}); if(s.wake.length>WAKE_LENGTH)s.wake.shift(); } }
+
+  navyHostile(){ return this.navyStanding<=P.navyThresh; }
+
+  inCombat(){ return (this.time.now/1000 - Math.max(this.player.lastFiredAt,this.player.lastHitAt)) < P.flagCombatLock; }
+  requestFlag(f){
+    if(this.inCombat()) return false;          // can't change colors mid-fight
+    if(f===this.flag && !this.flagPending) return false;
+    this.flagPending=f; this.flagChangeAt=this.time.now/1000 + P.flagDelay;
+    return true;
+  }
+  resolveFlag(){
+    if(this.flagPending!==null && this.time.now/1000 >= this.flagChangeAt){
+      this.flag=this.flagPending; this.flagPending=null;
+      // raising pirate colors in navy sight = witnessed: those navy ships go hostile + standing hit
+      if(this.flag==='pirate'){
+        for(const s of this.ships){ if(s.faction==='navy'&&s.alive&&this.canSee(s.x,s.y,this.player.x,this.player.y,P.navySight)){ s.hostileToPlayer=true; } }
+        const seen=this.ships.some(s=>s.faction==='navy'&&s.alive&&this.canSee(s.x,s.y,this.player.x,this.player.y,P.navySight));
+        if(seen){ this.navyStanding=Math.max(-100,this.navyStanding-P.crimePenalty); this.flashPopup(this.player.x,this.player.y,'COLORS SEEN',0xE0503A); }
+      }
+    }
+  }
+
+  nearestPirate(s, maxRange){
+    let tp=null, tpd=maxRange;
+    for(const o of this.ships){ if(o.faction!=='pirate'||!o.alive)continue; const od=dist(s,o); if(od<tpd){tpd=od; tp=o;} }
+    return tp;
+  }
+  // if `heading` would drive the ship into land soon, fan out to find the nearest clear bearing
+  avoidLand(s, heading){
+    const probe=110; // look-ahead distance
+    if(!this.headingBlocked(s,heading,probe)) return heading;
+    // search outward in both directions for the first clear heading
+    for(let off=20; off<=160; off+=20){
+      const right=(heading+off)%360, left=(heading-off+360)%360;
+      const rClear=!this.headingBlocked(s,right,probe);
+      const lClear=!this.headingBlocked(s,left,probe);
+      if(rClear && lClear) return (this.headingBlocked(s,right,probe*0.6)?left:right); // prefer the more open side
+      if(rClear) return right;
+      if(lClear) return left;
+    }
+    return heading; // boxed in — let collision handle it
+  }
+  headingBlocked(s, heading, dist){
+    const sin=Math.sin(heading*RAD), cos=Math.cos(heading*RAD);
+    for(const step of [dist*0.5, dist]){
+      const px=s.x+sin*step, py=s.y-cos*step;
+      if(this.checkIsland(px,py,HULL_BEAM).hit) return true;
+    }
+    return false;
+  }
+  // if a desired heading sits inside the no-go zone, nudge it to the nearest sailable edge
+  // so AI ships never park themselves head-to-wind (the in-irons trap)
+  avoidIrons(heading){
+    const wa=windOff(heading,P.windFrom);
+    if(wa>=P.noGo) return heading;
+    // which side of the wind is the heading on? push it to the no-go edge on that side
+    const rel=angleDiff(P.windFrom,heading); // -180..180; near 0 = pointing into wind
+    const edge = rel>=0 ? P.noGo+2 : -(P.noGo+2);
+    return (P.windFrom+edge+360)%360;
+  }
+
+  updateAI(s,dt,dts){
+    const pl=this.player;
+    const d=dist(s,pl);
+    let targetHeading=s.heading, desiredSail=2, wantFire=null;
+    const playerPirateFlag = this.flag==='pirate';
+
+    if(s.faction==='merchant'){
+      // flee only if threatened: pirate flag shown, OR provoked, OR player is WANTED
+      const threatened = playerPirateFlag || s.hostileToPlayer || this.navyHostile();
+      const willFight = s.hostileToPlayer && (s._fightRoll===undefined ? (s._fightRoll=this.eprng()*100) : s._fightRoll) < P.merchFight;
+      if(willFight && d<P.merchFlee){
+        ({targetHeading,desiredSail,wantFire}=this.combatManeuver(s,pl,d)); s.state='fight';
+      } else if(threatened && d<P.merchFlee){
+        targetHeading=(angleTo(s,pl)+180)%360; desiredSail=2; s.state='flee';
+      } else { ({targetHeading,desiredSail}=this.cruise(s)); s.state='cruise'; }
+
+    } else if(s.faction==='pirate'){
+      const DETECT=440, ATK=260;
+      // pirate flag = fellow pirate: they leave you alone (unless you've hit them)
+      const friendlyToPlayer = playerPirateFlag && !s.hostileToPlayer;
+      if(!friendlyToPlayer && d<DETECT){
+        if(d<ATK){({targetHeading,desiredSail,wantFire}=this.combatManeuver(s,pl,d));s.state='attack';}
+        else {targetHeading=angleTo(s,pl);desiredSail=2;s.state='pursue';}
+      } else { ({targetHeading,desiredSail}=this.cruise(s)); s.state='cruise'; }
+
+    } else if(s.faction==='navy'){
+      // continuously spot pirate colors within sight (land blocks the view) → become hostile
+      if(playerPirateFlag && this.canSee(s.x,s.y,pl.x,pl.y,P.navySight)){
+        if(!s.hostileToPlayer){ s.hostileToPlayer=true;
+          if(!this._coloresSeen){ this.navyStanding=Math.max(-100,this.navyStanding-P.crimePenalty); this.flashPopup(pl.x,pl.y,'COLORS SEEN',0xE0503A); this._coloresSeen=true; setTimeout(()=>{this._coloresSeen=false;},1500); }
+        }
+      }
+      // forgiveness: stop holding a grudge once the player is no longer a threat
+      // (account standing recovered, not flying pirate colors, and not a fresh witness this frame)
+      if(s.hostileToPlayer && !this.navyHostile() && !playerPirateFlag){
+        const stillSees = this.canSee(s.x,s.y,pl.x,pl.y,P.navySight);
+        if(!stillSees || d>P.navySight*1.2){ s.hostileToPlayer=false; }
+      }
+      // witnessed-hostile (saw colors / saw a crime) OR account is WANTED
+      const hostile = this.navyHostile() || s.hostileToPlayer;
+      const homeD = s.home?Math.hypot(s.x-s.home.x,s.y-s.home.y):0;
+      const leashed = s.home && homeD>P.navyLeash;
+      if(leashed){ targetHeading=angleTo(s,s.home); desiredSail=2; s.state='return'; }
+      else if(hostile && d<P.navyAttack){
+        ({targetHeading,desiredSail,wantFire}=this.combatManeuver(s,pl,d)); s.state='attack';
+      } else if(hostile && d<P.navySight){
+        targetHeading=angleTo(s,pl); desiredSail=2; s.state='pursue';
+      } else {
+        // not after the player → hunt pirates near home
+        const tp=this.nearestPirate(s, P.navyAttack*1.4);
+        if(tp){ const td=dist(s,tp);
+          if(td<P.navyAttack){({targetHeading,desiredSail,wantFire}=this.combatManeuver(s,tp,td));s.state='hunt';}
+          else {targetHeading=angleTo(s,tp);desiredSail=2;s.state='chase';}
+        } else { ({targetHeading,desiredSail}=this.patrolHome(s)); s.state='patrol'; }
+      }
+
+    } else if(s.faction==='privateer'){
+      const hostile = this.navyHostile() || s.hitsByPlayer>=P.privHits;
+      const lawful = this.navyStanding > P.privLawful;
+      if(hostile){
+        if(d<P.navyAttack){({targetHeading,desiredSail,wantFire}=this.combatManeuver(s,pl,d));s.state='attack';}
+        else {targetHeading=angleTo(s,pl);desiredSail=2;s.state='pursue';}
+      } else if(lawful){
+        let tp=null,tpd=1e9;
+        for(const o of this.ships){ if(o.faction!=='pirate'||!o.alive)continue;
+          const od=dist(s,o); const score=od+(dist(o,pl)<P.privAssist?-150:0);
+          if(score<tpd){tpd=score;tp=o;} }
+        if(tp && dist(s,tp)<P.privAssist){
+          if(dist(s,tp)<260){({targetHeading,desiredSail,wantFire}=this.combatManeuver(s,tp,dist(s,tp)));s.state='assist';}
+          else {targetHeading=angleTo(s,tp);desiredSail=2;s.state='hunt';}
+        } else { ({targetHeading,desiredSail}=this.patrolHome(s)); s.state='guard'; }
+      } else { ({targetHeading,desiredSail}=this.patrolHome(s)); s.state='wary'; }
+    }
+
+    // steer around land first, then ensure the chosen heading is sailable (not in irons)
+    targetHeading=this.avoidLand(s, targetHeading);
+    targetHeading=this.avoidIrons(targetHeading);
+
+    // turn
+    const diff=angleDiff(s.heading,targetHeading);
+    const tr=calcTurnDegS(s.vel)*0.7*dts;
+    s.heading=(s.heading+Math.sign(diff)*Math.min(Math.abs(diff),tr)+360)%360;
+    s.sailState=desiredSail;
+    // speed
+    const wa=windOff(s.heading,P.windFrom);
+    const sf=s.faction==='merchant'?0.8:s.faction==='navy'?0.92:1.0;
+    const tspd=calcTargetSpeed(wa)*SAIL_MULTIPLIERS[s.sailState]*sf;
+    s.vel+=(tspd-s.vel)*Math.min(0.012*dt,1);
+    this.moveShip(s,dt);
+    this.pushWake(s);
+    if(s.fire>0)s.fire-=dts;
+    // execute fire
+    if(wantFire!==null) this.fireEnemy(s, wantFire);
+  }
+
+  cruise(s){
+    if(dist(s,s.waypoint)<100){ s.waypoint={x:250+this.eprng()*(WORLD_W-500),y:250+this.eprng()*(WORLD_H-500)}; }
+    return {targetHeading:angleTo(s,s.waypoint), desiredSail: s.faction==='merchant'?2:1};
+  }
+  patrolHome(s){
+    const home=s.home||{x:WORLD_W/2,y:WORLD_H/2};
+    if(!s.waypoint||dist(s,s.waypoint)<90){
+      const a=this.eprng()*Math.PI*2, rr=150+this.eprng()*Math.min(P.navyLeash*0.7,500);
+      s.waypoint={x:home.x+Math.cos(a)*rr, y:home.y+Math.sin(a)*rr};
+    }
+    return {targetHeading:angleTo(s,s.waypoint), desiredSail:1};
+  }
+  // returns heading/sail + which side to fire (sign) if perpendicular & in arc
+  combatManeuver(s,target,d){
+    const toT=angleTo(s,target);
+    const perp1=(toT+90)%360, perp2=(toT-90+360)%360;
+    const th=(Math.abs(angleDiff(s.heading,perp1))<Math.abs(angleDiff(s.heading,perp2)))?perp1:perp2;
+    let wantFire=null;
+    const ad=Math.abs(angleDiff(s.heading,toT));
+    if(ad>70&&ad<110&&s.fire<=0){ wantFire=angleDiff(s.heading,toT)>0?1:-1; }
+    return {targetHeading:th, desiredSail:1, wantFire};
+  }
+
+  updateCannonballs(dt){
+    const cb=this.cannonballs;
+    for(let i=cb.length-1;i>=0;i--){
+      const b=cb[i]; b.x+=b.vx*dt; b.y+=b.vy*dt; b.age+=dt/60;
+      if(b.age>P.cannonLife){cb.splice(i,1);continue;}
+      if(this.checkIsland(b.x,b.y,4).hit){cb.splice(i,1);continue;}
+      let hit=false;
+      // hits player?
+      if(b.ownerFaction!=='player' && this.player.hull>0 && Math.hypot(b.x-this.player.x,b.y-this.player.y)<24){
+        this.player.hull=Math.max(0,this.player.hull-P.damage);
+        this.player.lastHitAt=this.time.now/1000;
+        this.flashPopup(this.player.x,this.player.y,'-'+P.damage,0xE0503A);
+        hit=true;
+      }
+      // hits a ship?
+      if(!hit){
+        for(const s of this.ships){
+          if(!s.alive||s.id===b.owner)continue;
+          if(b.ownerFaction===s.faction)continue; // no friendly fire within same faction
+          if(Math.hypot(b.x-s.x,b.y-s.y)<24){ this.onHit(b,s,dt); hit=true; break; }
+        }
+      }
+      if(hit)cb.splice(i,1);
+    }
+  }
+  updateLoot(dts){
+    for(let i=this.loot.length-1;i>=0;i--){
+      const l=this.loot[i]; l.age+=dts;
+      if(l.age>l.life){this.loot.splice(i,1);continue;}
+      if(this.player.hull>0 && Math.hypot(l.x-this.player.x,l.y-this.player.y)<36){
+        this.player.gold+=l.value; this.player.ammo=Math.min(this.player.maxAmmo,this.player.ammo+6);
+        this.flashPopup(l.x,l.y,'+'+l.value+'g',0xF0C840);
+        this.loot.splice(i,1);
+      }
+    }
+  }
+
+  draw(){
+    const gw=this.gfxWorld; gw.clear();
+    // wakes
+    const drawWake=(s,col)=>{ if(s.wake.length<2)return; gw.lineStyle(2,col,0.28); for(let i=1;i<s.wake.length;i+=2){const a=s.wake[i-1],b=s.wake[i];gw.lineBetween(a.x,a.y,b.x,b.y);} };
+    drawWake(this.player,0xA0CCD8);
+    for(const s of this.ships)if(s.alive)drawWake(s,0x88AABB);
+    // loot
+    for(const l of this.loot){ const fade=l.age>l.life-2?(l.life-l.age)/2:1; gw.fillStyle(0xF0C840,0.85*fade); gw.fillCircle(l.x,l.y,7); gw.lineStyle(2,0xF0C840,0.4*fade); gw.strokeCircle(l.x,l.y,12); }
+
+    // debug range ring (world space, centered on player)
+    if(DEBUG.ring.active && this.player.hull>0){
+      const fade=1-DEBUG.ring.age/2.2;
+      gw.lineStyle(2,0xF0C840,0.5*fade);
+      gw.strokeCircle(this.player.x,this.player.y,DEBUG.ring.radius);
+      gw.lineStyle(1,0xF0C840,0.25*fade);
+      gw.lineBetween(this.player.x,this.player.y,this.player.x+DEBUG.ring.radius,this.player.y);
+    }
+
+    const gs=this.gfxShips; gs.clear();
+    for(const s of this.ships)if(s.alive)this.drawShip(gs,s);
+    if(this.player.hull>0)this.drawShip(gs,this.player);
+
+    // cannonballs
+    const gf=this.gfxFx; gf.clear();
+    gf.fillStyle(0x201810,1);
+    for(const b of this.cannonballs){ gf.fillCircle(b.x,b.y,3); }
+    // popups
+    for(const p of this.popups){ /* drawn as text below via hud overlay text pool — keep simple: draw as small marks */ }
+    this.hud.drawPopups(this.popups);
+  }
+
+  drawShip(g,s){
+    const colors={
+      player:[0x7A4E28,0xC08840], merchant:[0xB89A60,0xD0AA70],
+      pirate:[0x5A2010,0x7A3020], navy:[0x24506E,0x3E7AA0], privateer:[0x2B5A2B,0x46863C],
+    }[s.faction];
+    g.save(); g.translateCanvas(s.x,s.y); g.rotateCanvas(s.heading*RAD);
+    g.fillStyle(colors[0],1); g.fillEllipse(0,0,20,40);
+    g.fillStyle(colors[1],1); g.fillEllipse(0,2,13,30);
+    g.lineStyle(2.5,0x2A1404,1); g.lineBetween(-11,-3,11,-3); g.lineBetween(0,-18,0,-26);
+    if(s.sailState>0){ const h=s.sailState===2?18:10; g.fillStyle(0xD4C48C,0.9); g.fillRect(-9,-3,18,h); }
+    g.fillStyle(0x2A1404,1); g.fillCircle(0,-3,3.5);
+    // stern flagpole + flag (local coords: stern is +y / downward)
+    let flagColor=null;
+    if(s.faction==='player'){ flagColor = this.flag==='pirate' ? 0x101010 : null; }
+    else if(s.faction==='pirate'){ flagColor=0x101010; }
+    else if(s.faction==='navy'){ flagColor=0x3E7AA0; }
+    else if(s.faction==='privateer'){ flagColor=0x46863C; }
+    // small pole always on stern; flag cloth only if a color applies
+    g.lineStyle(1.5,0x2A1404,1); g.lineBetween(0,18,0,28);
+    if(flagColor!==null){ g.fillStyle(flagColor,1); g.fillRect(0,18,9,6);
+      if(flagColor===0x101010){ // skull dot for pirate colors
+        g.fillStyle(0xD4D4D4,1); g.fillCircle(4.5,21,1.4); }
+    }
+    // pending flag: draw it half-raised + faint to show it's changing
+    if(s.faction==='player' && this.flagPending!==null){
+      const pc = this.flagPending==='pirate' ? 0x101010 : 0xB89A60;
+      g.fillStyle(pc,0.4); g.fillRect(0,23,8,5);
+    }
+    g.restore();
+    // hull bar for damaged ships
+    if(s.hull<s.maxHull){ const w=22,pct=Math.max(0,s.hull/s.maxHull);
+      g.fillStyle(0x000000,0.5); g.fillRect(s.x-w/2,s.y-32,w,3);
+      g.fillStyle(pct<0.35?0xE0503A:0x4CA84C,1); g.fillRect(s.x-w/2,s.y-32,w*pct,3); }
+  }
+}
+
+class HUD{
+  constructor(scene){
+    this.s=scene;
+    this.g=scene.add.graphics().setScrollFactor(0).setDepth(100);
+    const mk=(x,y,sz,col,o)=>scene.add.text(x,y,'',{fontFamily:'ui-monospace,monospace',fontSize:sz+'px',color:col}).setScrollFactor(0).setDepth(101).setOrigin(o?0.5:0,0);
+    this.tSpeed=mk(20,16,12,'#D4C890'); this.tSail=mk(20,38,12,'#D4C890');
+    this.tHull=mk(20,82,11,'#D4C890'); this.tAmmo=mk(20,100,11,'#D4C890'); this.tGold=mk(110,100,11,'#F0C840');
+    this.tIrons=scene.add.text(GAME_W/2,GAME_H*0.30,'',{fontFamily:'ui-monospace,monospace',fontSize:'18px',color:'#E0503A',fontStyle:'bold'}).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+    this.tStatus=scene.add.text(GAME_W/2,26,'',{fontFamily:'ui-monospace,monospace',fontSize:'14px',color:'#E0503A',fontStyle:'bold'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(101);
+    this.tOver=scene.add.text(GAME_W/2,GAME_H/2,'',{fontFamily:'ui-monospace,monospace',fontSize:'30px',color:'#E0503A',fontStyle:'bold'}).setOrigin(0.5).setScrollFactor(0).setDepth(102);
+    this.cx=GAME_W-66-128;this.cy=66;this.cr=40;
+    this.tScale=scene.add.text(GAME_W/2,GAME_H-22,'',{fontFamily:'ui-monospace,monospace',fontSize:'10px',color:'#D4C890'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(101);
+    this.popupPool=[]; for(let i=0;i<16;i++){const t=scene.add.text(0,0,'',{fontFamily:'ui-monospace,monospace',fontSize:'12px',fontStyle:'bold'}).setDepth(60).setOrigin(0.5);this.popupPool.push(t);}
+  }
+  drawPopups(popups){
+    for(let i=0;i<this.popupPool.length;i++){
+      const t=this.popupPool[i], p=popups[i];
+      if(p){ const fade=1-p.age/p.life; t.setText(p.txt).setColor('#'+p.color.toString(16).padStart(6,'0')).setPosition(p.x,p.y).setAlpha(fade).setVisible(true); }
+      else t.setVisible(false);
+    }
+  }
+  update(pl,wa){
+    const g=this.g; g.clear();
+    g.fillStyle(0x0E1820,0.9); g.fillRect(12,10,150,112);
+    const sp=Math.min(pl.vel/P.maxSpeed,1), sc=sp<0.05?0xE0503A:sp<0.5?0xE0A040:0x4CA84C;
+    g.fillStyle(0x223040,1);g.fillRect(20,60,130,7); g.fillStyle(sc,1);g.fillRect(20,60,130*sp,7);
+    this.tSpeed.setText('SPEED  '+(pl.vel/P.maxSpeed*9).toFixed(1)+' kn');
+    this.tSail.setText(['NO SAILS','MAIN SAIL','FULL SAIL'][pl.sailState]).setColor(['#E0503A','#E0A040','#4CA84C'][pl.sailState]);
+    const hp=Math.max(0,pl.hull/pl.maxHull);
+    g.fillStyle(0x223040,1);g.fillRect(20,76,130,5); g.fillStyle(hp<0.35?0xE0503A:0x4CA84C,1);g.fillRect(20,76,130*hp,5);
+    this.tHull.setText('HULL '+Math.ceil(pl.hull)); this.tAmmo.setText('AMMO '+pl.ammo); this.tGold.setText('GOLD '+pl.gold);
+    this.tIrons.setText((pl.sailState>0&&wa<P.noGo)?'IN IRONS — turn away':'');
+    // navy status banner
+    const hostile=this.s.navyHostile();
+    let banner = hostile ? '★ WANTED — NAVY HOSTILE' : '';
+    if(this.s.flag==='pirate'){ banner = (banner?banner+'   ':'') + '☠ PIRATE COLORS FLYING'; }
+    this.tStatus.setText(banner).setColor(hostile?'#E0503A':'#D0A030');
+    this.tOver.setText(pl.hull<=0?'YOU SANK\nrefresh or press R':'');
+    // compass
+    g.fillStyle(0x0E1820,0.9);g.fillCircle(this.cx,this.cy,this.cr+6);
+    g.lineStyle(1,0x2a3a4a,1);g.strokeCircle(this.cx,this.cy,this.cr);
+    g.fillStyle(0xE0503A,0.18);g.beginPath();g.moveTo(this.cx,this.cy);
+    for(let a=-P.noGo;a<=P.noGo;a+=4){const ang=(P.windFrom+a-90)*RAD;g.lineTo(this.cx+Math.cos(ang)*this.cr,this.cy+Math.sin(ang)*this.cr);}
+    g.closePath();g.fillPath();
+    const wA=(P.windFrom-90)*RAD;g.lineStyle(3,0x8AAAC8,1);g.lineBetween(this.cx,this.cy,this.cx+Math.cos(wA)*this.cr*0.85,this.cy+Math.sin(wA)*this.cr*0.85);
+    const hA=(pl.heading-90)*RAD;g.lineStyle(2,0xF0C840,1);g.lineBetween(this.cx,this.cy,this.cx+Math.cos(hA)*this.cr*0.7,this.cy+Math.sin(hA)*this.cr*0.7);
+    // mini-map top-right corner
+    const mw=110,mh=88,mx=GAME_W-mw-12,my=12;
+    g.fillStyle(0x0E1820,0.85);g.fillRect(mx,my,mw,mh);
+    g.lineStyle(1,0x2a3a4a,1);g.strokeRect(mx,my,mw,mh);
+    const sx=mw/WORLD_W,sy=mh/WORLD_H;
+    g.fillStyle(0x3D6E25,0.9);for(const is of this.s.islands)g.fillCircle(mx+is.cx*sx,my+is.cy*sy,is.multi?3:1.3);
+    for(const s of this.s.ships){if(!s.alive)continue;const c={merchant:0xD0AA70,pirate:0xE0503A,navy:0x6AB0D8,privateer:0x6AC060}[s.faction];g.fillStyle(c,1);g.fillCircle(mx+s.x*sx,my+s.y*sy,1.6);}
+    g.fillStyle(0x88BBFF,1);g.fillCircle(mx+pl.x*sx,my+pl.y*sy,2.4);
+
+    // bottom-center pixel scale bar (200px world reference)
+    const camZoom=this.s.cameras.main.zoom; // 1 in this build → screen px == world px
+    const ref=200*camZoom, bx=GAME_W/2-ref/2, by=GAME_H-26;
+    g.lineStyle(2,0xD4C890,0.8);
+    g.lineBetween(bx,by,bx+ref,by);
+    g.lineBetween(bx,by-5,bx,by+5); g.lineBetween(bx+ref,by-5,bx+ref,by+5);
+    this.tScale.setText('200 px').setPosition(GAME_W/2,by+4);
+  }
+}
+
+const config={type:Phaser.AUTO,parent:'game',width:GAME_W,height:GAME_H,backgroundColor:'#15263C',scene:[GameScene],fps:{target:60}};
+const game=new Phaser.Game(config);
+
+// ── panel ──
+const fields=['maxSpeed','noGo','turnPeak','turnMin','balls','spread','cannonSpeed','cooldown','damage','cannonLife','navySight','navyThresh','navyAttack','navyLeash','navyRecover','crimePenalty','merchFlee','merchFight','privHits','privAssist','privLawful','regenCap','regenRate','regenDelay'];
+const fmt={maxSpeed:v=>v.toFixed(2),noGo:v=>'±'+v+'°',turnPeak:v=>v+'°/s',turnMin:v=>v+'°/s',balls:v=>v,spread:v=>v+'°',cannonSpeed:v=>v.toFixed(1),cooldown:v=>v.toFixed(2)+'s',damage:v=>v,cannonLife:v=>v.toFixed(1)+'s',navySight:v=>v+'px',navyThresh:v=>v,navyAttack:v=>v+'px',navyLeash:v=>v+'px',navyRecover:v=>v.toFixed(1),crimePenalty:v=>'-'+v,merchFlee:v=>v+'px',merchFight:v=>v+'%',privHits:v=>v,privAssist:v=>v+'px',privLawful:v=>v,regenCap:v=>v+'%',regenRate:v=>v.toFixed(1),regenDelay:v=>v+'s'};
+function syncPanel(){ fields.forEach(f=>{const el=document.getElementById(f);if(el){el.value=P[f];document.getElementById('v_'+f).textContent=fmt[f](P[f]);}}); }
+const RING_FIELDS=new Set(['navySight','navyAttack','navyLeash','merchFlee','privAssist']);
+fields.forEach(f=>{const el=document.getElementById(f);if(el)el.addEventListener('input',e=>{
+  P[f]=parseFloat(e.target.value);
+  document.getElementById('v_'+f).textContent=fmt[f](P[f]);
+  if(RING_FIELDS.has(f)){ DEBUG.ring.active=true; DEBUG.ring.radius=P[f]; DEBUG.ring.age=0; DEBUG.ring.label=f; }
+});});
+document.getElementById('infAmmo').addEventListener('change',e=>{ DEBUG.infAmmo=e.target.checked; });
+function sc(){ return game.scene.getScene('GameScene'); }
+document.getElementById('flagNeutral').addEventListener('click',()=>{ const s=sc(); if(s) s.requestFlag('neutral'); });
+document.getElementById('flagPirate').addEventListener('click',()=>{ const s=sc(); if(s) s.requestFlag('pirate'); });
+setInterval(()=>{ const s=sc(); if(!s||!s.flag) return;
+  const el=document.getElementById('flagStatus'); if(!el) return;
+  const bN=document.getElementById('flagNeutral'), bP=document.getElementById('flagPirate');
+  const active=f=>{bN.style.background=s.flag==='neutral'&&!s.flagPending?'#2A9EAE':'#1a2c3c'; bP.style.background=s.flag==='pirate'&&!s.flagPending?'#7A3020':'#1a2c3c';};
+  active();
+  let msg='';
+  if(s.inCombat()){ msg='⚠ locked — in combat'; bN.disabled=bP.disabled=true; bN.style.opacity=bP.style.opacity=0.4; }
+  else { bN.disabled=bP.disabled=false; bN.style.opacity=bP.style.opacity=1;
+    if(s.flagPending){ const t=Math.max(0,(s.flagChangeAt-s.time.now/1000)).toFixed(1); msg='raising '+s.flagPending+' colors… '+t+'s'; }
+    else msg='flying '+s.flag+' colors'+(s.flag==='pirate'?' — pirates ignore you, navy hostile':'');
+  }
+  el.textContent=msg;
+},120);
+document.querySelectorAll('.grp').forEach(h=>h.addEventListener('click',()=>h.classList.toggle('collapsed')));
+document.getElementById('reset').addEventListener('click',()=>{Object.assign(P,DEFAULTS);syncPanel();});
+document.getElementById('respawn').addEventListener('click',()=>{const sc=game.scene.getScene('GameScene');if(sc){sc.spawnFleet();sc.navyStanding=0;sc.cannonballs.length=0;sc.loot.length=0;}});
+function buildConsts(){return `// ── Tuned constants: Pirate V1 (combat + factions) ──
+// SAILING (dt-scaled; port keeps delta-time formulation)
+const MAX_SPEED=${P.maxSpeed}, ACCEL=${P.accel}, DECEL=${P.decel};
+const WIND_FROM=${P.windFrom}, NO_GO=${P.noGo}, DOWNWIND_LOSS=${P.dwLoss};
+const TURN_PEAK_DEG_S=${P.turnPeak}, TURN_PEAK_AT=${P.turnPeakAt}, TURN_MIN_DEG_S=${P.turnMin}, TURN_FULL_PCT=${P.turnFull};
+// BROADSIDE
+const BALLS_PER_VOLLEY=${P.balls}, SPREAD_DEG=${P.spread}, CANNON_SPEED=${P.cannonSpeed};
+const FIRE_COOLDOWN_S=${P.cooldown}, CANNON_DAMAGE=${P.damage}, CANNON_LIFE_S=${P.cannonLife};
+// NAVY
+const NAVY_SIGHT=${P.navySight}, NAVY_HOSTILE_THRESHOLD=${P.navyThresh}, NAVY_ATTACK_RANGE=${P.navyAttack};
+const NAVY_LEASH=${P.navyLeash}, NAVY_STANDING_RECOVER_PER_S=${P.navyRecover}, CRIME_PENALTY=${P.crimePenalty};
+// MERCHANTS
+const MERCHANT_FLEE_RANGE=${P.merchFlee}, MERCHANT_FIGHT_CHANCE_PCT=${P.merchFight};
+// PRIVATEERS (allies): hybrid hostility (WANTED or N hits); assist only when standing > lawful cutoff
+const PRIVATEER_HITS_BEFORE_HOSTILE=${P.privHits}, PRIVATEER_ASSIST_RANGE=${P.privAssist}, PRIVATEER_LAWFUL_CUTOFF=${P.privLawful};
+// SURVIVAL: player hull 130; enemy cooldown ×1.8; capped out-of-combat regen
+const PLAYER_HULL=130, ENEMY_COOLDOWN_MULT=1.8;
+const REGEN_CAP_PCT=${P.regenCap}, REGEN_RATE_PER_S=${P.regenRate}, REGEN_OUT_OF_COMBAT_DELAY_S=${P.regenDelay};
+// FLAGS: neutral | pirate. Pirate colors → pirates ignore you, merchants flee, navy hostile-on-sight.
+// Crime = hitting a NON-pirate in navy sight (pirate-hunting is lawful). Navy who witnessed stay hostile (flag flip doesn't erase memory).
+const FLAG_RAISE_DELAY_S=${P.flagDelay}, FLAG_COMBAT_LOCK_S=${P.flagCombatLock};
+// ROSTER: 5 merchant, 3 pirate (always hostile unless pirate flag), 5 navy (hunt pirates + you if witnessed), 2 privateer`;}
+document.getElementById('copy').addEventListener('click',()=>{
+  const txt=buildConsts(),out=document.getElementById('constsOut');
+  out.value=txt;out.style.display='block';out.focus();out.select();
+  const flash=m=>{const b=document.getElementById('copy');b.textContent=m;setTimeout(()=>b.textContent='COPY CONSTS',1100);};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>flash('COPIED')).catch(()=>{try{document.execCommand('copy');flash('COPIED');}catch(e){flash('SELECT+COPY');}});
+  else{try{document.execCommand('copy');flash('COPIED');}catch(e){flash('SELECT+COPY');}}
+});
+// live standing readout
+setInterval(()=>{const sc=game.scene.getScene('GameScene');if(!sc||sc.navyStanding===undefined)return;
+  const v=sc.navyStanding;document.getElementById('navyStandVal').textContent=v.toFixed(0)+(v<=P.navyThresh?' (HOSTILE)':'');
+  const bar=document.getElementById('navyStandBar');const pct=(v+100)/100;bar.style.width=(pct*100)+'%';bar.style.background=v<=P.navyThresh?'#E0503A':v<-10?'#E0A040':'#4CA84C';
+},200);
+syncPanel();
+</script>
+</body>
+</html>

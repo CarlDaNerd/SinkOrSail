@@ -1,0 +1,16 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs / scratch
+*.log
+
+# Dev-only headless test harnesses (generated and deleted during development)
+pirate-game/_*.js

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pirate — Combat + Factions V1 (modular)</title>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<style>
+  html, body { margin:0; padding:0; background:#0b1622; overflow:hidden; font-family:ui-monospace,"SF Mono",Menlo,monospace; }
+  #wrap { width:100vw; height:100vh; }
+  #game { width:100vw; height:100vh; }
+  /* slide-in drawer overlay (toggle with the edge tab or the backtick key) */
+  #panel { position:fixed; top:0; right:0; width:300px; height:100vh; box-sizing:border-box;
+    background:#0E1820; color:#D4C890; border-left:1px solid #2a3a4a; z-index:20;
+    transform:translateX(100%); transition:transform .22s ease; }
+  #panel.open { transform:translateX(0); box-shadow:-10px 0 28px rgba(0,0,0,.45); }
+  #panelInner { height:100%; box-sizing:border-box; padding:13px 15px; overflow-y:auto; }
+  /* edge tab — sits on the drawer's left edge and rides in/out with it */
+  #panelTab { position:absolute; left:-32px; top:50%; transform:translateY(-50%);
+    width:32px; padding:16px 0; box-sizing:border-box; cursor:pointer; user-select:none;
+    background:#0E1820; color:#D4C890; border:1px solid #2a3a4a; border-right:none;
+    border-radius:7px 0 0 7px; text-align:center; font-size:11px; letter-spacing:2px;
+    writing-mode:vertical-rl; text-orientation:mixed; }
+  #panelTab:hover { background:#1a2c3c; color:#F0C840; }
+  #panel h1 { font-size:12px; letter-spacing:2px; margin:0 0 3px; }
+  #panel .sub { font-size:9.5px; color:#6a8298; margin:0 0 10px; line-height:1.4; }
+  .row { margin-bottom:9px; }
+  .row label { display:flex; justify-content:space-between; font-size:9.5px; color:#8AAAC8; margin-bottom:2px; }
+  .row label .val { color:#F0C840; }
+  .row input[type=range] { width:100%; accent-color:#2A9EAE; height:3px; }
+  .grp { font-size:8.5px; letter-spacing:1.5px; color:#5a7088; border-bottom:1px solid #243240; padding-bottom:3px; margin:14px 0 8px; cursor:pointer; user-select:none; }
+  .grp::before { content:"▾ "; color:#3a5068; }
+  .grp.collapsed::before { content:"▸ "; }
+  .grp.collapsed + .body { display:none; }
+  #btns { display:flex; gap:6px; margin-top:14px; }
+  #btns button { flex:1; background:#1a2c3c; color:#D4C890; border:1px solid #2a3a4a; padding:7px 0; font-size:9.5px; letter-spacing:1px; cursor:pointer; font-family:inherit; }
+  #btns button:hover { background:#243a4e; }
+  #constsOut { display:none; width:100%; box-sizing:border-box; margin-top:10px; height:180px; background:#0b1622; color:#8AAAC8; border:1px solid #2a3a4a; font-family:inherit; font-size:9px; line-height:1.45; padding:8px; resize:vertical; white-space:pre; }
+  #keys { font-size:9px; color:#4a6076; margin-top:14px; line-height:1.7; }
+  #keys b { color:#8AAAC8; }
+  #standing { margin-top:12px; font-size:9.5px; line-height:1.7; }
+  #standing .s { display:flex; justify-content:space-between; }
+  #standing .bar { height:5px; background:#223040; margin-top:1px; }
+  #standing .bar > div { height:100%; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="game"></div>
+  <div id="panel" class="open">
+    <div id="panelTab" title="Toggle tuning panel ( ` )">⚙ TUNE</div>
+    <div id="panelInner">
+    <h1>COMBAT + FACTIONS V1</h1>
+    <p class="sub">Click headers to collapse. Sliders apply live.</p>
+
+    <div class="grp" data-g="sail">SAILING</div>
+    <div class="body">
+      <div class="row"><label>Max speed <span class="val" id="v_maxSpeed"></span></label><input type="range" id="maxSpeed" min="0.5" max="4" step="0.05"></div>
+      <div class="row"><label>No-go zone <span class="val" id="v_noGo"></span></label><input type="range" id="noGo" min="20" max="70" step="1"></div>
+      <div class="row"><label>Peak turn <span class="val" id="v_turnPeak"></span></label><input type="range" id="turnPeak" min="20" max="160" step="2"></div>
+      <div class="row"><label>Min turn <span class="val" id="v_turnMin"></span></label><input type="range" id="turnMin" min="2" max="40" step="1"></div>
+    </div>
+
+    <div class="grp" data-g="combat">BROADSIDE</div>
+    <div class="body">
+      <div class="row"><label>Balls / volley <span class="val" id="v_balls"></span></label><input type="range" id="balls" min="1" max="6" step="1"></div>
+      <div class="row"><label>Spread <span class="val" id="v_spread"></span></label><input type="range" id="spread" min="0" max="30" step="1"></div>
+      <div class="row"><label>Cannon speed <span class="val" id="v_cannonSpeed"></span></label><input type="range" id="cannonSpeed" min="2" max="10" step="0.5"></div>
+      <div class="row"><label>Cooldown <span class="val" id="v_cooldown"></span></label><input type="range" id="cooldown" min="0.3" max="2.5" step="0.05"></div>
+      <div class="row"><label>Damage <span class="val" id="v_damage"></span></label><input type="range" id="damage" min="5" max="40" step="1"></div>
+      <div class="row"><label>Range (life) <span class="val" id="v_cannonLife"></span></label><input type="range" id="cannonLife" min="0.5" max="2.5" step="0.1"></div>
+    </div>
+
+    <div class="grp" data-g="navy">NAVY</div>
+    <div class="body">
+      <div class="row"><label>Sight (witness) <span class="val" id="v_navySight"></span></label><input type="range" id="navySight" min="200" max="700" step="20"></div>
+      <div class="row"><label>Hostile threshold <span class="val" id="v_navyThresh"></span></label><input type="range" id="navyThresh" min="-100" max="0" step="5"></div>
+      <div class="row"><label>Attack range <span class="val" id="v_navyAttack"></span></label><input type="range" id="navyAttack" min="200" max="500" step="20"></div>
+      <div class="row"><label>Leash radius <span class="val" id="v_navyLeash"></span></label><input type="range" id="navyLeash" min="300" max="1500" step="50"></div>
+      <div class="row"><label>Standing recovery/s <span class="val" id="v_navyRecover"></span></label><input type="range" id="navyRecover" min="0" max="5" step="0.2"></div>
+      <div class="row"><label>Crime penalty <span class="val" id="v_crimePenalty"></span></label><input type="range" id="crimePenalty" min="5" max="60" step="5"></div>
+    </div>
+
+    <div class="grp" data-g="merch">MERCHANTS</div>
+    <div class="body">
+      <div class="row"><label>Flee range <span class="val" id="v_merchFlee"></span></label><input type="range" id="merchFlee" min="150" max="500" step="20"></div>
+      <div class="row"><label>Fight-back chance <span class="val" id="v_merchFight"></span></label><input type="range" id="merchFight" min="0" max="100" step="5"></div>
+    </div>
+
+    <div class="grp" data-g="priv">PRIVATEERS (ALLIES)</div>
+    <div class="body">
+      <div class="row"><label>Hits before hostile <span class="val" id="v_privHits"></span></label><input type="range" id="privHits" min="1" max="8" step="1"></div>
+      <div class="row"><label>Assist range <span class="val" id="v_privAssist"></span></label><input type="range" id="privAssist" min="200" max="700" step="20"></div>
+      <div class="row"><label>Help if standing &gt; <span class="val" id="v_privLawful"></span></label><input type="range" id="privLawful" min="-60" max="0" step="5"></div>
+    </div>
+
+    <div class="grp" data-g="surv">SURVIVAL</div>
+    <div class="body">
+      <div class="row"><label>Regen cap (% hull) <span class="val" id="v_regenCap"></span></label><input type="range" id="regenCap" min="0" max="60" step="5"></div>
+      <div class="row"><label>Regen rate /s <span class="val" id="v_regenRate"></span></label><input type="range" id="regenRate" min="0" max="6" step="0.5"></div>
+      <div class="row"><label>Out-of-combat delay <span class="val" id="v_regenDelay"></span></label><input type="range" id="regenDelay" min="1" max="12" step="1"></div>
+    </div>
+
+    <div class="grp" data-g="flag">FLAG (COLORS)</div>
+    <div class="body">
+      <div id="flagBtns" style="display:flex;gap:6px;">
+        <button id="flagNeutral" style="flex:1;background:#1a2c3c;color:#D4C890;border:1px solid #2a3a4a;padding:8px 0;font-size:9.5px;letter-spacing:1px;cursor:pointer;font-family:inherit;">NEUTRAL</button>
+        <button id="flagPirate" style="flex:1;background:#1a2c3c;color:#D4C890;border:1px solid #2a3a4a;padding:8px 0;font-size:9.5px;letter-spacing:1px;cursor:pointer;font-family:inherit;">PIRATE ☠</button>
+      </div>
+      <div id="flagStatus" style="font-size:9px;color:#6a8298;margin-top:6px;line-height:1.5;"></div>
+    </div>
+
+    <label style="display:flex;align-items:center;gap:7px;font-size:9.5px;color:#8AAAC8;margin-top:6px;cursor:pointer;user-select:none;">
+      <input type="checkbox" id="infAmmo" style="accent-color:#2A9EAE;"> infinite ammo (testing)
+    </label>
+
+    <div id="btns">
+      <button id="reset">RESET</button>
+      <button id="respawn">RESPAWN FLEET</button>
+      <button id="copy">COPY CONSTS</button>
+    </div>
+    <textarea id="constsOut" readonly spellcheck="false"></textarea>
+
+    <div id="standing">
+      <div class="s"><span>NAVY STANDING</span><span id="navyStandVal"></span></div>
+      <div class="bar"><div id="navyStandBar"></div></div>
+    </div>
+
+    <div id="keys">
+      <b>A/D · ←/→</b> turn &nbsp; <b>W/S</b> sails<br>
+      <b>Q</b> port broadside &nbsp; <b>E</b> starboard<br>
+      <b>R</b> reset ship &nbsp; <b>respawn</b> = new fleet<br>
+      <b>`</b> show/hide this panel<br>
+      <span style="color:#5a7088">blue=you · tan=merchant · red=pirate · cyan=navy · green=privateer</span>
+    </div>
+    </div><!-- /#panelInner -->
+  </div><!-- /#panel -->
+</div><!-- /#wrap -->
+
+<!-- ── load order: dependencies first, scene classes before main, debug after main ── -->
+<!-- foundation -->
+<script src="js/constants.js"></script>
+<script src="js/utils/PRNG.js"></script>
+<script src="js/utils/MathUtils.js"></script>
+<script src="js/systems/SailingPhysics.js"></script>
+<!-- world -->
+<script src="js/world/Port.js"></script>
+<script src="js/world/WorldGen.js"></script>
+<script src="js/world/Island.js"></script>
+<script src="js/world/ChunkManager.js"></script>
+<script src="js/systems/CollisionSystem.js"></script>
+<script src="js/world/Visibility.js"></script>
+<script src="js/systems/Steering.js"></script>
+<!-- factions / flags -->
+<script src="js/systems/FactionSystem.js"></script>
+<script src="js/systems/FlagSystem.js"></script>
+<!-- entities -->
+<script src="js/entities/Loot.js"></script>
+<script src="js/entities/Cannonball.js"></script>
+<script src="js/entities/Player.js"></script>
+<script src="js/entities/Enemy.js"></script>
+<!-- combat / ai -->
+<script src="js/systems/Combat.js"></script>
+<script src="js/systems/AI.js"></script>
+<!-- ui -->
+<script src="js/ui/WindCompass.js"></script>
+<script src="js/ui/MiniMap.js"></script>
+<script src="js/ui/HUD.js"></script>
+<!-- missions -->
+<script src="js/missions/MissionLoader.js"></script>
+<!-- scenes -->
+<script src="js/scenes/BootScene.js"></script>
+<script src="js/scenes/MenuScene.js"></script>
+<script src="js/scenes/GameScene.js"></script>
+<script src="js/scenes/UIScene.js"></script>
+<!-- launch + debug -->
+<script src="js/main.js"></script>
+<script src="js/debug/DebugOverlay.js"></script>
+</body>
+</html>
