@@ -66,14 +66,18 @@ const Island = {
     return [gShallow, gMBeach, gMJungle, gMCore, gBBeach, gBJungle, gBCore, gIBeach, gIJungle, gICore, gRocks];
   },
 
-  // port markers: cyan dot + ring + faint dock-radius ring (above land)
+  // port markers: type-coloured dot + ring + faint dock-radius ring (above land).
+  // Each port type has its own colour (PORT_TYPES[type].color); Trading Hubs read
+  // a touch bigger since they're the regional anchor.
   drawPortMarkers(scene){
     if (!scene._portGfx) scene._portGfx = scene.add.graphics().setDepth(2);
     const pg = scene._portGfx; pg.clear();
     for (const np of scene.navyPorts){
+      const col = (PORT_TYPES[np.type] && PORT_TYPES[np.type].color) || 0x8AC8E0;
+      const r = (np.type === 'TradingHub') ? 11 : 8;
       pg.lineStyle(1, 0x2A9EAE, 0.16); pg.strokeCircle(np.x, np.y, DOCK_RADIUS);
-      pg.fillStyle(0x8AC8E0, 0.9); pg.fillCircle(np.x, np.y, 9);
-      pg.lineStyle(2, 0x2A9EAE, 0.4); pg.strokeCircle(np.x, np.y, 16);
+      pg.fillStyle(col, 0.95); pg.fillCircle(np.x, np.y, r);
+      pg.lineStyle(2, col, 0.55); pg.strokeCircle(np.x, np.y, r + 7);
       if (np.docks) for (const d of np.docks){          // MD berths along the quay
         const bx = np.x + d.dx, by = np.y + d.dy;
         pg.fillStyle(d.occupantId ? 0xE0A040 : 0x2A9EAE, 0.85); pg.fillRect(bx - 3, by - 3, 6, 6);

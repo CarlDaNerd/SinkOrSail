@@ -27,8 +27,15 @@ function drawWorldMap(g, gs){
     const data = WorldGen.generateChunk(xk, yk);
     for (const land of data.lands){ g.fillStyle((land.mainland || land.big) ? 0x3D6E25 : 0x4C8A30, 1); for (const e of land.ells) g.fillCircle(w2x(e.cx), w2y(e.cy), Math.max(0.7, e.rx*s)); }
   }
-  // ports
-  for (const p of gs.navyPorts){ g.fillStyle(0x8AC8E0, 1); g.fillCircle(w2x(p.x), w2y(p.y), 4); g.lineStyle(1.5, 0x2A9EAE, 0.6); g.strokeCircle(w2x(p.x), w2y(p.y), 8); }
+  // ports — only those in EXPLORED chunks, so they stay hidden under the fog like
+  // the land does (no leaking the whole world's ports when you zoom out). Coloured
+  // by port type.
+  for (const p of gs.navyPorts){
+    if (!gs.explored.has(Math.floor(p.x/CHUNK_SIZE) + ',' + Math.floor(p.y/CHUNK_SIZE))) continue;
+    const col = (PORT_TYPES[p.type] && PORT_TYPES[p.type].color) || 0x8AC8E0;
+    g.fillStyle(col, 1); g.fillCircle(w2x(p.x), w2y(p.y), 4);
+    g.lineStyle(1.5, 0x2A9EAE, 0.6); g.strokeCircle(w2x(p.x), w2y(p.y), 8);
+  }
   // player marker + heading
   const ppx = w2x(gs.player.x), ppy = w2y(gs.player.y);
   g.fillStyle(0x88BBFF, 1); g.fillCircle(ppx, ppy, 5);

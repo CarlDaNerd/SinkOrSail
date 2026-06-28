@@ -34,7 +34,7 @@ class GameScene extends Phaser.Scene {
     this.follow = this.add.rectangle(this.player.x, this.player.y, 1, 1, 0, 0);
     this.cameras.main.startFollow(this.follow, true, 0.08, 0.08);
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,M,Z,X');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,M,Z,X');
     this.input.on('wheel', (p, over, dx, dy) => { if (!this.mapOpen) return; this.mapScale = Phaser.Math.Clamp(this.mapScale * (dy < 0 ? 1.12 : 0.892), MAP_SCALE_MIN, MAP_SCALE_MAX); this.mapDirty = true; });
     this.input.on('pointermove', (p) => { if (!this.mapOpen || !p.isDown) return; this.mapFollow = false; this.mapCenterX -= (p.position.x - p.prevPosition.x)/this.mapScale; this.mapCenterY -= (p.position.y - p.prevPosition.y)/this.mapScale; this.mapDirty = true; });
 
@@ -47,20 +47,79 @@ class GameScene extends Phaser.Scene {
     if (data && data.load){ const s = Save.read(); if (s) Save.apply(this, s); }
   }
 
-  // Anchor two ports on the COAST of the nearest large landmasses to origin (the
-  // starter mainland is guaranteed near origin). Ports sit at the water's edge so
-  // you can actually sail up and dock. (Per-mainland ports across the world come
-  // with the AI-streaming phase.)
+  // Place TYPED ports across the world, deterministically per cluster: every
+  // mainland gets 2–3 (scaling with size), up to 2 of a cluster's larger islands
+  // get one, and the odd lone open-sea cluster gets a Frontier Outpost. Coast
+  // points are computed straight from each landmass's ellipse lobes, so this works
+  // for regions that haven't streamed in yet. (One-time ±PORT_REGION_RADIUS scan.)
   placeStartPorts(){
-    const NAMES = ['Port Royal', 'Tortuga'];
-    const larges = this.islands.filter(is => is.mainland && Math.hypot(is.cx, is.cy) < 9000)
-                       .sort((a, b) => Math.hypot(a.cx, a.cy) - Math.hypot(b.cx, b.cy));
+    const R = PORT_REGION_RADIUS;
+    const NAMES = ['Port Royal','Tortuga','Nassau','Havana','Cartagena','Kingston','Bridgetown','San Juan','Maracaibo','Campeche','Porto Bello','Willemstad','Santiago','Bonaire','Eleuthera','Petit Goave','Panama','Veracruz','Trinidad','Barbados','Curacao','Aruba','Antigua','Martinique'];
+    let ni = 0;
     const ports = [];
-    for (const land of larges){ if (ports.length >= 2) break; const cp = this.findCoastPoint(land, 0); ports.push(new Port(cp.x, cp.y, NAMES[ports.length])); }
-    if (ports.length === 1){ const cp = this.findCoastPoint(larges[0], Math.PI); ports.push(new Port(cp.x, cp.y, NAMES[1])); }  // 2nd harbour on the far coast
-    const fb = [{ x:1900, y:-1400 }, { x:-1500, y:1500 }];
-    while (ports.length < 2){ const p = fb[ports.length]; ports.push(new Port(p.x, p.y, NAMES[ports.length])); }
+    const mk = (x, y, type, prng) => {
+      const sr = PORT_TYPES[type].slots, slots = sr[0] + Math.floor(prng() * (sr[1] - sr[0] + 1));
+      const p = new Port(x, y, NAMES[ni++ % NAMES.length], slots);
+      PortEconomy.assignType(p, type, prng);
+      return p;
+    };
+    for (let ry = -R; ry <= R; ry++) for (let rx = -R; rx <= R; rx++){
+      const biome = WorldGen.biomeOf(rx, ry);
+      if (biome !== 'cluster' && biome !== 'sea') continue;
+      const reg = WorldGen.region(rx, ry);
+      if (!reg.lands.length) continue;
+      const prng = makePRNG(hashCoords(rx, ry, (WORLD_SEED ^ 0x504F5254) >>> 0));   // 'PORT' salt — decoupled from terrain/enemy PRNGs
+      if (biome === 'cluster'){
+        this._placeClusterPorts(reg, prng, mk, ports);
+      } else if (prng() < LONE_CLUSTER_PORT_CHANCE){
+        const isl = reg.lands.filter(l => (l.rad || 0) >= ISLAND_PORT_MIN_RAD).sort((a, b) => (b.rad || 0) - (a.rad || 0))[0];
+        if (isl){ const cp = this._coastOf(isl, prng() * TAU); ports.push(mk(cp.x, cp.y, 'FrontierOutpost', prng)); }
+      }
+    }
+    if (!ports.length) ports.push(mk(1900, -1400, 'TradingHub', makePRNG(123)));   // safety net (never empty)
     return ports;
+  }
+
+  // ports for one mega-cluster: 2–3 per mainland (TradingHub + source ports), and
+  // up to 2 of the cluster's larger islands (0/1/2 roll, the biggest first).
+  _placeClusterPorts(reg, prng, mk, ports){
+    const mains = reg.lands.filter(l => l.mainland);
+    const isles = reg.lands.filter(l => !l.mainland && (l.rad || 0) >= ISLAND_PORT_MIN_RAD).sort((a, b) => (b.rad || 0) - (a.rad || 0));
+    const MAIN_TYPES = ['ClothMill','LumberYard','SugarFarm','Brewery','TobaccoFarm','IronMine'];
+    const ISLE_TYPES = ['LumberYard','SugarFarm','Brewery','TobaccoFarm','FrontierOutpost'];
+    for (const m of mains){
+      const n = Math.max(MAINLAND_PORTS_MIN, Math.min(MAINLAND_PORTS_MAX, Math.round((m.rad || 1200) / MAINLAND_PORT_PER_RAD)));
+      const base = prng() * TAU;
+      for (let i = 0; i < n; i++){
+        const ang = base + (i / n) * TAU + (prng() - 0.5) * 0.5;     // spaced around the coast
+        const cp = this._coastOf(m, ang);
+        const type = (i === 0) ? 'TradingHub' : MAIN_TYPES[Math.floor(prng() * MAIN_TYPES.length)];
+        ports.push(mk(cp.x, cp.y, type, prng));
+      }
+    }
+    const roll = prng();
+    let nIsl = roll < 0.25 ? 0 : roll < 0.75 ? 1 : 2;               // ~25% / 50% / 25%
+    nIsl = Math.min(nIsl, SMALL_ISLAND_PORTS_MAX, isles.length);
+    for (let i = 0; i < nIsl; i++){
+      const isl = isles[i];                                         // the biggest eligible islands first
+      const cp = this._coastOf(isl, prng() * TAU);
+      ports.push(mk(cp.x, cp.y, ISLE_TYPES[Math.floor(prng() * ISLE_TYPES.length)], prng));
+    }
+  }
+
+  // a coast point on a single landmass, computed from its ellipse lobes (no
+  // scene.islands dependency, so it works for not-yet-streamed regions): march out
+  // from the centre along `ang` to the last point still on land.
+  _coastOf(land, ang){
+    const cx = land.cx, cy = land.cy, cos = Math.cos(ang), sin = Math.sin(ang);
+    const inside = (x, y) => { for (const e of (land.ells || [])){ const nx = (x - e.cx) / e.rx, ny = (y - e.cy) / e.ry; if (nx*nx + ny*ny < 1) return true; } return false; };
+    let last = null;
+    for (let rr = 0; rr < 4000; rr += 20){
+      const x = cx + cos*rr, y = cy + sin*rr;
+      if (inside(x, y)) last = { x, y, rr };
+      else if (last && rr > last.rr + 60) return { x: last.x, y: last.y };
+    }
+    return last ? { x: last.x, y: last.y } : { x: cx + cos*(land.rad || 200), y: cy + sin*(land.rad || 200) };
   }
 
   // march outward from a landmass center until we cleanly exit land into open
@@ -140,6 +199,23 @@ class GameScene extends Phaser.Scene {
     pl.ammo += units; pl.bank -= units * AMMO_COST_PER_UNIT;
     this.flashPopup(pl.x, pl.y - 20, '+' + units + ' AMMO', 0xF0C840);
   }
+  // sell the entire hold at this port's buy prices (gold -> bank)
+  sellAllAtPort(){
+    const pl = this.player, port = this.dockPort; if (!port || !pl.hold) return;
+    let gold = 0, units = 0;
+    for (const c of COMMODITIES){ const have = Cargo.qty(pl.hold, c); if (have > 0){ const unit = PortEconomy.buyPrice(port, c); const sold = PortEconomy.sell(this, port, c, have); units += sold; gold += sold * unit; } }
+    if (units > 0) this.flashPopup(pl.x, pl.y - 20, '+' + gold + 'g SOLD', 0xF0C840);
+    else this.flashPopup(pl.x, pl.y, 'NO CARGO', 0xE0503A);
+  }
+  // buy this port's source commodity up to capacity / affordability
+  buySourceAtPort(){
+    const pl = this.player, port = this.dockPort; if (!port) return;
+    const c = port.sourceCommodity;
+    if (!c){ this.flashPopup(pl.x, pl.y, 'NOTHING TO BUY', 0xE0503A); return; }
+    const got = PortEconomy.buy(this, port, c, Cargo.free(pl.hold));
+    if (got > 0) this.flashPopup(pl.x, pl.y - 20, '+' + got + ' ' + (COMMODITY_INFO[c] ? COMMODITY_INFO[c].glyph : '?'), COMMODITY_INFO[c] ? COMMODITY_INFO[c].color : 0xF0C840);
+    else this.flashPopup(pl.x, pl.y, "CAN'T BUY", 0xE0503A);
+  }
 
   update(time, delta){
     const dt = Math.min(delta, 50)/(1000/60);      // frame-normalized step (cap prevents tunneling)
@@ -162,6 +238,8 @@ class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.keys.F)){ this.docked = false; this.dockPort = null; }
       else if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) this.repairAtPort();
       else if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) this.restockAtPort();
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.THREE)) this.sellAllAtPort();
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.FOUR)) this.buySourceAtPort();
       this.draw();                                   // keep the (frozen) world visible behind the menu
       return;
     }

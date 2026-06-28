@@ -114,13 +114,18 @@ class HUD {
   drawDock(g){
     const gs = this.gs, pl = gs.player;
     if (gs.docked && gs.dockPort){
-      const w = 400, h = 188, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
+      const w = 420, h = 248, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
       g.fillStyle(0x0E1820, 0.94); g.fillRect(x, y, w, h);
       g.lineStyle(2, 0x2A9EAE, 0.6); g.strokeRect(x, y, w, h);
+      const port = gs.dockPort;
       const repairNeed = pl.maxHull - pl.hull, ammoNeed = pl.maxAmmo - pl.ammo;
       const l1 = repairNeed <= 0 ? '[1] Hull fully repaired' : '[1] Repair hull  —  ' + Math.ceil(repairNeed * REPAIR_COST_PER_HP) + 'g';
       const l2 = ammoNeed   <= 0 ? '[2] Ammo full'           : '[2] Restock ammo  —  ' + (ammoNeed * AMMO_COST_PER_UNIT) + 'g';
-      this.tDockMenu.setText('⚓  ' + gs.dockPort.name + '   (saved)\n\nGOLD  ' + (pl.bank || 0) + '\n\n' + l1 + '\n' + l2 + '\n\n[F] Depart').setVisible(true);
+      let cargo = '(empty)';
+      if (pl.hold){ const parts = []; for (const c of COMMODITIES){ const q = pl.hold.items[c]; if (q) parts.push((COMMODITY_INFO[c] ? COMMODITY_INFO[c].glyph : c) + q); } if (parts.length) cargo = parts.join(' '); }
+      const src = port.sourceCommodity;
+      const l4 = src ? ('[4] Buy ' + src + '  —  ' + PortEconomy.sellPrice(port, src) + 'g/ea') : '[4] — (no local good)';
+      this.tDockMenu.setText('⚓  ' + port.name + '   (' + (port.type || 'Port') + ')\n\nGOLD  ' + (pl.bank || 0) + '     HOLD  ' + cargo + '\n\n' + l1 + '\n' + l2 + '\n[3] Sell all cargo\n' + l4 + '\n\n[F] Depart').setVisible(true);
       this.tDockPrompt.setVisible(false);
     } else if (gs.nearPort){
       let msg;

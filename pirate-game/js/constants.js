@@ -48,20 +48,20 @@ const MINIMAP_W = 200, MINIMAP_H = 150;   // corner minimap size (px). Shows 2×
 const MAP_SCALE_INIT = 0.045;             // big map (M): screen-px per world-px
 const MAP_SCALE_MIN = 0.02, MAP_SCALE_MAX = 0.22;
 
-// ── BIOMES (rarity ladder, ocean-heavy) ──────────────────────────────────
-// Driven by the coherent landiness noise so land regions clump together —
-// long empty hauls broken by occasional bunched-up grouping zones. Per region:
-//   L < OCEAN_LANDINESS                  → ocean    (most common; rare lone landmark)
-//   OCEAN ≤ L < DENSE_LANDINESS          → sparse   (a few scattered islands)
-//   L ≥ DENSE_LANDINESS, non-peak        → dense    (a big island grouping)
-//   L ≥ MAINLAND_LANDINESS & local peak  → mainland (rare, ringed by open water)
-const REGION_SIZE = 4000;         // coarse biome cell (px); one mainland max per region
+// ── BIOMES (SEA vs. CLUSTER) ──────────────────────────────────────────────
+// The world is MOSTLY OPEN SEA. Land is concentrated into discrete CLUSTERS. A
+// cluster sits ONLY at a strict local landiness PEAK at/above CLUSTER_LANDINESS,
+// so no two clusters are even diagonally adjacent — they're always ringed by open
+// water. Each cluster is a "cluster of clusters": >=1 mainland at its heart,
+// ringed by smaller sub-groups + lone islands (a bounded footprint, not sprawling).
+// Open-sea regions are empty except for the occasional small lone cluster adrift.
+//   strict local peak AND L >= CLUSTER_LANDINESS → cluster ; otherwise → sea
+const REGION_SIZE = 4000;         // coarse biome cell (px)
 const BIOME_FREQ = 0.45;          // landiness-noise frequency (lower = bigger zones)
-const OCEAN_LANDINESS = 0.55;     // below → open ocean (most common)
-const DENSE_LANDINESS = 0.73;     // at/above (non-peak) → dense grouping; below → sparse scatter
-const MAINLAND_LANDINESS = 0.66;  // a strict local landiness peak at/above this → mainland (rare)
-const REGION_MARGIN = 1000;       // place feature anchors this far inside their region
-const MAX_FEATURE_REACH = 5000;   // a chunk gathers features from regions within this
+const CLUSTER_LANDINESS = 0.50;   // a strict local landiness peak at/above this → a cluster (rare); else open sea
+const OCEAN_LONE_CLUSTER_CHANCE = 0.05;  // a sea region's chance of a small lone cluster (a few islands, no mainland)
+const REGION_MARGIN = 1000;       // place lone features this far inside their region
+const MAX_FEATURE_REACH = 6000;   // a chunk gathers features from regions within this (covers larger cluster footprints)
 
 // ── ISLAND SIZE TIERS — footprint RADIUS (half-span) px. Every shape archetype
 // is built to FIT inside this radius (stripes included), so a tier's span ≈ 2×
@@ -95,13 +95,27 @@ const SHALLOW_COLOR = 0x1E5468;
 // neighbouring groupings on the 4000px region grid stay clear of each other.
 const DENSE_COUNT_MIN = 7, DENSE_COUNT_MAX = 13;         // islands in a big (dense) grouping
 const DENSE_RADIUS_MIN = 1100, DENSE_RADIUS_MAX = 1400;  // contained spread (stays inside its region, with an ocean buffer)
-const SPARSE_COUNT_MIN = 2, SPARSE_COUNT_MAX = 5;        // islands in a sparse scatter
-const SPARSE_RADIUS_MIN = 900, SPARSE_RADIUS_MAX = 1400;
+const SPARSE_COUNT_MIN = 2, SPARSE_COUNT_MAX = 5;        // islands in a sparse scatter (used as the occasional bigger sub-group)
+const SPARSE_RADIUS_MIN = 800, SPARSE_RADIUS_MAX = 1100;
 const DENSE_GAP = 220;                                   // min edge-to-edge spacing in a dense grouping
 const SPARSE_GAP = 480;                                  // wider edge-to-edge spacing in a sparse scatter
-const CLUSTER_JITTER = 180;                              // anchor groupings near the region centre ± this (so neighbours stay apart)
-const OCEAN_LONE_CHANCE = 0.12;                          // ocean region: chance of a lone landmark island
-const OCEAN_SCATTER_CHANCE = 0.08;                       // ocean region: chance of a few tiny outcrops
+const CLUSTER_JITTER = 180;                              // anchor a cluster near its region centre ± this (so neighbours stay apart)
+// sub-cluster ('mini') sizing — small tight groups that a mega-cluster is built from
+const MINI_COUNT_MIN = 3, MINI_COUNT_MAX = 6;           // islands in a sub-cluster
+const MINI_RADIUS_MIN = 300, MINI_RADIUS_MAX = 550;     // sub-cluster spread
+const MINI_GAP = 200;                                   // edge-to-edge spacing inside a sub-cluster
+
+// ── MEGA-CLUSTER (a "cluster of clusters") ───────────────────────────────────
+// Built at every cluster region: a MAINLAND heart, a ring of sub-clusters, and a
+// few lone islands — bounded so a cluster reads as a legible archipelago.
+const CLUSTER_MAINLAND_LEN_MIN = 2000, CLUSTER_MAINLAND_LEN_MAX = 2700;   // moderate mainland at the heart
+const CLUSTER_MAINLAND_WIDTH_MIN = 900, CLUSTER_MAINLAND_WIDTH_MAX = 1600;
+const CLUSTER_SECOND_MAINLAND_CHANCE = 0.30;            // sometimes a 2nd, smaller mainland in the cluster
+const MEGA_SUBCLUSTERS_MIN = 2, MEGA_SUBCLUSTERS_MAX = 4;  // sub-groups ringing the heart
+const MEGA_SUB_RING_MIN = 200, MEGA_SUB_RING_MAX = 650;    // a sub-cluster centre sits this far beyond the heart's edge
+const MEGA_LONE_MIN = 2, MEGA_LONE_MAX = 5;             // lone islands sprinkled through the cluster
+const MEGA_LONE_GAP = 220;                              // edge-to-edge spacing for the lone cluster islands
+const MEGA_SUB_SPARSE_CHANCE = 0.20;                    // a sub-group is occasionally a bigger 'sparse' scatter for variety
 // full-window canvas; the dev panel is a slide-in overlay drawer (not a layout
 // sibling), so it no longer steals canvas width — toggle it from the edge tab.
 const GAME_W = window.innerWidth, GAME_H = window.innerHeight;
@@ -112,6 +126,55 @@ const HULL_LEN = 20, HULL_BEAM = 10;            // semi-length / half-beam of hu
 const DOCK_RADIUS = 320;          // sail within this of a port (center) to dock
 const REPAIR_COST_PER_HP = 2;     // gold per hull point repaired
 const AMMO_COST_PER_UNIT = 1;     // gold per ammo unit restocked
+
+// ── COMMODITIES + PORT ECONOMY (M8) ──────────────────────────────────────────
+// Trade-only goods; gold is the currency. Source ports sell their good cheap;
+// Frontier Outposts pay the most when you sell; each port has a stable seeded
+// price wobble so buy-low/sell-high routes exist. All magnitudes are placeholders.
+const COMMODITIES = ['lumber', 'cloth', 'iron', 'rum', 'sugar', 'tobacco'];
+const COMMODITY_INFO = {
+  lumber:  { glyph: 'L', color: 0x9C6B3C },
+  cloth:   { glyph: 'C', color: 0xC9C0A0 },
+  iron:    { glyph: 'I', color: 0x8A8F98 },
+  rum:     { glyph: 'R', color: 0xB5612A },
+  sugar:   { glyph: 'S', color: 0xEDE3C8 },
+  tobacco: { glyph: 'T', color: 0x6E5A34 },
+};
+const HOLD_CAPACITY_DEFAULT = 20;       // player cargo-hold capacity (units)
+const BASE_PRICE = { lumber:10, cloth:18, iron:24, rum:14, sugar:12, tobacco:20 };
+const SOURCE_PORT_DISCOUNT = 0.6;       // a source port sells its own good at 60% price
+const FRONTIER_BUY_BONUS = 1.5;         // Frontier Outpost pays 1.5x when buying from you
+const SEEDED_DEMAND_BOUNDS = 0.25;      // per-port per-commodity price wobble (±25%)
+const SELL_SPREAD = 0.85;               // ports buy from you at 85% of their sell price
+
+// 8 port types — terrain hint, tower odds, navy presence, source good, dock count,
+// and a distinct map/marker COLOUR per type (placeholders — tune to taste).
+const PORT_TYPES = {
+  TradingHub:      { terrain:'mainland',          towerChance:1.00, navy:'always', source:null,       slots:[2,5], crewDiscount:true, merchantLootMult:2.0, color:0xF0C840 },
+  LumberYard:      { terrain:'small-mainland',     towerChance:0.25, navy:'none',   source:'lumber',   slots:[1,2], repairDiscount:true, color:0xB5793A },
+  FrontierOutpost: { terrain:'far',               towerChance:0.50, navy:'none',   source:null,       slots:[1,2], buyBonus:true, color:0xB0B6BE },
+  SugarFarm:       { terrain:'small-mainland',     towerChance:0.25, navy:'none',   source:'sugar',    slots:[1,2], color:0xF2E7B0 },
+  Brewery:         { terrain:'small-mainland',     towerChance:0.25, navy:'none',   source:'rum',      slots:[1,2], color:0xD9772E },
+  TobaccoFarm:     { terrain:'small-mainland',     towerChance:0.25, navy:'none',   source:'tobacco',  slots:[1,2], color:0xC2C24A },
+  IronMine:        { terrain:'rare-small-mainland',towerChance:0.50, navy:'maybe',  source:'iron',     slots:[1,2], color:0x7FA8C8 },
+  ClothMill:       { terrain:'medium-mainland',    towerChance:0.25, navy:'none',   source:'cloth',    slots:[1,2], color:0xC77BC9 },
+};
+// port cannon towers (M8 defense) — fire on the player when WANTED / pirate nearby
+const TOWER_RANGE = 360, TOWER_COOLDOWN_S = 2.2, TOWER_DAMAGE = 10, TOWER_BALL_SPEED = 5.0;
+// a port's hull (set by PortEconomy.assignType; sized by dock count)
+const PORT_HULL_BASE = 300, PORT_HULL_PER_DOCK = 120;
+
+// ── WORLD-WIDE PORT PLACEMENT ────────────────────────────────────────────────
+// Ports are placed deterministically per cluster: each mainland gets a few, a
+// couple of the larger islands per cluster get one, and the odd lone sea-cluster
+// gets a frontier outpost. (One-time scan of ±PORT_REGION_RADIUS regions for now;
+// fully-streaming placement is a later pass.)
+const PORT_REGION_RADIUS = 7;          // place ports across ± this many regions of origin (≈ ±28000px)
+const MAINLAND_PORTS_MIN = 2, MAINLAND_PORTS_MAX = 3;   // ports per mainland (2–3, scales with size)
+const MAINLAND_PORT_PER_RAD = 600;     // ~1 port per this much mainland footprint radius
+const ISLAND_PORT_MIN_RAD = 90;        // an island must be at least this big to host a port (excludes tiny outcrops)
+const SMALL_ISLAND_PORTS_MAX = 2;      // hard cap on small-island ports per cluster
+const LONE_CLUSTER_PORT_CHANCE = 0.40; // chance a lone open-sea cluster gets a single Frontier Outpost
 
 // ── FEATURE SYSTEMS (registry-driven; togglable from the pause menu) ─────────
 const EXTRAS_DEFAULT = true;      // battle-zoom + weather on by default (menu checkbox flips scene.extrasOn)

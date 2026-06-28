@@ -2,11 +2,13 @@
 // Biome-driven, region-tier world generation (deterministic).
 //
 //   landiness(rx,ry) — smooth value-noise field → coherent land/ocean zones.
-//   biomeOf(rx,ry)   — ocean / sparse / dense / mainland, an OCEAN-HEAVY rarity
-//                      ladder. Because landiness is coherent, land regions clump
-//                      → long empty hauls broken by occasional grouping zones.
-//                      Mainland only at a local landiness PEAK (rare, ringed by
-//                      open water).
+//   biomeOf(rx,ry)   — 'sea' or 'cluster'. The world is MOSTLY OPEN SEA; a cluster
+//                      sits only at a STRICT local landiness peak, so clusters are
+//                      rare and always ringed by water (no two are even diagonally
+//                      adjacent). Each cluster is a "cluster of clusters": a
+//                      mainland heart + a ring of sub-groups + lone islands, and
+//                      every cluster has >=1 mainland. Open-sea regions are empty
+//                      apart from the occasional small lone cluster adrift.
 //   region(rx,ry)    — features anchored near region (rx,ry): {lands, reefs,
 //                      shallows}. Pure + memoised → identical on every rebuild.
 //   generateChunk    — gathers features from every region within MAX_FEATURE_REACH
@@ -26,23 +28,17 @@ const WorldGen = {
   landiness(rx, ry){ return valueNoise(rx*BIOME_FREQ, ry*BIOME_FREQ, (WORLD_SEED ^ 0x9E3779B9) >>> 0); },
 
   biomeOf(rx, ry){
-    // — spawn neighbourhood: two starter mainlands + a LIGHT scatter around them —
-    if (rx === 0 && ry === 0)   return 'mainland';                      // starter mainland (NE of spawn)
-    if (rx === -1 && ry === -1) return 'mainland';                      // a second mainland (SW of spawn)
-    if (Math.abs(rx) <= 1 && Math.abs(ry) <= 1) return 'sparse';        // breathing room right at spawn
-    // — procedural rarity ladder elsewhere —
+    // guaranteed starter cluster at spawn, with a ring of forced-sea around it so
+    // it's always isolated (and spawn opens onto lots of water)
+    if (Math.abs(rx) <= 1 && Math.abs(ry) <= 1) return (rx === 0 && ry === 0) ? 'cluster' : 'sea';
     const L = this.landiness(rx, ry);
-    if (L < OCEAN_LANDINESS) return 'ocean';
-    // mainland = a strict local landiness PEAK above the mainland cutoff (rare,
-    // ringed by open water since neighbours are necessarily lower)
-    if (L >= MAINLAND_LANDINESS){
-      let peak = true;
-      for (let dy = -1; dy <= 1 && peak; dy++) for (let dx = -1; dx <= 1; dx++){
-        if ((dx || dy) && this.landiness(rx+dx, ry+dy) >= L){ peak = false; break; }
-      }
-      if (peak) return 'mainland';
+    if (L < CLUSTER_LANDINESS) return 'sea';
+    // a cluster sits ONLY at a strict local landiness peak → clusters never touch
+    // (every neighbour, diagonals included, is lower) and are ringed by open water
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++){
+      if ((dx || dy) && this.landiness(rx + dx, ry + dy) >= L) return 'sea';
     }
-    return L < DENSE_LANDINESS ? 'sparse' : 'dense';
+    return 'cluster';
   },
 
   region(rx, ry){
@@ -67,34 +63,15 @@ const WorldGen = {
                             y: oy + REGION_SIZE/2 + (r()-0.5)*2*CLUSTER_JITTER });
     const biome = this.biomeOf(rx, ry);
 
-    if (biome === 'mainland'){
-      const starter   = (rx === 0 && ry === 0);
-      const spawnMain = starter || (rx === -1 && ry === -1);            // both spawn mainlands stay starter-sized
-      let ax, ay;
-      if (starter){ ax = STARTER_ANCHOR_X; ay = STARTER_ANCHOR_Y; }
-      else { const p = centre(); ax = p.x; ay = p.y; }
-      const lenMin = spawnMain ? STARTER_LEN_MIN   : MAINLAND_LEN_MIN;
-      const lenMax = spawnMain ? STARTER_LEN_MAX   : MAINLAND_LEN_MAX;
-      const widMin = spawnMain ? STARTER_WIDTH_MIN : MAINLAND_WIDTH_MIN;
-      const widMax = spawnMain ? STARTER_WIDTH_MAX : MAINLAND_WIDTH_MAX;
-      this._mainland(r, ax, ay, lenMin, lenMax, widMin, widMax, lands, reefs, shallows);
-      if (starter) this._cluster(r, 700, 500, lands, reefs, shallows, 'sparse');   // a light grouping at spawn
+    if (biome === 'cluster'){
+      const starter = (rx === 0 && ry === 0);
+      const c = starter ? { x: STARTER_ANCHOR_X, y: STARTER_ANCHOR_Y } : centre();
+      this._megaCluster(r, c.x, c.y, lands, reefs, shallows, starter);
 
-    } else if (biome === 'dense'){
-      const c = centre();
-      this._cluster(r, c.x, c.y, lands, reefs, shallows, 'dense');
-
-    } else if (biome === 'sparse'){
-      const c = centre();
-      this._cluster(r, c.x, c.y, lands, reefs, shallows, 'sparse');
-
-    } else {                                                            // open ocean: rare lone landmark / tiny scatter
-      if (r() < OCEAN_LONE_CHANCE){
+    } else {                                                            // open sea — empty, save the odd lone cluster
+      if (r() < OCEAN_LONE_CLUSTER_CHANCE){
         const p = interior();
-        lands.push(this._island(r, p.x, p.y, this._pickTier(r, { tiny:1, small:4, medium:3, large:1.5 })));
-      } else if (r() < OCEAN_SCATTER_CHANCE){
-        const p = interior(), k = 2 + Math.floor(r()*3), placed = [];
-        for (let i = 0; i < k; i++) this._place(r, p.x + (r()-0.5)*520, p.y + (r()-0.5)*520, TIER_TINY, null, 120, placed, lands);
+        this._cluster(r, p.x, p.y, lands, reefs, shallows, 'mini');     // a small drifting cluster (no mainland)
       }
     }
 
@@ -255,7 +232,11 @@ const WorldGen = {
       const rad = (0.35 + 0.45*taper)*minor*(0.6 + r()*0.55);   // more per-lobe size variation
       ells.push({ cx:lx, cy:ly, rx:rad*(0.85+r()*0.35), ry:rad*(0.85+r()*0.35) });
     }
-    lands.push({ cx:ax, cy:ay, ells, mainland:true, big:true, bw: BAND_MIN + r()*(BAND_MAX - BAND_MIN) });
+    const body = { cx:ax, cy:ay, ells, mainland:true, big:true, bw: BAND_MIN + r()*(BAND_MAX - BAND_MIN) };
+    let bodyRad = 0;                                       // footprint radius (for spacing sub-clusters off the coast)
+    for (const e of ells){ const d = Math.hypot(e.cx - ax, e.cy - ay) + Math.max(e.rx, e.ry); if (d > bodyRad) bodyRad = d; }
+    body.rad = bodyRad;
+    lands.push(body);
     // ring the coast with islands, edge-spaced off the body lobes and each other
     const placed = [], ringGap = 120;
     for (let i = 0; i < ells.length; i += 2) placed.push({ x:ells[i].cx, y:ells[i].cy, rad:ells[i].rx });
@@ -267,43 +248,87 @@ const WorldGen = {
     for (let i = 0; i < outN; i++){ const a = r()*TAU, rad = major + 110 + r()*430; this._place(r, ax+Math.cos(a)*rad, ay+Math.sin(a)*rad, TIER_TINY, null, ringGap, placed, lands); }
     const reefN = 1 + (r() < 0.5 ? 1 : 0);                 // 1–2 coastal reefs, parallel to shore
     for (let i = 0; i < reefN; i++){ const a = r()*TAU, rad = major + 70 + r()*200; reefs.push(this._reef(r, ax+Math.cos(a)*rad, ay+Math.sin(a)*rad, a + Math.PI/2)); }
+    return body;
   },
 
-  // island grouping. 'dense' = a big maze (less common); 'sparse' = a few
-  // scattered islands (common). Both can carry a medium/large anchor at the
-  // centre — so medium/large islands appear BOTH solo (ocean) and in groups.
-  // Islands are spaced EDGE-TO-EDGE off their measured `rad`, so none overlap.
+  // a MEGA-CLUSTER ("cluster of clusters"): a MAINLAND heart, a ring of sub-
+  // clusters just off its coast, and a few lone islands. Every cluster has >=1
+  // mainland; the footprint stays bounded so it reads as one archipelago.
+  _megaCluster(r, ax, ay, lands, reefs, shallows, starter){
+    // 1) the mainland heart (always present → every cluster has a mainland)
+    const lenMin = starter ? STARTER_LEN_MIN   : CLUSTER_MAINLAND_LEN_MIN;
+    const lenMax = starter ? STARTER_LEN_MAX   : CLUSTER_MAINLAND_LEN_MAX;
+    const widMin = starter ? STARTER_WIDTH_MIN : CLUSTER_MAINLAND_WIDTH_MIN;
+    const widMax = starter ? STARTER_WIDTH_MAX : CLUSTER_MAINLAND_WIDTH_MAX;
+    const heart = this._mainland(r, ax, ay, lenMin, lenMax, widMin, widMax, lands, reefs, shallows);
+    const heartRad = (heart && heart.rad) || 1200;
+
+    // 2) sometimes a 2nd, smaller mainland off the heart's coast (mainlands plural)
+    if (!starter && r() < CLUSTER_SECOND_MAINLAND_CHANCE){
+      const a = r()*TAU, off = heartRad + 500 + r()*500;
+      this._mainland(r, ax + Math.cos(a)*off, ay + Math.sin(a)*off,
+                     STARTER_LEN_MIN, STARTER_LEN_MAX, STARTER_WIDTH_MIN, STARTER_WIDTH_MAX, lands, reefs, shallows);
+    }
+
+    // 3) a ring of sub-clusters just beyond the heart — the "clusters" of the cluster
+    const subs = MEGA_SUBCLUSTERS_MIN + Math.floor(r()*(MEGA_SUBCLUSTERS_MAX - MEGA_SUBCLUSTERS_MIN + 1));
+    for (let i = 0; i < subs; i++){
+      const a = r()*TAU, ring = heartRad + MEGA_SUB_RING_MIN + r()*(MEGA_SUB_RING_MAX - MEGA_SUB_RING_MIN);
+      const kind = r() < MEGA_SUB_SPARSE_CHANCE ? 'sparse' : 'mini';
+      this._cluster(r, ax + Math.cos(a)*ring, ay + Math.sin(a)*ring, lands, reefs, shallows, kind);
+    }
+
+    // 4) a few lone islands sprinkled through the cluster (edge-spaced off everything)
+    const placed = [];
+    for (const L of lands){
+      if (L.rad != null) placed.push({ x:L.cx, y:L.cy, rad:L.rad });
+      else if (L.ells) for (const e of L.ells) placed.push({ x:e.cx, y:e.cy, rad:Math.max(e.rx, e.ry) });
+    }
+    const loneN = MEGA_LONE_MIN + Math.floor(r()*(MEGA_LONE_MAX - MEGA_LONE_MIN + 1));
+    for (let i = 0; i < loneN; i++){
+      const a = r()*TAU, ring = heartRad*0.45 + r()*(heartRad*0.55 + MEGA_SUB_RING_MAX);   // fill within the cluster, not beyond it
+      this._place(r, ax + Math.cos(a)*ring, ay + Math.sin(a)*ring, this._pickTier(r, { tiny:1, small:3, medium:2, large:0.4 }), null, MEGA_LONE_GAP, placed, lands);
+    }
+  },
+
+  // island grouping used as a SUB-CLUSTER (and for lone sea clusters). Kinds:
+  //   'mini'   — a small tight group (the building block of a mega-cluster)
+  //   'sparse' — a looser, slightly bigger scatter
+  //   'dense'  — a big maze (kept for variety; not used by the sea/cluster dispatch)
+  // Islands edge-space off their measured `rad` AND off everything already in the
+  // region (seeded into placed[]), so a sub-cluster never overlaps the mainland or
+  // its neighbours. Only the NEWLY-added islands count toward the target.
   _cluster(r, cx, cy, lands, reefs, shallows, kind){
-    const dense = kind === 'dense';
-    const R = dense ? DENSE_RADIUS_MIN + r()*(DENSE_RADIUS_MAX - DENSE_RADIUS_MIN)
-                    : SPARSE_RADIUS_MIN + r()*(SPARSE_RADIUS_MAX - SPARSE_RADIUS_MIN);
-    const count = dense ? DENSE_COUNT_MIN + Math.floor(r()*(DENSE_COUNT_MAX - DENSE_COUNT_MIN + 1))
-                        : SPARSE_COUNT_MIN + Math.floor(r()*(SPARSE_COUNT_MAX - SPARSE_COUNT_MIN + 1));
-    const gap = dense ? DENSE_GAP : SPARSE_GAP;
-    const placed = [];   // { x, y, rad }
-    // avoid anything already in this region (e.g. the starter mainland + its coast
-    // ring): seed off existing islands' footprints, and off mainland body lobes
+    const cfg = (kind === 'dense')
+        ? { rMin:DENSE_RADIUS_MIN,  rMax:DENSE_RADIUS_MAX,  cMin:DENSE_COUNT_MIN,  cMax:DENSE_COUNT_MAX,  gap:DENSE_GAP,  anchor:1.0, scatter:{ tiny:1.2, small:5, medium:1,   large:0 }, reef:[0.6, 0.4] }
+      : (kind === 'mini')
+        ? { rMin:MINI_RADIUS_MIN,   rMax:MINI_RADIUS_MAX,   cMin:MINI_COUNT_MIN,   cMax:MINI_COUNT_MAX,   gap:MINI_GAP,   anchor:0.4, scatter:{ tiny:2,   small:6, medium:0.6, large:0 }, reef:[0.2, 0] }
+        : { rMin:SPARSE_RADIUS_MIN, rMax:SPARSE_RADIUS_MAX, cMin:SPARSE_COUNT_MIN, cMax:SPARSE_COUNT_MAX, gap:SPARSE_GAP, anchor:0.5, scatter:{ tiny:1,   small:4, medium:1.6, large:0 }, reef:[0.3, 0] };
+    const R = cfg.rMin + r()*(cfg.rMax - cfg.rMin);
+    const count = cfg.cMin + Math.floor(r()*(cfg.cMax - cfg.cMin + 1));
+    const gap = cfg.gap;
+    const placed = [];   // seeded from everything already in the region so we never overlap it
     for (const L of lands){
       if (L.rad != null) placed.push({ x:L.cx, y:L.cy, rad:L.rad });
       else if (L.ells) for (const e of L.ells) placed.push({ x:e.cx, y:e.cy, rad:Math.max(e.rx, e.ry) });
     }
 
-    // anchor landmark — dense always has one; sparse sometimes (placed[] empty → always fits)
-    if (dense || r() < 0.5){
-      const tier = dense ? (r() < 0.7 ? TIER_MEDIUM : TIER_LARGE) : (r() < 0.75 ? TIER_MEDIUM : TIER_LARGE);
-      this._place(r, cx, cy, tier, null, gap, placed, lands);
+    let added = 0;                                          // count only the islands THIS call adds
+    if (r() < cfg.anchor){
+      const tier = (kind === 'mini') ? (r() < 0.7 ? TIER_SMALL : TIER_MEDIUM) : (r() < 0.7 ? TIER_MEDIUM : TIER_LARGE);
+      if (this._place(r, cx, cy, tier, null, gap, placed, lands)) added++;
     }
-
     let guard = count*30;
-    while (placed.length < count && guard-- > 0){
-      const a = r()*TAU, rad = Math.sqrt(r())*R;                       // sqrt → even coverage over the disc
+    while (added < count && guard-- > 0){
+      const a = r()*TAU, rad = Math.sqrt(r())*R;            // sqrt → even coverage over the disc
       const x = cx + Math.cos(a)*rad, y = cy + Math.sin(a)*rad;
-      const tier = dense ? this._pickTier(r, { tiny:1.2, small:5, medium:1, large:0 })
-                         : this._pickTier(r, { tiny:1, small:4, medium:1.6, large:0 });
-      if (this._place(r, x, y, tier, null, gap, placed, lands) && placed.length % 4 === 0) shallows.push({ cx:x, cy:y, rx:480, ry:480 });   // shallow zones follow the grouping
+      if (this._place(r, x, y, this._pickTier(r, cfg.scatter), null, gap, placed, lands)){
+        added++;
+        if (added % 4 === 0) shallows.push({ cx:x, cy:y, rx:480, ry:480 });
+      }
     }
 
-    const reefN = dense ? (r() < 0.6 ? 1 : 0) + (r() < 0.4 ? 1 : 0) : (r() < 0.3 ? 1 : 0);
+    const reefN = (r() < cfg.reef[0] ? 1 : 0) + (r() < cfg.reef[1] ? 1 : 0);
     for (let i = 0; i < reefN && placed.length; i++){ const s = placed[Math.floor(r()*placed.length)]; reefs.push(this._reef(r, s.x + s.rad + 120, s.y, r()*TAU)); }
   },
 

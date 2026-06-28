@@ -19,5 +19,7 @@ const EV = {
   SHIP_UNDOCKED:  'ship:undocked',   // { ship, port }          — Docks.release (bot ships, M5)
   SHIP_BOARDED:   'ship:boarded',    // { target }              — boarding (M4)
   SHIP_CAPTURED:  'ship:captured',   // { ship }                — capture (M5)
+  TRADE:          'trade',           // { port, commodity, side, qty, gold } — port economy (M8)
+  PORT_DEFENSE_TRIGGERED:'port:defense', // { port }            — cannon towers fire (M8)
   WEATHER_CHANGED:'weather:changed', // { type }                — weather (M11)
 };

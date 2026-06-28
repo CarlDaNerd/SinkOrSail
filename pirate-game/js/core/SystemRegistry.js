@@ -46,7 +46,9 @@ const Systems = {
 // (not-yet-written) system never crashes the build — it's simply skipped.
 function registerSystems(){
   const candidates = [
+    typeof CommoditySystem !== 'undefined' ? CommoditySystem : null,   // MC (ensures pl.hold)
     typeof BankSystem    !== 'undefined' ? BankSystem    : null,   // M0
+    typeof DefenseSystem !== 'undefined' ? DefenseSystem : null,   // M8 (port cannon towers)
     typeof WeatherSystem !== 'undefined' ? WeatherSystem : null,   // M11
     typeof ZoomSystem    !== 'undefined' ? ZoomSystem    : null,   // M7
   ];

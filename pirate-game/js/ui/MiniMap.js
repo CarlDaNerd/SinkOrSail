@@ -20,7 +20,7 @@ function drawMiniMap(g, gs, pl){
     g.fillStyle((is.mainland || is.big) ? 0x3D6E25 : 0x4C8A30, 0.95);
     for (const e of is.ells) if (inWin(e.cx, e.cy)) g.fillCircle(w2x(e.cx), w2y(e.cy), Math.max(1, e.rx*scale));
   }
-  for (const p of gs.navyPorts) if (inWin(p.x, p.y)){ g.fillStyle(0x8AC8E0, 1); g.fillCircle(w2x(p.x), w2y(p.y), 2.5); }
+  for (const p of gs.navyPorts) if (inWin(p.x, p.y)){ g.fillStyle((PORT_TYPES[p.type] && PORT_TYPES[p.type].color) || 0x8AC8E0, 1); g.fillCircle(w2x(p.x), w2y(p.y), 2.8); }
   for (const s of gs.ships){ if (!s.alive || !inWin(s.x, s.y)) continue; const c = { merchant:0xD0AA70, pirate:0xE0503A, navy:0x6AB0D8, privateer:0x6AC060 }[s.faction]; g.fillStyle(c, 1); g.fillCircle(w2x(s.x), w2y(s.y), 1.8); }
   // on-screen viewport box
   g.lineStyle(1, 0xD4C890, 0.4); g.strokeRect(cxp - (GAME_W/2)*scale, cyp - (GAME_H/2)*scale, GAME_W*scale, GAME_H*scale);
