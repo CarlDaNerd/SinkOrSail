@@ -19,7 +19,7 @@ class GameScene extends Phaser.Scene {
     this.islands = []; this.reefs = [];                // active sets — filled by the chunk manager
     this.explored = new Set();                          // chunk keys you've sailed near (for the big map)
     this.menuOpen = false;                              // pause menu (Esc)
-    this.extrasOn = EXTRAS_DEFAULT;                      // battle-zoom + weather toggle (pause-menu checkbox)
+    this.extrasOn = EXTRAS_DEFAULT;                      // weather on/off (pause-menu "Weather" button); zoom is always on
     this.mapOpen = false; this.mapDirty = false;        // big map (M) — non-pausing chart
     this.mapFollow = true;                              // chart tracks the ship until you drag it
     this.mapCenterX = 0; this.mapCenterY = 0; this.mapScale = MAP_SCALE_INIT;

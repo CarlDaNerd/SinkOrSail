@@ -41,7 +41,27 @@ const UNLOAD_RADIUS = 3;          // unload only beyond this (hysteresis vs. bou
 const WORLD_CAP = 50000;          // soft cap: ships clamp to ±this (keeps coords/floats sane far out)
 const ISLAND_PAD = 290;           // keep island bodies inside their chunk (clean per-chunk ownership)
 const START_CLEAR_RADIUS = 700;   // open water kept around the world origin (player start)
-const SPAWN_RANGE = 3000;         // Phase-1 fleet spawns within this of origin
+const SPAWN_RANGE = 3000;         // Phase-1 fleet spawns within this of origin (legacy; Population streams now)
+
+// ── WORLD POPULATION (streaming AI traffic) ──────────────────────────────────
+// Ships spawn in a window around the player and despawn when far behind, so the
+// world feels alive wherever you sail without simulating thousands of ships.
+// Density scales with nearby PORTS: semi-crowded near port clusters, sparse in
+// open sea. All placeholders — tune to feel.
+const POP_SPAWN_RADIUS = 4500;    // ships spawn within this of the player
+const POP_DESPAWN_RADIUS = 7000;  // ...and despawn beyond this (ambient traffic leaves the area)
+const POP_INTERVAL_S = 1.0;       // how often the population manager runs (seconds)
+const POP_MAX_SHIPS = 50;         // hard cap on live ships (perf)
+const POP_MERCHANTS_AMBIENT = 2;  // open-sea merchant traffic when no ports are near
+const POP_MERCHANTS_PER_PORT = 2; // + this many merchants per nearby port (denser near ports)
+const POP_NAVY_PER_PORT = 2;      // navy guards per nearby DEFENDED port
+const POP_PRIV_PER_PORT = 1;      // privateers per nearby privateer port
+const POP_PIRATES_AMBIENT = 2;    // roaming pirates target in the window (sparse)
+const MERCHANT_WANDER_FRAC = 0.2; // fraction of merchants that wander instead of running routes
+// merchant trade routes
+const MERCHANT_ROUTE_RANGE = 9000;      // a trader looks this far for its next port
+const PORT_ARRIVE_RANGE = 280;          // a merchant counts as "arrived" at a port within this
+const MERCHANT_PIRATE_FLEE_RANGE = 440; // a merchant flees a pirate within this
 
 // ── MAPS ──
 const MINIMAP_W = 200, MINIMAP_H = 150;   // corner minimap size (px). Shows 2× the screen's view.
@@ -177,7 +197,7 @@ const SMALL_ISLAND_PORTS_MAX = 2;      // hard cap on small-island ports per clu
 const LONE_CLUSTER_PORT_CHANCE = 0.40; // chance a lone open-sea cluster gets a single Frontier Outpost
 
 // ── FEATURE SYSTEMS (registry-driven; togglable from the pause menu) ─────────
-const EXTRAS_DEFAULT = true;      // battle-zoom + weather on by default (menu checkbox flips scene.extrasOn)
+const EXTRAS_DEFAULT = true;      // weather on by default (pause-menu "Weather" button flips scene.extrasOn; zoom is always on)
 
 // ── M7 ZOOM ── auto zoom-IN during battle only; NO scroll/manual zoom ──
 const ZOOM_DEFAULT = 1.0;         // normal sailing zoom

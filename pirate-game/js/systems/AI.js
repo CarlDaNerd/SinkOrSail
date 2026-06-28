@@ -9,6 +9,31 @@ const AI = {
     return tp;
   },
 
+  // nearest alive merchant within range — pirates prey on these when idle
+  nearestMerchant(scene, s, maxRange){
+    let tm = null, tmd = maxRange;
+    for (const o of scene.ships){ if (o.faction !== 'merchant' || !o.alive) continue; const od = dist(s, o); if (od < tmd){ tmd = od; tm = o; } }
+    return tm;
+  },
+
+  // pick a trade-route destination port within range (≠ exclude); fall back to the
+  // nearest port overall so a trader always migrates toward civilisation
+  pickPort(scene, s, exclude){
+    const ports = scene.navyPorts; if (!ports || !ports.length) return null;
+    const cands = [];
+    for (const p of ports){ if (p === exclude) continue; if (dist(s, p) < MERCHANT_ROUTE_RANGE) cands.push(p); }
+    if (cands.length) return cands[Math.floor(scene.eprng() * cands.length)];
+    let best = null, bd = 1e9; for (const p of ports){ if (p === exclude) continue; const dd = dist(s, p); if (dd < bd){ bd = dd; best = p; } }
+    return best;
+  },
+
+  // head to the current destination port; on arrival pick the next one
+  tradeRoute(scene, s){
+    if (!s.dest || dist(s, s.dest) < PORT_ARRIVE_RANGE) s.dest = this.pickPort(scene, s, s.dest);
+    if (!s.dest) return this.cruise(scene, s);                        // no ports anywhere → wander
+    return { targetHeading: angleTo(s, s.dest), desiredSail: 2 };
+  },
+
   cruise(scene, s){
     if (dist(s, s.waypoint) < 100){ s.waypoint = { x:s.x + (scene.eprng() - 0.5)*3000, y:s.y + (scene.eprng() - 0.5)*3000 }; }
     return { targetHeading:angleTo(s, s.waypoint), desiredSail: s.faction === 'merchant' ? 2 : 1 };
@@ -44,10 +69,15 @@ const AI = {
       // flee only if threatened: pirate flag shown, OR provoked, OR player is WANTED
       const threatened = playerPirateFlag || s.hostileToPlayer || FactionSystem.navyHostile(scene);
       const willFight = s.hostileToPlayer && (s._fightRoll === undefined ? (s._fightRoll = scene.eprng()*100) : s._fightRoll) < P.merchFight;
+      const raider = AI.nearestPirate(scene, s, MERCHANT_PIRATE_FLEE_RANGE);   // a pirate bearing down?
       if (willFight && d < P.merchFlee){
         ({ targetHeading, desiredSail, wantFire } = AI.combatManeuver(s, pl, d)); s.state = 'fight';
       } else if (threatened && d < P.merchFlee){
         targetHeading = (angleTo(s, pl) + 180)%360; desiredSail = 2; s.state = 'flee';
+      } else if (raider){
+        targetHeading = (angleTo(s, raider) + 180)%360; desiredSail = 2; s.state = 'flee';   // run from the pirate
+      } else if (s.dest && !s.wander){
+        ({ targetHeading, desiredSail } = AI.tradeRoute(scene, s)); s.state = 'trade';        // port-to-port run
       } else { ({ targetHeading, desiredSail } = AI.cruise(scene, s)); s.state = 'cruise'; }
 
     } else if (s.faction === 'pirate'){
@@ -57,7 +87,14 @@ const AI = {
       if (!friendlyToPlayer && d < DETECT){
         if (d < ATK){ ({ targetHeading, desiredSail, wantFire } = AI.combatManeuver(s, pl, d)); s.state = 'attack'; }
         else { targetHeading = angleTo(s, pl); desiredSail = 2; s.state = 'pursue'; }
-      } else { ({ targetHeading, desiredSail } = AI.cruise(scene, s)); s.state = 'cruise'; }
+      } else {
+        // not on the player → prey on the nearest merchant; else roam
+        const tm = AI.nearestMerchant(scene, s, DETECT);
+        if (tm){ const md = dist(s, tm);
+          if (md < ATK){ ({ targetHeading, desiredSail, wantFire } = AI.combatManeuver(s, tm, md)); s.state = 'raid'; }
+          else { targetHeading = angleTo(s, tm); desiredSail = 2; s.state = 'stalk'; }
+        } else { ({ targetHeading, desiredSail } = AI.cruise(scene, s)); s.state = 'cruise'; }
+      }
 
     } else if (s.faction === 'navy'){
       // continuously spot pirate colors within sight (land blocks the view) → hostile

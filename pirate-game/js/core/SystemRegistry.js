@@ -49,6 +49,7 @@ function registerSystems(){
     typeof CommoditySystem !== 'undefined' ? CommoditySystem : null,   // MC (ensures pl.hold)
     typeof BankSystem    !== 'undefined' ? BankSystem    : null,   // M0
     typeof DefenseSystem !== 'undefined' ? DefenseSystem : null,   // M8 (port cannon towers)
+    typeof Population    !== 'undefined' ? Population    : null,   // streaming world traffic (AI ships)
     typeof WeatherSystem !== 'undefined' ? WeatherSystem : null,   // M11
     typeof ZoomSystem    !== 'undefined' ? ZoomSystem    : null,   // M7
   ];

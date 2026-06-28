@@ -24,7 +24,7 @@ class UIScene extends Phaser.Scene {
     this.btnDownload = this._btn(GAME_W/2, GAME_H/2 +  26, 'Download Save',    () => { Save.exportSaved(); });
     this.btnImport   = this._btn(GAME_W/2, GAME_H/2 +  68, 'Import Save File', () => { this.gs.importGame(); });
     this.btnTuning   = this._btn(GAME_W/2, GAME_H/2 + 110, 'Tuning Panel',     () => { if (globalThis.SOS_toggleTuning) globalThis.SOS_toggleTuning(); });
-    this.btnExtras   = this._btn(GAME_W/2, GAME_H/2 + 152, 'Weather & Zoom',   () => { this.gs.extrasOn = !this.gs.extrasOn; });   // checkbox for the M7 zoom + M11 weather features
+    this.btnExtras   = this._btn(GAME_W/2, GAME_H/2 + 152, 'Weather',          () => { this.gs.extrasOn = !this.gs.extrasOn; });   // toggles M11 weather only (zoom is always on)
     this._menuObjs = [this.menuBg, this.menuTitle, this.btnResume, this.btnNew, this.btnLoad, this.btnDownload, this.btnImport, this.btnTuning, this.btnExtras];
     for (const o of this._menuObjs) o.setVisible(false);
   }
@@ -62,7 +62,7 @@ class UIScene extends Phaser.Scene {
       this.btnLoad.setAlpha(hasSave ? 1 : 0.4); this.btnDownload.setAlpha(hasSave ? 1 : 0.4);   // grey out with no save
       const panelOn = !!(document.getElementById('panel') && document.getElementById('panel').classList.contains('open'));
       this.btnTuning.setText('Tuning Panel: ' + (panelOn ? 'ON' : 'OFF'));
-      this.btnExtras.setText('Weather & Zoom: ' + (gs.extrasOn ? 'ON' : 'OFF')).setColor(gs.extrasOn ? '#D4C890' : '#7a8a98');
+      this.btnExtras.setText('Weather: ' + (gs.extrasOn ? 'ON' : 'OFF')).setColor(gs.extrasOn ? '#D4C890' : '#7a8a98');
     }
 
     // HUD always updates (it renders above the map so instruments stay visible)

@@ -4,8 +4,8 @@
 // out of battle. There is NO scroll/manual zoom — the battle zoom is the only
 // effect, and its level is ZOOM_BATTLE_LEVEL (edit in constants.js).
 //
-// Gated by scene.extrasOn (the pause-menu checkbox): when off, it just holds the
-// default zoom. State slice: scene.zoom = { current, target }.
+// Always on (the pause-menu "Weather" toggle no longer affects zoom — zoom is a
+// core camera behaviour). State slice: scene.zoom = { current, target }.
 const ZoomSystem = {
   init(scene){
     scene.zoom = { current: ZOOM_DEFAULT, target: ZOOM_DEFAULT };
@@ -14,7 +14,7 @@ const ZoomSystem = {
 
   update(scene, dt, dts){
     const z = scene.zoom;
-    z.target = (scene.extrasOn && scene.inCombat()) ? ZOOM_BATTLE_LEVEL : ZOOM_DEFAULT;
+    z.target = scene.inCombat() ? ZOOM_BATTLE_LEVEL : ZOOM_DEFAULT;   // always zoom in battle
     const k = 1 - Math.pow(1 - ZOOM_LERP, dts * 60);     // frame-rate-independent lerp toward target
     z.current += (z.target - z.current) * k;
     scene.cameras.main.setZoom(z.current);
