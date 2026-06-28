@@ -8,7 +8,8 @@ const Combat = {
     if (ship.faction === 'player'){ if ((ship.ammo <= 0 && !DEBUG.infAmmo) || ship.fire[side] > 0) return; }
     else { if (ship.fire > 0) return; }
     const fa = (ship.heading + (side === 'port' ? -90 : 90) + 360)%360;
-    const n = P.balls, half = (n - 1)/2;
+    const n = (ship.faction === 'player' && ship.broadsideBalls) ? ship.broadsideBalls : P.balls;   // player broadside scales with ship tier
+    const half = (n - 1)/2;
     for (let b = 0; b < n; b++){
       const ang = fa + (b - half)*P.spread;
       scene.cannonballs.push(Cannonball.create(
@@ -25,6 +26,25 @@ const Combat = {
 
   // AI passes a side sign; map it to 'port'/'star' through the unified path
   fireEnemy(scene, ship, sideSign){ this.fire(scene, ship, sideSign > 0 ? 'star' : 'port'); },
+
+  // Bow/stern chaser — a SINGLE ball along the keel axis with its own per-chaser
+  // cooldown. which = 'bow' (fires forward) | 'stern' (fires aft). Gated by the
+  // ship's tier flags; a no-op if the tier doesn't mount that chaser. Player-only
+  // for now (AI chasers are a TODO).
+  fireChaser(scene, ship, which){
+    if (ship.faction !== 'player') return;
+    if (typeof ShipTiers === 'undefined' || !ShipTiers.has(ship, which)) return;
+    if (!ship.fire) return;
+    if ((ship.ammo <= 0 && !DEBUG.infAmmo) || ship.fire[which] > 0) return;
+    const fa = (ship.heading + (which === 'stern' ? 180 : 0) + 360)%360;   // along the keel
+    scene.cannonballs.push(Cannonball.create(
+      ship.x + Math.sin(fa*RAD)*20, ship.y - Math.cos(fa*RAD)*20,
+      Math.sin(fa*RAD)*P.cannonSpeed, -Math.cos(fa*RAD)*P.cannonSpeed,
+      ship.id, ship.faction));
+    if (!DEBUG.infAmmo) ship.ammo = Math.max(0, ship.ammo - 1);
+    ship.fire[which] = ShipTiers.cooldown(which);                 // distinct bow vs stern cooldown
+    scene.player.lastFiredAt = scene.time.now/1000;               // flag combat-lock window
+  },
 
   onHit(scene, ball, target){
     target.hull -= P.damage;

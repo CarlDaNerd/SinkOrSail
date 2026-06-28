@@ -26,6 +26,9 @@ class HUD {
     // reload bar labels
     this.tReload  = mk(200, 14, 8, '#6a8298');
     this.tReloadP = mk(207, 92, 9, '#8AAAC8'); this.tReloadS = mk(229, 92, 9, '#8AAAC8');
+    // chaser reload indicators (only shown when the ship's tier mounts that gun)
+    this.tChaseBow   = mk(252, 100, 8, '#C8A86a');
+    this.tChaseStern = mk(252, 118, 8, '#6aA8C8');
     // flag switch buttons (below the panel)
     const flagBtn = (x, label) => scene.add.text(x, 166, label, { fontFamily:'ui-monospace,monospace', fontSize:'11px', color:'#9fb6cc', backgroundColor:'#1a2c3c', padding:{ x:9, y:5 } }).setScrollFactor(0).setDepth(101).setOrigin(0, 0).setInteractive({ useHandCursor:true });
     this.btnFlagN = flagBtn(20, '⚐ NEUTRAL');
@@ -56,7 +59,7 @@ class HUD {
 
   update(pl, wa){
     const gs = this.gs, g = this.g; g.clear();
-    g.fillStyle(0x0E1820, 0.9); g.fillRect(12, 10, 250, 150);
+    g.fillStyle(0x0E1820, 0.9); g.fillRect(12, 10, 290, 150);
 
     // speed
     const sp = Math.min(pl.vel/P.maxSpeed, 1), sc = sp < 0.05 ? 0xE0503A : sp < 0.5 ? 0xE0A040 : 0x4CA84C;
@@ -85,6 +88,19 @@ class HUD {
     };
     reloadBar(rbX, pl.fire.port); reloadBar(rbX + rbW + gap, pl.fire.star);
     this.tReload.setText('RELOAD');
+
+    // bow / stern chaser reload — horizontal bars on their own (distinct) cooldowns,
+    // shown only when the ship's tier mounts that chaser gun
+    const cbX = 200, cbW = 48, cbH = 7;
+    const chaseBar = (y, val, cdRef, lit) => {
+      const fill = 1 - Math.min(1, Math.max(0, (val || 0)) / cdRef);
+      g.fillStyle(0x223040, 1); g.fillRect(cbX, y, cbW, cbH);
+      g.fillStyle(fill >= 1 ? lit : 0xE0A040, 1); g.fillRect(cbX, y, cbW * fill, cbH);
+      g.lineStyle(1, 0x3a4a5a, 1); g.strokeRect(cbX, y, cbW, cbH);
+    };
+    const hasChaser = (which) => (typeof ShipTiers !== 'undefined') && ShipTiers.has(pl, which);
+    if (hasChaser('bow')){ chaseBar(100, pl.fire.bow, ShipTiers.cooldown('bow'), 0xC8A86a); this.tChaseBow.setText('BOW').setVisible(true); } else this.tChaseBow.setVisible(false);
+    if (hasChaser('stern')){ chaseBar(118, pl.fire.stern, ShipTiers.cooldown('stern'), 0x6aA8C8); this.tChaseStern.setText('STERN').setVisible(true); } else this.tChaseStern.setVisible(false);
 
     // flag buttons
     const f = gs.flag, pend = gs.flagPending, locked = gs.inCombat();

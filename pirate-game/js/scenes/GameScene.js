@@ -34,7 +34,7 @@ class GameScene extends Phaser.Scene {
     this.follow = this.add.rectangle(this.player.x, this.player.y, 1, 1, 0, 0);
     this.cameras.main.startFollow(this.follow, true, 0.08, 0.08);
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,M,Z,X');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,M,Z,X,T');
     this.input.on('wheel', (p, over, dx, dy) => { if (!this.mapOpen) return; this.mapScale = Phaser.Math.Clamp(this.mapScale * (dy < 0 ? 1.12 : 0.892), MAP_SCALE_MIN, MAP_SCALE_MAX); this.mapDirty = true; });
     this.input.on('pointermove', (p) => { if (!this.mapOpen || !p.isDown) return; this.mapFollow = false; this.mapCenterX -= (p.position.x - p.prevPosition.x)/this.mapScale; this.mapCenterY -= (p.position.y - p.prevPosition.y)/this.mapScale; this.mapDirty = true; });
 
@@ -249,6 +249,14 @@ class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.keys.S)) pl.sailState = Math.max(0, pl.sailState - 1);
       if (Phaser.Input.Keyboard.JustDown(this.keys.Q)) Combat.fire(this, pl, 'port');
       if (Phaser.Input.Keyboard.JustDown(this.keys.E)) Combat.fire(this, pl, 'star');
+      // bow/stern chaser guns (only mounted on Brig+ / Galleon+); no-op at lower tiers
+      if (Phaser.Input.Keyboard.JustDown(this.cursors.up))   Combat.fireChaser(this, pl, 'bow');
+      if (Phaser.Input.Keyboard.JustDown(this.cursors.down)) Combat.fireChaser(this, pl, 'stern');
+      // DEV: cycle ship tier (until a real buy/capture progression exists)
+      if (Phaser.Input.Keyboard.JustDown(this.keys.T) && typeof ShipTiers !== 'undefined'){
+        ShipTiers.setTier(this, pl, (pl.tier % TIER_MAX) + 1);
+        this.flashPopup(pl.x, pl.y - 32, '⚓ ' + ShipTiers.get(pl.tier).name.toUpperCase(), 0x6ED0E0);
+      }
       const td = calcTurnDegS(pl.vel)*dts;
       if (this.cursors.left.isDown  || this.keys.A.isDown) pl.heading = (pl.heading - td + 360)%360;
       if (this.cursors.right.isDown || this.keys.D.isDown) pl.heading = (pl.heading + td)%360;
@@ -264,6 +272,7 @@ class GameScene extends Phaser.Scene {
         if (now - (this._lastReefAt || -99) > REEF_DAMAGE_INTERVAL){ pl.hull = Math.max(0, pl.hull - REEF_DAMAGE); this._lastReefAt = now; this.flashPopup(pl.x, pl.y - 20, 'REEF!', 0xE0503A); }
       }
       if (pl.fire.port > 0) pl.fire.port -= dts; if (pl.fire.star > 0) pl.fire.star -= dts;
+      if (pl.fire.bow > 0) pl.fire.bow -= dts; if (pl.fire.stern > 0) pl.fire.stern -= dts;   // chaser cooldowns
       this.follow.setPosition(pl.x, pl.y);
       this.pushWake(pl);
     }
@@ -339,11 +348,23 @@ class GameScene extends Phaser.Scene {
       pirate:[0x5A2010, 0x7A3020], navy:[0x24506E, 0x3E7AA0], privateer:[0x2B5A2B, 0x46863C],
     }[s.faction];
     g.save(); g.translateCanvas(s.x, s.y); g.rotateCanvas(s.heading*RAD);
+    const sc = s.scale || 1; g.scaleCanvas(sc, sc);                      // tier visual size
     g.fillStyle(colors[0], 1); g.fillEllipse(0, 0, 20, 40);
     g.fillStyle(colors[1], 1); g.fillEllipse(0, 2, 13, 30);
     g.lineStyle(2.5, 0x2A1404, 1); g.lineBetween(-11, -3, 11, -3); g.lineBetween(0, -18, 0, -26);
-    if (s.sailState > 0){ const h = s.sailState === 2 ? 18 : 10; g.fillStyle(0xD4C48C, 0.9); g.fillRect(-9, -3, 18, h); }
+    // sails — one per mast (count from tier; default 1), stacked toward the bow
+    if (s.sailState > 0){
+      const h = s.sailState === 2 ? 18 : 10, nS = Math.max(1, s.sails || 1);
+      g.fillStyle(0xD4C48C, 0.9);
+      for (let m = 0; m < nS; m++){ g.fillRect(-9, -3 - m*(h + 6), 18, h); }
+    }
     g.fillStyle(0x2A1404, 1); g.fillCircle(0, -3, 3.5);
+    // bow / stern chaser muzzles (only on tiers that mount them)
+    if (typeof ShipTiers !== 'undefined'){
+      g.fillStyle(0x15100A, 1);
+      if (ShipTiers.has(s, 'bow'))   g.fillRect(-2, -22, 4, 6);          // forward muzzle
+      if (ShipTiers.has(s, 'stern')) g.fillRect(-2, 16, 4, 6);           // aft muzzle
+    }
     // stern flagpole + flag (local coords: stern is +y / downward)
     let flagColor = null;
     if (s.faction === 'player'){ flagColor = this.flag === 'pirate' ? 0x101010 : null; }

@@ -35,7 +35,7 @@ const Save = {
     const p = scene.player;
     p.x = s.px; p.y = s.py; p.heading = s.ph; p.vel = 0;
     p.hull = s.hull; p.ammo = s.ammo; p.gold = s.gold; p.bank = (typeof s.bank === 'number') ? s.bank : (p.bank || 0); p.sailState = s.sail;
-    p.fire = { port:0, star:0 }; p.wake = []; p.lastHitAt = -99; p.lastFiredAt = -99;
+    p.fire = { port:0, star:0, bow:0, stern:0 }; p.wake = []; p.lastHitAt = -99; p.lastFiredAt = -99;
     scene.navyStanding = s.standing; scene.flag = s.flag; scene.flagPending = null;
     scene.explored = new Set(s.explored || []);
     scene.docked = false; scene.dockPort = null; scene.menuOpen = false; scene.mapOpen = false;
