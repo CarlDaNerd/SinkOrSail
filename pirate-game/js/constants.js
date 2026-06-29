@@ -217,3 +217,59 @@ const TSUNAMI_ISLAND_PROXIMITY_PX = 1800, TSUNAMI_PUSH_S = 6, TSUNAMI_PUSH_SPEED
 const CYCLONE_DURATION_S = 16, CYCLONE_RADIUS = 900, CYCLONE_PULL = 1.4, CYCLONE_DAMAGE_PCT = 50;
 // storm — lightning strikes can break the sail (capped to half) until a port repair
 const STORM_DURATION_S = 20, STORM_STRIKE_INTERVAL_S = 2.5, STORM_SAIL_HIT_CHANCE_PCT = 45, STORM_BROKEN_SAIL_MAX_STATE = 1;
+
+// ── DEV LOG ── real-time world-event feed (bottom-left; toggle with L) ──
+const DEVLOG_DEFAULT_ON = true;   // PLACEHOLDER: show the dev log by default (it's a dev/QC build)
+const DEVLOG_MAX = 60;            // PLACEHOLDER: ring-buffer size (events kept)
+const DEVLOG_VISIBLE = 14;        // PLACEHOLDER: lines drawn on screen at once
+const DEVLOG_LINE_TTL = 24;       // PLACEHOLDER: seconds before an old line fades to its dim floor
+
+// ── ACHIEVEMENTS ── event-counter + polled goals; unlock toast + list overlay (J) ──
+const ACH_TOAST_S = 5;            // PLACEHOLDER: seconds an unlock toast stays on screen
+const ACH_CHECK_INTERVAL_S = 0.4; // how often polled (stat-threshold) achievements re-check
+
+// ── CREW ── crew is a ship STAT (per-tier caps live in ShipTiers). Above baseline
+// each crew adds a small speed + reload bonus (capped); below the tier's minCrew the
+// ship is understaffed (flat speed penalty + fewer broadside balls). Hired at ports.
+const CREW_DEFAULT = 8;           // fallback crew if a ship has none stamped
+const CREW_MAX = 40;              // fallback cap when no tier is present
+const CREW_SPEED_PER = 0.004;    // fallback +/- per crew when no tier (ShipTiers.crewBonus overrides)
+const CREW_BONUS_CAP = 0.30;     // max +/-30% total from crew (speed up / reload down)
+const CREW_HIRE_COST = 6;        // gold per crew hired at a port (cheaper at a Trading Hub)
+const PLAYER_START_CREW_FRAC = 0.5;  // new player starts at half the start tier's max crew
+
+// ── CAPTURE / BOARDING ── shell a ship OR a port below its threshold, then press B
+// (port-capture is tried first). A captured ship becomes an empty hull you TOW to a
+// port you own, where it's delivered (runners hook). Boarding is gated behind owning
+// a port, so you must capture a port first.
+const CAPTURE_HULL_THRESHOLD_PCT = 20; // strip a ship below this % hull to board it
+const CAPTURE_RANGE = 60;              // be within this of the target to board
+const BOARD_DURATION_S = 1.6;          // boarding timer once started (you're pinned)
+const CAPTURE_TOW_SPEED_FRAC = 0.75;   // tow the empty prize at this fraction of max speed
+const PRIZE_DELIVER_RANGE = 70;        // tow a prize this close to an owned port to deliver
+// port capture
+const PORT_CAPTURE_THRESHOLD_PCT = 20; // shell a port below this % hull, then take it
+const PORT_CAPTURE_RANGE = 340;        // be within this of the port to capture (~dock radius)
+const PORT_HIT_RADIUS = 30;            // a player shot this close to a port centre damages it
+const PORT_CANNONBALL_DMG = 10;        // player shot damage to a port hull
+const PORT_REGEN_PER_S = 6;            // a damaged un-owned port heals this fast out of combat
+const PORT_REGEN_DELAY_S = 12;         // ...after this long without taking a hit
+const MAX_OWNED_PORTS = 8;             // cap on player-owned ports
+
+// ── RUNNERS ── a delivered prize becomes an AI trade runner banking passive gold
+const RUNNER_REPAIR_S = 8;             // a towed-in prize repairs this long before it starts running
+const RUNNER_SPEED = 1.4;              // runner cruise speed (placeholder)
+const RUNNER_STOPS_MIN = 2, RUNNER_STOPS_MAX = 4;   // ports visited per circuit
+const RUNNER_DWELL_S = 3;              // seconds parked at each stop (trading)
+const RUNNER_GOLD_PER_STOP = 40;       // gold a runner banks per trade stop (placeholder)
+const RUNNER_ARRIVE_RANGE = 130;       // a runner counts as "arrived" at a route port within this
+
+// ── HIRED PRIVATEERS ── escorts that patrol near you and shell pirates (hitscan)
+const PRIVATEER_HIRE_SLOTS = 3;        // max escorts you can employ
+const PRIVATEER_HIRE_COST = 1500;      // gold per escort
+const ESCORT_ENGAGE_RANGE = 900;       // an escort looks this far for a pirate threat
+const ESCORT_ATTACK_RANGE = 280;       // and fires within this
+const ESCORT_DAMAGE = 12;              // damage per escort shot
+const ESCORT_FIRE_COOLDOWN_S = 1.6;    // seconds between escort shots
+const ESCORT_SPEED = 1.9;              // escort cruise speed
+const ESCORT_PATROL_RADIUS = 360;      // orbit radius around the guard anchor when idle

@@ -13,8 +13,11 @@ const Save = {
     return {
       v: this.VERSION, seed: WORLD_SEED, t: Date.now(),
       px: p.x, py: p.y, ph: p.heading, hull: p.hull, ammo: p.ammo, gold: p.gold, bank: p.bank, sail: p.sailState,
+      tier: p.tier, crew: p.crew, upgrades: p.upgrades,
       standing: scene.navyStanding, flag: scene.flag,
       explored: Array.from(scene.explored),
+      ach: scene.achievements ? { unlocked: scene.achievements.unlocked, stats: scene.achievements.stats } : undefined,
+      ownedPorts: (scene.ownedPorts || []).map(p => [Math.round(p.x), Math.round(p.y)]),
     };
   },
 
@@ -36,8 +39,26 @@ const Save = {
     p.x = s.px; p.y = s.py; p.heading = s.ph; p.vel = 0;
     p.hull = s.hull; p.ammo = s.ammo; p.gold = s.gold; p.bank = (typeof s.bank === 'number') ? s.bank : (p.bank || 0); p.sailState = s.sail;
     p.fire = { port:0, star:0, bow:0, stern:0 }; p.wake = []; p.lastHitAt = -99; p.lastFiredAt = -99;
+    // restore ship tier + crew, then re-stamp tier-derived stats (maxHull/balls/scale/sails, clamp hull & crew)
+    if (typeof s.tier === 'number') p.tier = s.tier;
+    if (typeof s.crew === 'number') p.crew = s.crew;
+    if (s.upgrades) p.upgrades = { sail: s.upgrades.sail || 0, cannon: s.upgrades.cannon || 0 };
+    if (typeof ShipTiers !== 'undefined') ShipTiers.apply(scene, p, false);
     scene.navyStanding = s.standing; scene.flag = s.flag; scene.flagPending = null;
     scene.explored = new Set(s.explored || []);
+    // restore achievement progress onto the slice AchievementSystem.init() built
+    if (s.ach && scene.achievements){
+      scene.achievements.unlocked = s.ach.unlocked || {};
+      if (s.ach.stats) scene.achievements.stats = Object.assign(scene.achievements.stats, s.ach.stats);
+    }
+    // restore captured ports (match by deterministic world coords; ids reset per page)
+    if (Array.isArray(s.ownedPorts) && scene.navyPorts){
+      scene.ownedPorts = [];
+      const owned = new Set(s.ownedPorts.map(c => c[0] + ',' + c[1]));
+      for (const port of scene.navyPorts){
+        if (owned.has(Math.round(port.x) + ',' + Math.round(port.y))){ port.owner = 'player'; port.hull = port.maxHull; scene.ownedPorts.push(port); }
+      }
+    }
     scene.docked = false; scene.dockPort = null; scene.menuOpen = false; scene.mapOpen = false;
     scene.cannonballs.length = 0; scene.loot.length = 0; scene.popups.length = 0;
     scene.ships = []; Enemy.spawnFleet(scene);

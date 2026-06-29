@@ -4,11 +4,16 @@
 const Combat = {
   // side: 'port' (heading-90) | 'star' (heading+90)
   fire(scene, ship, side){
-    const cd = ship.faction === 'player' ? P.cooldown : P.cooldown*1.8;     // ENEMY_COOLDOWN_MULT
+    // player reload is shortened by extra crew (crewReloadMult < 1); enemies use the flat mult
+    const crewCd = (ship.faction === 'player' && typeof crewReloadMult !== 'undefined') ? crewReloadMult(ship) : 1;
+    const cd = ship.faction === 'player' ? P.cooldown*crewCd : P.cooldown*1.8;     // ENEMY_COOLDOWN_MULT
     if (ship.faction === 'player'){ if ((ship.ammo <= 0 && !DEBUG.infAmmo) || ship.fire[side] > 0) return; }
     else { if (ship.fire > 0) return; }
     const fa = (ship.heading + (side === 'port' ? -90 : 90) + 360)%360;
-    const n = (ship.faction === 'player' && ship.broadsideBalls) ? ship.broadsideBalls : P.balls;   // player broadside scales with ship tier
+    // player broadside scales with ship tier; understaffed crews fire fewer balls
+    const n = (ship.faction === 'player')
+      ? ((typeof ShipTiers !== 'undefined') ? ShipTiers.cannonsUsable(ship) : (ship.broadsideBalls || P.balls))
+      : P.balls;
     const half = (n - 1)/2;
     for (let b = 0; b < n; b++){
       const ang = fa + (b - half)*P.spread;
@@ -63,7 +68,19 @@ const Combat = {
     const cb = scene.cannonballs;
     for (let i = cb.length - 1; i >= 0; i--){
       const b = cb[i]; b.x += b.vx*dt; b.y += b.vy*dt; b.age += dt/60;
-      if (b.age > P.cannonLife){ cb.splice(i, 1); continue; }
+      // player cannon-type upgrade extends range (= projectile lifetime)
+      const life = (b.ownerFaction === 'player' && typeof UpgradeSystem !== 'undefined') ? P.cannonLife * UpgradeSystem.rangeMult(scene) : P.cannonLife;
+      if (b.age > life){ cb.splice(i, 1); continue; }
+      // player shells can damage an un-owned port (capture mechanic) — checked
+      // before the land block so a coastal port marker is still hittable
+      if (b.ownerFaction === 'player' && typeof PortCaptureSystem !== 'undefined' && scene.navyPorts){
+        let portHit = false;
+        for (const port of scene.navyPorts){
+          if (port.owner === 'player') continue;
+          if (Math.hypot(b.x - port.x, b.y - port.y) < PORT_HIT_RADIUS){ PortCaptureSystem.damagePort(scene, port); portHit = true; break; }
+        }
+        if (portHit){ cb.splice(i, 1); continue; }
+      }
       if (Collision.checkIsland(scene, b.x, b.y, 4).hit){ cb.splice(i, 1); continue; }  // land blocks shots
       let hit = false;
       // hits player?
@@ -81,6 +98,8 @@ const Combat = {
           if (Math.hypot(b.x - s.x, b.y - s.y) < 24){ this.onHit(scene, b, s); hit = true; break; }
         }
       }
+      // hostile shells can sink the player's trade runners (your own shots excluded)
+      if (!hit && b.ownerFaction !== 'player' && typeof RunnerSystem !== 'undefined' && RunnerSystem.tryHit(scene, b)) hit = true;
       if (hit) cb.splice(i, 1);
     }
   },

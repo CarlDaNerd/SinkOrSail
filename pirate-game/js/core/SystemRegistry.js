@@ -48,10 +48,19 @@ function registerSystems(){
   const candidates = [
     typeof CommoditySystem !== 'undefined' ? CommoditySystem : null,   // MC (ensures pl.hold)
     typeof BankSystem    !== 'undefined' ? BankSystem    : null,   // M0
+    typeof CrewSystem    !== 'undefined' ? CrewSystem    : null,   // crew stat (speed/reload bonus, hire at dock)
+    typeof UpgradeSystem !== 'undefined' ? UpgradeSystem : null,   // sail/cannon upgrades + ship-buying (ensures pl.upgrades)
     typeof DefenseSystem !== 'undefined' ? DefenseSystem : null,   // M8 (port cannon towers)
     typeof Population    !== 'undefined' ? Population    : null,   // streaming world traffic (AI ships)
+    typeof PortCaptureSystem !== 'undefined' ? PortCaptureSystem : null,  // take ports (shell + B); inits scene.ownedPorts
+    typeof BoardingSystem !== 'undefined' ? BoardingSystem : null,        // capture ships + tow prizes (needs an owned port)
+    typeof RunnerSystem  !== 'undefined' ? RunnerSystem  : null,   // delivered prizes → AI trade runners (passive income)
+    typeof HireSystem    !== 'undefined' ? HireSystem    : null,   // hired privateer escorts
+    typeof BountySystem  !== 'undefined' ? BountySystem  : null,   // port pirate-hunt contracts
     typeof WeatherSystem !== 'undefined' ? WeatherSystem : null,   // M11
     typeof ZoomSystem    !== 'undefined' ? ZoomSystem    : null,   // M7
+    typeof AchievementSystem !== 'undefined' ? AchievementSystem : null,  // pure observer (event bus + polled goals)
+    typeof DevLog        !== 'undefined' ? DevLog        : null,   // pure observer (event feed)
   ];
   for (const c of candidates) if (c) Systems.add(c);
 }

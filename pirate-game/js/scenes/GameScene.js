@@ -20,6 +20,7 @@ class GameScene extends Phaser.Scene {
     this.explored = new Set();                          // chunk keys you've sailed near (for the big map)
     this.menuOpen = false;                              // pause menu (Esc)
     this.extrasOn = EXTRAS_DEFAULT;                      // weather on/off (pause-menu "Weather" button); zoom is always on
+    this.achOpen = false;                               // achievements list overlay (J)
     this.mapOpen = false; this.mapDirty = false;        // big map (M) — non-pausing chart
     this.mapFollow = true;                              // chart tracks the ship until you drag it
     this.mapCenterX = 0; this.mapCenterY = 0; this.mapScale = MAP_SCALE_INIT;
@@ -34,7 +35,7 @@ class GameScene extends Phaser.Scene {
     this.follow = this.add.rectangle(this.player.x, this.player.y, 1, 1, 0, 0);
     this.cameras.main.startFollow(this.follow, true, 0.08, 0.08);
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,M,Z,X,T');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,ZERO,M,Z,X,T,J,L,B');
     this.input.on('wheel', (p, over, dx, dy) => { if (!this.mapOpen) return; this.mapScale = Phaser.Math.Clamp(this.mapScale * (dy < 0 ? 1.12 : 0.892), MAP_SCALE_MIN, MAP_SCALE_MAX); this.mapDirty = true; });
     this.input.on('pointermove', (p) => { if (!this.mapOpen || !p.isDown) return; this.mapFollow = false; this.mapCenterX -= (p.position.x - p.prevPosition.x)/this.mapScale; this.mapCenterY -= (p.position.y - p.prevPosition.y)/this.mapScale; this.mapDirty = true; });
 
@@ -223,6 +224,10 @@ class GameScene extends Phaser.Scene {
     const pl = this.player;
     if (DEBUG.infAmmo) pl.ammo = pl.maxAmmo;
 
+    // ── dev-log + achievements-list toggles (work anytime, even docked / paused) ──
+    if (Phaser.Input.Keyboard.JustDown(this.keys.L) && this.devlog) this.devlog.on = !this.devlog.on;
+    if (Phaser.Input.Keyboard.JustDown(this.keys.J)) this.achOpen = !this.achOpen;
+
     // ── overlay toggles (M = map, Esc = pause menu); not while docked ──
     if (!this.docked){
       if (!this.menuOpen && Phaser.Input.Keyboard.JustDown(this.keys.M)) this.toggleMap();
@@ -240,6 +245,12 @@ class GameScene extends Phaser.Scene {
       else if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) this.restockAtPort();
       else if (Phaser.Input.Keyboard.JustDown(this.keys.THREE)) this.sellAllAtPort();
       else if (Phaser.Input.Keyboard.JustDown(this.keys.FOUR)) this.buySourceAtPort();
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.FIVE) && typeof CrewSystem !== 'undefined') CrewSystem.hireOne(this, this.dockPort);
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.SIX)   && typeof UpgradeSystem !== 'undefined') UpgradeSystem.buySail(this);
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.SEVEN) && typeof UpgradeSystem !== 'undefined') UpgradeSystem.buyCannon(this);
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.EIGHT) && typeof UpgradeSystem !== 'undefined') UpgradeSystem.buyShip(this);
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.NINE)  && typeof HireSystem !== 'undefined') HireSystem.hireAtDock(this);
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.ZERO)  && typeof BountySystem !== 'undefined') BountySystem.acceptAtDock(this);
       this.draw();                                   // keep the (frozen) world visible behind the menu
       return;
     }
@@ -252,6 +263,11 @@ class GameScene extends Phaser.Scene {
       // bow/stern chaser guns (only mounted on Brig+ / Galleon+); no-op at lower tiers
       if (Phaser.Input.Keyboard.JustDown(this.cursors.up))   Combat.fireChaser(this, pl, 'bow');
       if (Phaser.Input.Keyboard.JustDown(this.cursors.down)) Combat.fireChaser(this, pl, 'stern');
+      // B: capture — shell a port/ship below its threshold, then press B (port-capture wins if both are in range)
+      if (Phaser.Input.Keyboard.JustDown(this.keys.B)){
+        let consumed = (typeof PortCaptureSystem !== 'undefined') && PortCaptureSystem.tryCapture(this);
+        if (!consumed && typeof BoardingSystem !== 'undefined') BoardingSystem.tryBoard(this);
+      }
       // DEV: cycle ship tier (until a real buy/capture progression exists)
       if (Phaser.Input.Keyboard.JustDown(this.keys.T) && typeof ShipTiers !== 'undefined'){
         ShipTiers.setTier(this, pl, (pl.tier % TIER_MAX) + 1);
@@ -262,7 +278,9 @@ class GameScene extends Phaser.Scene {
       if (this.cursors.right.isDown || this.keys.D.isDown) pl.heading = (pl.heading + td)%360;
       const wa = windOff(pl.heading, P.windFrom);
       const wMult = (typeof WeatherSystem !== 'undefined') ? WeatherSystem.speedMult(this) : 1;   // rain slow (1 otherwise)
-      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState]*wMult;
+      const cMult = (typeof crewSpeedMult !== 'undefined') ? crewSpeedMult(pl) : 1;               // crew bonus / understaffed penalty
+      const uMult = (typeof UpgradeSystem !== 'undefined') ? UpgradeSystem.speedMult(this) : 1;   // sail-material upgrade
+      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState]*wMult*cMult*uMult;
       pl.vel += (tgt - pl.vel)*Math.min((tgt > pl.vel ? P.accel : P.decel)*dt, 1);
       Collision.moveShip(this, pl, dt);
       // reefs: drag + periodic hull damage while grounded (they don't block, they hurt)

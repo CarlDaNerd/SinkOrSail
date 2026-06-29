@@ -45,6 +45,13 @@ class HUD {
     this.tDockPrompt = scene.add.text(GAME_W/2, GAME_H - 96, '', { fontFamily:'ui-monospace,monospace', fontSize:'13px', color:'#F0C840', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(103);
     this.tDockMenu = scene.add.text(GAME_W/2, GAME_H/2, '', { fontFamily:'ui-monospace,monospace', fontSize:'14px', color:'#D4C890', align:'center', lineSpacing:6 }).setOrigin(0.5).setScrollFactor(0).setDepth(103);
     this.popupPool = []; for (let i = 0; i < 16; i++){ const t = scene.add.text(0, 0, '', { fontFamily:'ui-monospace,monospace', fontSize:'12px', fontStyle:'bold' }).setScrollFactor(0).setDepth(60).setOrigin(0.5); this.popupPool.push(t); }
+
+    // ── dev log (bottom-left) + achievement toast / list overlay ──
+    this.tLogHdr = scene.add.text(14, 0, '', { fontFamily:'ui-monospace,monospace', fontSize:'9px', color:'#6a8298' }).setScrollFactor(0).setDepth(101).setOrigin(0, 0);
+    this.logLines = [];
+    for (let i = 0; i < DEVLOG_VISIBLE; i++){ this.logLines.push(scene.add.text(0, 0, '', { fontFamily:'ui-monospace,monospace', fontSize:'10px', color:'#9FB6C8' }).setScrollFactor(0).setDepth(101).setOrigin(0, 0)); }
+    this.tAchToast = scene.add.text(GAME_W/2, GAME_H*0.20, '', { fontFamily:'ui-monospace,monospace', fontSize:'14px', color:'#F0C840', fontStyle:'bold', align:'center', lineSpacing:3 }).setScrollFactor(0).setDepth(103).setOrigin(0.5, 0);
+    this.tAchList = scene.add.text(GAME_W/2, GAME_H/2, '', { fontFamily:'ui-monospace,monospace', fontSize:'11px', color:'#D4C890', align:'left', lineSpacing:4 }).setScrollFactor(0).setDepth(103).setOrigin(0.5);
   }
 
   drawPopups(popups){
@@ -71,7 +78,9 @@ class HUD {
     g.fillStyle(0x223040, 1); g.fillRect(20, 80, 150, 5); g.fillStyle(hp < 0.35 ? 0xE0503A : 0x4CA84C, 1); g.fillRect(20, 80, 150*hp, 5);
     this.tHull.setText('HULL ' + Math.ceil(pl.hull));
     this.tAmmo.setText('AMMO ' + pl.ammo); this.tGold.setText('GOLD ' + pl.gold);
-    this.tCrew.setText('CREW 20');
+    const crewCap = (typeof ShipTiers !== 'undefined') ? ShipTiers.maxCrew(pl) : (typeof CREW_MAX !== 'undefined' ? CREW_MAX : 40);
+    const understaffed = (typeof ShipTiers !== 'undefined') && ShipTiers.understaffed(pl);
+    this.tCrew.setText('CREW ' + (pl.crew || 0) + '/' + crewCap + (understaffed ? ' ⚠' : '')).setColor(understaffed ? '#E0503A' : '#8AAAC8');
     this.tCoord.setText(Math.round(pl.x) + ',' + Math.round(pl.y));
     // wanted level (standing 0..-100 → 0..5 pips)
     const wl = Math.min(5, Math.max(0, Math.ceil(-gs.navyStanding / 20))), hostile = gs.navyHostile();
@@ -125,12 +134,55 @@ class HUD {
     this.tScale.setText('200 px').setPosition(GAME_W/2, by + 4);
 
     this.drawDock(g);
+    this.drawDevLog();
+    this.drawAchToast();
+    this.drawAchOverlay(g);
+  }
+
+  // ── real-time dev log (bottom-left); newest line at the bottom, older lines fade ──
+  drawDevLog(){
+    const gs = this.gs, dl = gs.devlog, on = !!(dl && dl.on), baseY = GAME_H - 30;
+    if (on){
+      let hdr = 'DEV LOG  [L hide]';
+      if (typeof AchievementSystem !== 'undefined' && gs.achievements){ const c = AchievementSystem.count(gs); hdr += '   ·   ACH ' + c.done + '/' + c.total + ' [J]'; }
+      this.tLogHdr.setText(hdr).setPosition(14, baseY - DEVLOG_VISIBLE*14 - 16).setVisible(true);
+    } else this.tLogHdr.setVisible(false);
+    const lines = (dl && dl.lines) ? dl.lines : [], now = gs.time.now/1000;
+    for (let i = 0; i < this.logLines.length; i++){
+      const t = this.logLines[i], line = on ? lines[lines.length - 1 - i] : null;
+      if (line){
+        const fade = Math.max(0.28, 1 - (now - line.t)/DEVLOG_LINE_TTL);
+        t.setText((line.n > 1 ? '(' + line.n + 'x) ' : '') + line.txt)
+          .setColor('#' + line.color.toString(16).padStart(6, '0')).setAlpha(fade).setPosition(14, baseY - i*14).setVisible(true);
+      } else t.setVisible(false);
+    }
+  }
+
+  // ── achievement unlock toast (auto, top-centre) ──
+  drawAchToast(){
+    const a = this.gs.achievements;
+    if (a && a.toast && this.gs.time.now/1000 < a.toast.until){
+      this.tAchToast.setText('★ ACHIEVEMENT UNLOCKED ★\n' + a.toast.name + '\n' + a.toast.desc).setVisible(true);
+    } else this.tAchToast.setVisible(false);
+  }
+
+  // ── achievements list overlay (J) ──
+  drawAchOverlay(g){
+    const gs = this.gs;
+    if (!gs.achOpen || typeof AchievementSystem === 'undefined' || !gs.achievements){ this.tAchList.setVisible(false); return; }
+    const list = AchievementSystem.list(gs), c = AchievementSystem.count(gs);
+    let s = 'ACHIEVEMENTS   ' + c.done + ' / ' + c.total + '       [J close]\n\n';
+    for (const it of list){ s += (it.unlocked ? '✓ ' : '· ') + it.name + '  —  ' + it.desc + (it.unlocked ? '' : '   (' + it.val + '/' + it.goal + ')') + '\n'; }
+    const w = Math.min(560, GAME_W - 24), h = 44 + (list.length + 2) * 17, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
+    g.fillStyle(0x0E1820, 0.95); g.fillRect(x, y, w, h);
+    g.lineStyle(2, 0xF0C840, 0.5); g.strokeRect(x, y, w, h);
+    this.tAchList.setText(s).setPosition(GAME_W/2, GAME_H/2).setVisible(true);
   }
 
   drawDock(g){
     const gs = this.gs, pl = gs.player;
     if (gs.docked && gs.dockPort){
-      const w = 420, h = 248, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
+      const w = 440, h = 400, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
       g.fillStyle(0x0E1820, 0.94); g.fillRect(x, y, w, h);
       g.lineStyle(2, 0x2A9EAE, 0.6); g.strokeRect(x, y, w, h);
       const port = gs.dockPort;
@@ -141,7 +193,18 @@ class HUD {
       if (pl.hold){ const parts = []; for (const c of COMMODITIES){ const q = pl.hold.items[c]; if (q) parts.push((COMMODITY_INFO[c] ? COMMODITY_INFO[c].glyph : c) + q); } if (parts.length) cargo = parts.join(' '); }
       const src = port.sourceCommodity;
       const l4 = src ? ('[4] Buy ' + src + '  —  ' + PortEconomy.sellPrice(port, src) + 'g/ea') : '[4] — (no local good)';
-      this.tDockMenu.setText('⚓  ' + port.name + '   (' + (port.type || 'Port') + ')\n\nGOLD  ' + (pl.bank || 0) + '     HOLD  ' + cargo + '\n\n' + l1 + '\n' + l2 + '\n[3] Sell all cargo\n' + l4 + '\n\n[F] Depart').setVisible(true);
+      const crewCap = (typeof ShipTiers !== 'undefined') ? ShipTiers.maxCrew(pl) : (typeof CREW_MAX !== 'undefined' ? CREW_MAX : 40);
+      const crewSpec = (typeof PORT_TYPES !== 'undefined') && PORT_TYPES[port.type];
+      const crewCost = Math.round((typeof CREW_HIRE_COST !== 'undefined' ? CREW_HIRE_COST : 6) * (crewSpec && crewSpec.crewDiscount ? 0.6 : 1));
+      const l5 = ((pl.crew || 0) >= crewCap) ? '[5] Crew full (' + crewCap + ')' : '[5] Hire crew  —  ' + crewCost + 'g';
+      const up = (typeof UpgradeSystem !== 'undefined') ? UpgradeSystem : null;
+      const l6 = up ? '[6] ' + up.sailLabel(gs)   : '';
+      const l7 = up ? '[7] ' + up.cannonLabel(gs) : '';
+      const l8 = up ? '[8] ' + up.shipLabel(gs)   : '';
+      const l9 = (typeof HireSystem !== 'undefined')   ? '[9] ' + HireSystem.hireLabel(gs) : '';
+      const l0 = (typeof BountySystem !== 'undefined') ? '[0] Accept bounty (hunt a pirate)' : '';
+      const extra = [l6, l7, l8, l9, l0].filter(Boolean).join('\n');
+      this.tDockMenu.setText('⚓  ' + port.name + '   (' + (port.type || 'Port') + ')\n\nGOLD  ' + (pl.bank || 0) + '     HOLD  ' + cargo + '     CREW  ' + (pl.crew || 0) + '/' + crewCap + '\n\n' + l1 + '\n' + l2 + '\n[3] Sell all cargo\n' + l4 + '\n' + l5 + (extra ? '\n' + extra : '') + '\n\n[F] Depart').setVisible(true);
       this.tDockPrompt.setVisible(false);
     } else if (gs.nearPort){
       let msg;

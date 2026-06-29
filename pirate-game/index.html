@@ -117,6 +117,8 @@
       <b>A/D · ←/→</b> turn &nbsp; <b>W/S</b> sails<br>
       <b>Q</b> port broadside &nbsp; <b>E</b> starboard<br>
       <b>F</b> dock (auto-saves) &nbsp; <b>M</b> map &nbsp; <b>Esc</b> menu<br>
+      <b>L</b> dev log &nbsp; <b>J</b> achievements<br>
+      <b>B</b> capture (shell a port/ship low, then B) &nbsp; <b>5</b> hire crew (docked)<br>
       <b>`</b> show/hide this panel &nbsp; <b>respawn</b> = new fleet<br>
       <span style="color:#5a7088">blue=you · tan=merchant · red=pirate · cyan=navy · green=privateer</span>
     </div>
@@ -159,11 +161,21 @@
 <!-- feature systems (registry-driven; registered in SystemRegistry.js) -->
 <script src="js/systems/CommoditySystem.js"></script>
 <script src="js/systems/BankSystem.js"></script>
+<script src="js/systems/CrewSystem.js"></script>
+<script src="js/systems/UpgradeSystem.js"></script>
 <script src="js/systems/PortEconomy.js"></script>
 <script src="js/systems/DefenseSystem.js"></script>
 <script src="js/systems/Population.js"></script>
+<script src="js/systems/PortCaptureSystem.js"></script>
+<script src="js/systems/BoardingSystem.js"></script>
+<script src="js/systems/RunnerSystem.js"></script>
+<script src="js/systems/HireSystem.js"></script>
+<script src="js/systems/BountySystem.js"></script>
 <script src="js/systems/ZoomSystem.js"></script>
 <script src="js/systems/WeatherSystem.js"></script>
+<!-- dev/QC observers (pure event-bus listeners + overlays; HUD draws their UI) -->
+<script src="js/systems/AchievementSystem.js"></script>
+<script src="js/systems/DevLog.js"></script>
 <!-- ui -->
 <script src="js/ui/WindCompass.js"></script>
 <script src="js/ui/MiniMap.js"></script>
