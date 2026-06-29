@@ -48,7 +48,7 @@
   #standing .s { display:flex; justify-content:space-between; }
   #standing .bar { height:5px; background:#223040; margin-top:1px; }
   #standing .bar > div { height:100%; }
-  #panel:not(.open) #panelTab { display:none; }   /* hide the tuning sidebar entirely until toggled from the menu */
+  #panel:not(.open) #panelTab { display:none; }   /* hide the edge tab until the panel is opened via the ` key or the pause-menu "Tuning Panel" button */
 </style>
 </head>
 <body>
@@ -60,7 +60,40 @@
     <h1>COMBAT + FACTIONS V1</h1>
     <p class="sub">Click headers to collapse. Sliders apply live.</p>
 
-    <div class="grp" data-g="sail">SAILING</div>
+    <div class="grp" data-g="dev">DEV / QC TOOLS</div>
+    <div class="body">
+      <label class="devchk"><input type="checkbox" id="dbgInfGold" style="accent-color:#2A9EAE;"> infinite gold</label>
+      <label class="devchk"><input type="checkbox" id="dbgWeatherOff" style="accent-color:#2A9EAE;"> disable weather</label>
+      <div class="devrow">
+        <select id="dbgWxType" style="flex:1;">
+          <option value="rain">rain</option><option value="snow">snow</option><option value="tsunami">tsunami</option><option value="cyclone">cyclone</option><option value="storm">storm</option>
+        </select>
+        <button id="dbgWxGo">FORCE WX</button><button id="dbgWxClear">CLEAR</button>
+      </div>
+      <div class="devrow">
+        <select id="dbgSpawnFaction" style="flex:1;">
+          <option value="merchant">merchant</option><option value="pirate">pirate</option><option value="navy">navy</option><option value="privateer">privateer</option>
+        </select>
+        <select id="dbgSpawnTier" style="flex:1;">
+          <option value="">tier: keep</option><option value="1">1 Dinghy</option><option value="2">2 Sloop</option><option value="3">3 Brig</option><option value="4">4 Frigate</option><option value="5">5 Galleon</option><option value="6">6 Leviathan</option>
+        </select>
+      </div>
+      <label class="devchk"><input type="checkbox" id="dbgSpawnWeak" style="accent-color:#2A9EAE;"> spawn weak (10% hull)</label>
+      <div class="devrow"><button id="dbgSpawn" style="flex:1;">SPAWN SHIP NEAR ME</button></div>
+      <div class="devrow">
+        <select id="dbgMyTier" style="flex:1;">
+          <option value="1">1 Dinghy</option><option value="2" selected>2 Sloop</option><option value="3">3 Brig</option><option value="4">4 Frigate</option><option value="5">5 Galleon</option><option value="6">6 Leviathan</option>
+        </select>
+        <button id="dbgApplyTier">SET MY TIER</button>
+      </div>
+      <div class="devgrid">
+        <button id="dbgGold">+10k GOLD</button><button id="dbgHeal">HEAL + AMMO</button>
+        <button id="dbgCapturePort">CAPTURE PORT</button><button id="dbgTpPort">TP TO PORT</button>
+        <button id="dbgSpawnPrize">SPAWN PRIZE</button><button id="dbgClearEnemies">CLEAR ENEMIES</button>
+      </div>
+    </div>
+
+    <div class="grp collapsed" data-g="sail">SAILING</div>
     <div class="body">
       <div class="row"><label>Max speed <span class="val" id="v_maxSpeed"></span></label><input type="range" id="maxSpeed" min="0.5" max="4" step="0.05"></div>
       <div class="row"><label>No-go zone <span class="val" id="v_noGo"></span></label><input type="range" id="noGo" min="20" max="70" step="1"></div>
@@ -111,39 +144,6 @@
     <label style="display:flex;align-items:center;gap:7px;font-size:9.5px;color:#8AAAC8;margin-top:6px;cursor:pointer;user-select:none;">
       <input type="checkbox" id="infAmmo" style="accent-color:#2A9EAE;"> infinite ammo (testing)
     </label>
-
-    <div class="grp collapsed" data-g="dev">DEV / QC TOOLS</div>
-    <div class="body">
-      <label class="devchk"><input type="checkbox" id="dbgInfGold" style="accent-color:#2A9EAE;"> infinite gold</label>
-      <label class="devchk"><input type="checkbox" id="dbgWeatherOff" style="accent-color:#2A9EAE;"> disable weather</label>
-      <div class="devrow">
-        <select id="dbgWxType" style="flex:1;">
-          <option value="rain">rain</option><option value="snow">snow</option><option value="tsunami">tsunami</option><option value="cyclone">cyclone</option><option value="storm">storm</option>
-        </select>
-        <button id="dbgWxGo">FORCE WX</button><button id="dbgWxClear">CLEAR</button>
-      </div>
-      <div class="devrow">
-        <select id="dbgSpawnFaction" style="flex:1;">
-          <option value="merchant">merchant</option><option value="pirate">pirate</option><option value="navy">navy</option><option value="privateer">privateer</option>
-        </select>
-        <select id="dbgSpawnTier" style="flex:1;">
-          <option value="">tier: keep</option><option value="1">1 Dinghy</option><option value="2">2 Sloop</option><option value="3">3 Brig</option><option value="4">4 Frigate</option><option value="5">5 Galleon</option><option value="6">6 Leviathan</option>
-        </select>
-      </div>
-      <label class="devchk"><input type="checkbox" id="dbgSpawnWeak" style="accent-color:#2A9EAE;"> spawn weak (10% hull)</label>
-      <div class="devrow"><button id="dbgSpawn" style="flex:1;">SPAWN SHIP NEAR ME</button></div>
-      <div class="devrow">
-        <select id="dbgMyTier" style="flex:1;">
-          <option value="1">1 Dinghy</option><option value="2" selected>2 Sloop</option><option value="3">3 Brig</option><option value="4">4 Frigate</option><option value="5">5 Galleon</option><option value="6">6 Leviathan</option>
-        </select>
-        <button id="dbgApplyTier">SET MY TIER</button>
-      </div>
-      <div class="devgrid">
-        <button id="dbgGold">+10k GOLD</button><button id="dbgHeal">HEAL + AMMO</button>
-        <button id="dbgCapturePort">CAPTURE PORT</button><button id="dbgTpPort">TP TO PORT</button>
-        <button id="dbgSpawnPrize">SPAWN PRIZE</button><button id="dbgClearEnemies">CLEAR ENEMIES</button>
-      </div>
-    </div>
 
     <div id="btns">
       <button id="reset">RESET</button>
