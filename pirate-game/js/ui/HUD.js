@@ -137,6 +137,27 @@ class HUD {
     this.drawDevLog();
     this.drawAchToast();
     this.drawAchOverlay(g);
+    this.drawBountyArrow(g);
+  }
+
+  // off-screen red arrow pointing at the active bounty target; hidden once the
+  // target is on-screen (in sight), reappears when it leaves the view again
+  drawBountyArrow(g){
+    const gs = this.gs;
+    if (typeof BountySystem === 'undefined' || !gs.bounties || !gs.bounties.length) return;
+    const t = BountySystem.compassTarget(gs);
+    if (!t) return;
+    const view = gs.cameras.main.worldView;
+    if (view.contains(t.x, t.y)) return;                       // in sight → no arrow
+    const ang = Math.atan2(t.y - (view.y + view.height/2), t.x - (view.x + view.width/2));
+    const ux = Math.cos(ang), uy = Math.sin(ang), margin = 46;
+    const scale = Math.min((GAME_W/2 - margin)/Math.max(Math.abs(ux), 1e-4), (GAME_H/2 - margin)/Math.max(Math.abs(uy), 1e-4));
+    const ex = GAME_W/2 + ux*scale, ey = GAME_H/2 + uy*scale, sz = 13;
+    const ax = ex + ux*sz, ay = ey + uy*sz;                    // tip
+    const bx = ex + Math.cos(ang + 2.6)*sz, by = ey + Math.sin(ang + 2.6)*sz;
+    const cx2 = ex + Math.cos(ang - 2.6)*sz, cy2 = ey + Math.sin(ang - 2.6)*sz;
+    g.fillStyle(0xE0503A, 0.92); g.fillTriangle(ax, ay, bx, by, cx2, cy2);
+    g.lineStyle(1.5, 0x2a0a0a, 0.5); g.strokeTriangle(ax, ay, bx, by, cx2, cy2);
   }
 
   // ── real-time dev log (bottom-left); newest line at the bottom, older lines fade ──
