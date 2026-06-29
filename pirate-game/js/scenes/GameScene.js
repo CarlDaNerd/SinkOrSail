@@ -218,6 +218,23 @@ class GameScene extends Phaser.Scene {
     else this.flashPopup(pl.x, pl.y, "CAN'T BUY", 0xE0503A);
   }
 
+  // fog of war: reveal a MINIMAP_RANGE-radius circle around the ship (same coverage
+  // as the minimap), stamped into FOG_CELL cells. Throttled to ~half a cell of
+  // movement so it isn't re-stamped every frame.
+  _revealFog(){
+    const pl = this.player, R = MINIMAP_RANGE, fc = FOG_CELL;
+    if (this._fogAt && Math.hypot(pl.x - this._fogAt.x, pl.y - this._fogAt.y) < fc*0.5) return;
+    this._fogAt = { x: pl.x, y: pl.y };
+    const R2 = R*R, before = this.explored.size;
+    const f0x = Math.floor((pl.x - R)/fc), f1x = Math.floor((pl.x + R)/fc);
+    const f0y = Math.floor((pl.y - R)/fc), f1y = Math.floor((pl.y + R)/fc);
+    for (let fy = f0y; fy <= f1y; fy++) for (let fx = f0x; fx <= f1x; fx++){
+      const dx = (fx + 0.5)*fc - pl.x, dy = (fy + 0.5)*fc - pl.y;
+      if (dx*dx + dy*dy <= R2) this.explored.add(fx + ',' + fy);
+    }
+    if (this.mapOpen && this.explored.size !== before) this.mapDirty = true;   // refresh an open chart live
+  }
+
   update(time, delta){
     const dt = Math.min(delta, 50)/(1000/60);      // frame-normalized step (cap prevents tunneling)
     const dts = delta/1000;                        // seconds elapsed this frame
@@ -297,7 +314,7 @@ class GameScene extends Phaser.Scene {
     }
 
     Chunks.update(this);                           // stream terrain in/out around the player
-    for (const k of this._chunks.keys()) this.explored.add(k);   // remember where you've sailed (big-map fog)
+    this._revealFog();                             // fog-of-war: reveal a MINIMAP_RANGE circle around the ship
 
     // dock proximity + enter (F). Ports are navy-controlled: no docking while
     // WANTED or mid-combat — recover standing / break off first.

@@ -1,37 +1,45 @@
 // ── ui/WorldMap.js ──
-// The big explorable map (M key): pan + zoom over what you've EXPLORED. Chunks
-// you've sailed near are remembered (gs.explored); their terrain is regenerated
-// deterministically per chunk (cheap + region-cached) so we don't keep far chunks
-// loaded just to draw the map. Unexplored stays dark. Drawn into a UIScene
-// graphics, only re-rendered when the view pans/zooms (gs.mapDirty).
+// The big explorable map (M key): pan + zoom over what you've EXPLORED. As you
+// sail, a MINIMAP_RANGE circle around the ship is revealed into FOG_CELL cells
+// (gs.explored) — the same coverage as the corner minimap, so the chart only ever
+// shows where you've actually been (no leaking the whole streamed world). Terrain
+// inside revealed cells is regenerated deterministically per chunk (cheap +
+// region-cached). Unexplored stays dark. Re-rendered only on pan/zoom (mapDirty).
 function drawWorldMap(g, gs){
   g.clear();
   g.fillStyle(0x0A1119, 1); g.fillRect(0, 0, GAME_W, GAME_H);          // dark backdrop = unexplored
 
-  const s = gs.mapScale, cx = GAME_W/2, cy = GAME_H/2;
+  const s = gs.mapScale, cx = GAME_W/2, cy = GAME_H/2, fc = FOG_CELL;
   const w2x = wx => cx + (wx - gs.mapCenterX)*s, w2y = wy => cy + (wy - gs.mapCenterY)*s;
   const halfWx = (GAME_W/2)/s, halfWy = (GAME_H/2)/s;
-  const c0x = Math.floor((gs.mapCenterX - halfWx)/CHUNK_SIZE), c1x = Math.floor((gs.mapCenterX + halfWx)/CHUNK_SIZE);
-  const c0y = Math.floor((gs.mapCenterY - halfWy)/CHUNK_SIZE), c1y = Math.floor((gs.mapCenterY + halfWy)/CHUNK_SIZE);
-  if ((c1x - c0x + 1) * (c1y - c0y + 1) > 8000) return;                // safety (scale is clamped so this won't hit)
+  const minX = gs.mapCenterX - halfWx, maxX = gs.mapCenterX + halfWx;
+  const minY = gs.mapCenterY - halfWy, maxY = gs.mapCenterY + halfWy;
+  const inExplored = (wx, wy) => gs.explored.has(Math.floor(wx/fc) + ',' + Math.floor(wy/fc));
 
-  const cs = CHUNK_SIZE*s;
-  // explored tint — lets you see where you've been even across empty ocean
+  // explored tint (one rect per revealed cell in view) + collect the chunks those
+  // cells touch, so we only regenerate terrain where you've actually been
+  const cellPx = fc*s, chunks = new Set();
   g.fillStyle(0x13283A, 1);
-  for (let yk = c0y; yk <= c1y; yk++) for (let xk = c0x; xk <= c1x; xk++){
-    if (gs.explored.has(xk + ',' + yk)) g.fillRect(w2x(xk*CHUNK_SIZE), w2y(yk*CHUNK_SIZE), cs + 1, cs + 1);
+  for (const key of gs.explored){
+    const ci = key.indexOf(','); const fx = +key.slice(0, ci), fy = +key.slice(ci + 1);
+    const wx = fx*fc, wy = fy*fc;
+    if (wx > maxX || wx + fc < minX || wy > maxY || wy + fc < minY) continue;   // cull to view
+    g.fillRect(w2x(wx), w2y(wy), cellPx + 1, cellPx + 1);
+    chunks.add(Math.floor(wx/CHUNK_SIZE) + ',' + Math.floor(wy/CHUNK_SIZE));
   }
-  // land within explored chunks (regenerated deterministically)
-  for (let yk = c0y; yk <= c1y; yk++) for (let xk = c0x; xk <= c1x; xk++){
-    if (!gs.explored.has(xk + ',' + yk)) continue;
+  // land within revealed cells (regen each touched chunk, gate each lobe by its cell)
+  for (const ck of chunks){
+    const ci = ck.indexOf(','); const xk = +ck.slice(0, ci), yk = +ck.slice(ci + 1);
     const data = WorldGen.generateChunk(xk, yk);
-    for (const land of data.lands){ g.fillStyle((land.mainland || land.big) ? 0x3D6E25 : 0x4C8A30, 1); for (const e of land.ells) g.fillCircle(w2x(e.cx), w2y(e.cy), Math.max(0.7, e.rx*s)); }
+    for (const land of data.lands){
+      g.fillStyle((land.mainland || land.big) ? 0x3D6E25 : 0x4C8A30, 1);
+      for (const e of land.ells) if (inExplored(e.cx, e.cy)) g.fillCircle(w2x(e.cx), w2y(e.cy), Math.max(0.7, e.rx*s));
+    }
   }
-  // ports — only those in EXPLORED chunks, so they stay hidden under the fog like
-  // the land does (no leaking the whole world's ports when you zoom out). Coloured
-  // by port type.
+  // ports — only those in REVEALED cells, so they stay hidden under the fog like the
+  // land does. Coloured by port type.
   for (const p of gs.navyPorts){
-    if (!gs.explored.has(Math.floor(p.x/CHUNK_SIZE) + ',' + Math.floor(p.y/CHUNK_SIZE))) continue;
+    if (!inExplored(p.x, p.y)) continue;
     const col = (PORT_TYPES[p.type] && PORT_TYPES[p.type].color) || 0x8AC8E0;
     g.fillStyle(col, 1); g.fillCircle(w2x(p.x), w2y(p.y), 4);
     g.lineStyle(1.5, 0x2A9EAE, 0.6); g.strokeCircle(w2x(p.x), w2y(p.y), 8);
