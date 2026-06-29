@@ -65,5 +65,66 @@ const FLAG_RAISE_DELAY_S=${P.flagDelay}, FLAG_COMBAT_LOCK_S=${P.flagCombatLock};
   if (tabEl){ tabEl.textContent = panelOpen ? '✕ HIDE' : '⚙ TUNE'; tabEl.addEventListener('click', () => setPanel(!panelOpen)); }
   document.addEventListener('keydown', e => { if (e.key === '`'){ e.preventDefault(); setPanel(!panelOpen); } });
 
+  // ── DEV / QC TOOLS ── (test the game without grinding it; adapted to numeric ShipTiers)
+  const $ = id => document.getElementById(id);
+  const onChk = (id, fn) => { const el = $(id); if (el) el.addEventListener('change', e => fn(e.target.checked)); };
+  const onClick = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
+  const nearestPort = (s, ownedOnly) => { let best = null, bd = Infinity; for (const p of s.navyPorts){ if (ownedOnly && p.owner !== 'player') continue; const d = Math.hypot(s.player.x - p.x, s.player.y - p.y); if (d < bd){ bd = d; best = p; } } return best; };
+
+  onChk('dbgInfGold', v => { DEBUG.infGold = v; });
+  onChk('dbgWeatherOff', v => { DEBUG.weatherOff = v; const s = sc(); if (s && v && typeof WeatherSystem !== 'undefined') WeatherSystem.clear(s); });
+
+  onClick('dbgWxGo', () => { const s = sc(), ty = $('dbgWxType').value; if (!s || !ty || typeof WeatherSystem === 'undefined') return;
+    s.extrasOn = true; DEBUG.weatherOff = false; const wo = $('dbgWeatherOff'); if (wo) wo.checked = false; WeatherSystem.start(s, ty); });
+  onClick('dbgWxClear', () => { const s = sc(); if (s && typeof WeatherSystem !== 'undefined') WeatherSystem.clear(s); });
+
+  onClick('dbgSpawn', () => {
+    const s = sc(); if (!s) return;
+    const fac = $('dbgSpawnFaction').value, tier = $('dbgSpawnTier').value;
+    const a = Math.random() * Math.PI * 2, r = 240 + Math.random() * 140;
+    const x = s.player.x + Math.cos(a) * r, y = s.player.y + Math.sin(a) * r;
+    // Math.random (not the gameplay PRNG) so a dev spawn never perturbs determinism
+    const ship = Enemy.create(fac, 80, x, y, Math.random() * 360, null, Math.random, (Date.now() % 100000));
+    if (tier && typeof ShipTiers !== 'undefined'){ ship.tier = parseInt(tier, 10); ShipTiers.apply(s, ship, true); }
+    ship.crew = 0;                                   // enemies are crewless (capture = empty hull)
+    if ($('dbgSpawnWeak').checked) ship.hull = Math.max(1, Math.round(ship.maxHull * 0.1));
+    if (fac === 'merchant' && typeof CommoditySystem !== 'undefined'){ const c = CommoditySystem.nearestIslandCommodity(s, x, y);
+      if (c){ if (!ship.hold && typeof Cargo !== 'undefined') ship.hold = Cargo.make(20); ship.cargo = { commodity:c, qty:6 }; if (ship.hold) Cargo.add(ship.hold, c, 6); } }
+    s.ships.push(ship); s.flashPopup(x, y - 20, 'DEV SPAWN: ' + fac, 0x6ED0E0);
+  });
+
+  onClick('dbgApplyTier', () => { const s = sc(), t = $('dbgMyTier').value; if (s && t && typeof ShipTiers !== 'undefined'){ ShipTiers.setTier(s, s.player, parseInt(t, 10)); s.flashPopup(s.player.x, s.player.y - 20, 'TIER: ' + ShipTiers.get(s.player.tier).name, 0x6ED0E0); } });
+
+  onClick('dbgGold', () => { const s = sc(); if (!s) return; s.player.bank = (s.player.bank || 0) + 10000; s.flashPopup(s.player.x, s.player.y - 20, '+10000g', 0xF0C840); });
+  onClick('dbgHeal', () => { const s = sc(); if (!s) return; s.player.hull = s.player.maxHull; s.player.sailBroken = false; s.player.ammo = s.player.maxAmmo; s.flashPopup(s.player.x, s.player.y - 20, 'HEALED', 0x4CA84C); });
+
+  onClick('dbgCapturePort', () => {
+    const s = sc(); if (!s) return;
+    const port = nearestPort(s, false);
+    if (!port){ s.flashPopup(s.player.x, s.player.y, 'NO PORT', 0xE0503A); return; }
+    if (port.owner === 'player'){ s.flashPopup(port.x, port.y, 'ALREADY YOURS', 0xE0A040); return; }
+    port.owner = 'player'; port.hull = port.maxHull; port.towers = port.towers || [];
+    s.ownedPorts = s.ownedPorts || []; if (s.ownedPorts.indexOf(port) === -1) s.ownedPorts.push(port);
+    if (typeof EV !== 'undefined') s.events.emit(EV.PORT_CAPTURED, { port });
+    s.flashPopup(port.x, port.y - 30, 'DEV CAPTURED: ' + port.name, 0x6ED0E0);
+  });
+
+  onClick('dbgTpPort', () => { const s = sc(); if (!s) return; const port = nearestPort(s, false); if (!port) return;
+    s.player.x = port.x + 120; s.player.y = port.y; s.player.vel = 0; if (s.follow) s.follow.setPosition(s.player.x, s.player.y); });
+
+  // drop a fresh empty prize right at one of your ports + fire the runner hook
+  onClick('dbgSpawnPrize', () => {
+    const s = sc(); if (!s) return;
+    const port = nearestPort(s, true);
+    if (!port){ s.flashPopup(s.player.x, s.player.y, 'NEED AN OWNED PORT', 0xE0503A); return; }
+    const ship = Enemy.create('prize', 80, port.x, port.y, 0, null, Math.random, (Date.now() % 100000));
+    if (typeof ShipTiers !== 'undefined'){ ship.tier = (typeof STARTER_TIER !== 'undefined' ? STARTER_TIER : 2); ShipTiers.apply(s, ship, true); }
+    ship.crew = 0; ship.faction = 'prize'; ship.alive = false; ship.beingTowed = false;
+    if (typeof EV !== 'undefined') s.events.emit(EV.PRIZE_DELIVERED, { ship, port });
+    s.flashPopup(port.x, port.y - 30, 'DEV PRIZE DELIVERED', 0x6ED0E0);
+  });
+
+  onClick('dbgClearEnemies', () => { const s = sc(); if (!s) return; for (const sh of s.ships) sh.alive = false; s.ships.length = 0; if (s.tows) s.tows.length = 0; s.flashPopup(s.player.x, s.player.y - 20, 'ENEMIES CLEARED', 0x6ED0E0); });
+
   syncPanel();
 })();

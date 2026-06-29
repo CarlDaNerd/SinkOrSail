@@ -26,7 +26,7 @@ const DEFAULTS = {
   flagDelay:1.2, flagCombatLock:5,
 };
 const P = { ...DEFAULTS };
-const DEBUG = { infAmmo:false, ring:{ active:false, radius:0, age:0, label:'' } };
+const DEBUG = { infAmmo:false, infGold:false, weatherOff:false, ring:{ active:false, radius:0, age:0, label:'' } };
 
 // ── fixed structural constants ──
 const SAIL_MULTIPLIERS = [0, 0.55, 1.0];        // 0 none / 1 main / 2 full

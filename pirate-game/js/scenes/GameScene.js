@@ -223,6 +223,7 @@ class GameScene extends Phaser.Scene {
     const dts = delta/1000;                        // seconds elapsed this frame
     const pl = this.player;
     if (DEBUG.infAmmo) pl.ammo = pl.maxAmmo;
+    if (DEBUG.infGold) pl.bank = Math.max(pl.bank || 0, 1e7);   // dev: infinite gold
 
     // ── dev-log + achievements-list toggles (work anytime, even docked / paused) ──
     if (Phaser.Input.Keyboard.JustDown(this.keys.L) && this.devlog) this.devlog.on = !this.devlog.on;

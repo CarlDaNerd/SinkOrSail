@@ -35,6 +35,12 @@
   #btns { display:flex; gap:6px; margin-top:14px; }
   #btns button { flex:1; background:#1a2c3c; color:#D4C890; border:1px solid #2a3a4a; padding:7px 0; font-size:9.5px; letter-spacing:1px; cursor:pointer; font-family:inherit; }
   #btns button:hover { background:#243a4e; }
+  #panel .body button { background:#1a2c3c; color:#D4C890; border:1px solid #2a3a4a; padding:5px 7px; font-size:9px; letter-spacing:.5px; cursor:pointer; font-family:inherit; }
+  #panel .body button:hover { background:#243a4e; }
+  #panel .body select { background:#0b1622; color:#D4C890; border:1px solid #2a3a4a; font-family:inherit; font-size:9px; padding:3px; }
+  .devrow { display:flex; gap:5px; align-items:center; margin-bottom:6px; }
+  .devgrid { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px; }
+  .devchk { display:flex; align-items:center; gap:7px; font-size:9.5px; color:#8AAAC8; margin:4px 0; cursor:pointer; user-select:none; }
   #constsOut { display:none; width:100%; box-sizing:border-box; margin-top:10px; height:180px; background:#0b1622; color:#8AAAC8; border:1px solid #2a3a4a; font-family:inherit; font-size:9px; line-height:1.45; padding:8px; resize:vertical; white-space:pre; }
   #keys { font-size:9px; color:#4a6076; margin-top:14px; line-height:1.7; }
   #keys b { color:#8AAAC8; }
@@ -105,6 +111,39 @@
     <label style="display:flex;align-items:center;gap:7px;font-size:9.5px;color:#8AAAC8;margin-top:6px;cursor:pointer;user-select:none;">
       <input type="checkbox" id="infAmmo" style="accent-color:#2A9EAE;"> infinite ammo (testing)
     </label>
+
+    <div class="grp collapsed" data-g="dev">DEV / QC TOOLS</div>
+    <div class="body">
+      <label class="devchk"><input type="checkbox" id="dbgInfGold" style="accent-color:#2A9EAE;"> infinite gold</label>
+      <label class="devchk"><input type="checkbox" id="dbgWeatherOff" style="accent-color:#2A9EAE;"> disable weather</label>
+      <div class="devrow">
+        <select id="dbgWxType" style="flex:1;">
+          <option value="rain">rain</option><option value="snow">snow</option><option value="tsunami">tsunami</option><option value="cyclone">cyclone</option><option value="storm">storm</option>
+        </select>
+        <button id="dbgWxGo">FORCE WX</button><button id="dbgWxClear">CLEAR</button>
+      </div>
+      <div class="devrow">
+        <select id="dbgSpawnFaction" style="flex:1;">
+          <option value="merchant">merchant</option><option value="pirate">pirate</option><option value="navy">navy</option><option value="privateer">privateer</option>
+        </select>
+        <select id="dbgSpawnTier" style="flex:1;">
+          <option value="">tier: keep</option><option value="1">1 Dinghy</option><option value="2">2 Sloop</option><option value="3">3 Brig</option><option value="4">4 Frigate</option><option value="5">5 Galleon</option><option value="6">6 Leviathan</option>
+        </select>
+      </div>
+      <label class="devchk"><input type="checkbox" id="dbgSpawnWeak" style="accent-color:#2A9EAE;"> spawn weak (10% hull)</label>
+      <div class="devrow"><button id="dbgSpawn" style="flex:1;">SPAWN SHIP NEAR ME</button></div>
+      <div class="devrow">
+        <select id="dbgMyTier" style="flex:1;">
+          <option value="1">1 Dinghy</option><option value="2" selected>2 Sloop</option><option value="3">3 Brig</option><option value="4">4 Frigate</option><option value="5">5 Galleon</option><option value="6">6 Leviathan</option>
+        </select>
+        <button id="dbgApplyTier">SET MY TIER</button>
+      </div>
+      <div class="devgrid">
+        <button id="dbgGold">+10k GOLD</button><button id="dbgHeal">HEAL + AMMO</button>
+        <button id="dbgCapturePort">CAPTURE PORT</button><button id="dbgTpPort">TP TO PORT</button>
+        <button id="dbgSpawnPrize">SPAWN PRIZE</button><button id="dbgClearEnemies">CLEAR ENEMIES</button>
+      </div>
+    </div>
 
     <div id="btns">
       <button id="reset">RESET</button>

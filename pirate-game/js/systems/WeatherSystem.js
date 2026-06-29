@@ -50,7 +50,7 @@ const WeatherSystem = {
 
   update(scene, dt, dts){
     const w = scene.weather, pl = scene.player, t = scene.time.now / 1000;
-    if (!scene.extrasOn){ if (w.active) this.clear(scene); return; }   // disabled via the pause-menu checkbox
+    if (!scene.extrasOn || (typeof DEBUG !== 'undefined' && DEBUG.weatherOff)){ if (w.active) this.clear(scene); return; }   // off via pause-menu checkbox or the dev "disable weather" toggle
     if (!w.active){
       if (t >= w.nextAt){ this.start(scene, WEATHER_TYPES[Math.floor(scene.eprng() * WEATHER_TYPES.length)]);
         if (!w.active) w.nextAt = this._rollNext(scene); }   // tsunami may abort if not near land
