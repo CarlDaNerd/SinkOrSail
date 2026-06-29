@@ -12,8 +12,8 @@
 //   minCrew        crew needed to operate fully (below = understaffed penalty)
 //   maxCrew        crew capacity aboard (hire cap)
 //   crewBonus      speed/reload fraction added PER crew (capped by CREW_BONUS_CAP)
-//   storage        hold capacity (cargo) — DATA ONLY for now; wired in the
-//                  ship-buy / capture phase, not used by the crew feature yet
+//   storage        hold capacity (cargo) — applied to ship.hold.capacity, so a
+//                  bigger hull hauls more cargo
 //   buy            bank cost to buy this tier at a port (UpgradeSystem); Dinghy 0
 //
 // Progression rule: the player STARTS at Sloop (tier 2) and the tier only ever
@@ -79,6 +79,11 @@ const ShipTiers = {
     if (crewFrac != null) ship.crew = Math.round(t.maxCrew * crewFrac);
     if (ship.crew == null) ship.crew = t.minCrew;
     ship.crew = Math.max(0, Math.min(t.maxCrew, ship.crew));
+    // hold capacity scales with ship size; create the hold if it doesn't exist yet
+    if (typeof Cargo !== 'undefined'){
+      if (!ship.hold) ship.hold = Cargo.make(t.storage);
+      else ship.hold.capacity = t.storage;
+    }
     return ship;
   },
 
