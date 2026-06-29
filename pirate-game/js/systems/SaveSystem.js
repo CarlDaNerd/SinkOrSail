@@ -18,6 +18,12 @@ const Save = {
       explored: Array.from(scene.explored),
       ach: scene.achievements ? { unlocked: scene.achievements.unlocked, stats: scene.achievements.stats } : undefined,
       ownedPorts: (scene.ownedPorts || []).map(p => [Math.round(p.x), Math.round(p.y)]),
+      // transient player-built fleet — re-linked to deterministic ports by coords on load
+      runners: (scene.runners || []).map(r => ({ x:Math.round(r.x), y:Math.round(r.y), h:Math.round(r.heading) || 0, tier:r.tier, hull:Math.round(r.hull), phase:r.phase, timer:r.timer, leg:r.leg, earned:r.earned,
+        home: r.home ? [Math.round(r.home.x), Math.round(r.home.y)] : null, route: (r.route || []).map(p => [Math.round(p.x), Math.round(p.y)]) })),
+      escorts: ((scene.hire && scene.hire.hired) || []).map(e => ({ x:Math.round(e.x), y:Math.round(e.y), h:Math.round(e.heading) || 0, tier:e.tier, hull:Math.round(e.hull) })),
+      bounties: (scene.bounties || []).map(b => ({ killsNeeded:b.killsNeeded, killsDone:b.killsDone, reward:b.reward, chunkKey:b.chunkKey,
+        issuer: b.issuer ? [Math.round(b.issuer.x), Math.round(b.issuer.y)] : null, targets: (b.targets || []).filter(t => t && t.alive).map(t => ({ x:Math.round(t.x), y:Math.round(t.y), h:Math.round(t.heading) || 0, hull:Math.round(t.hull) })) })),
     };
   },
 
@@ -62,6 +68,7 @@ const Save = {
     scene.docked = false; scene.dockPort = null; scene.menuOpen = false; scene.mapOpen = false;
     scene.cannonballs.length = 0; scene.loot.length = 0; scene.popups.length = 0;
     scene.ships = []; Enemy.spawnFleet(scene);
+    this._restoreFleet(scene, s);                         // runners / escorts / bounties (player-built state)
     Chunks.update(scene);                                  // unload the old window, stream terrain at the loaded spot
     // safety: if an old save lands inside land (world-gen changed since it was
     // written), nudge the ship out to the nearest open water
@@ -74,6 +81,52 @@ const Save = {
     }
     if (scene.follow) scene.follow.setPosition(p.x, p.y);
     return true;
+  },
+
+  // rebuild player-built transient state (runners, escorts, bounties) from a save:
+  // re-link ports by deterministic world coords, re-stamp tier stats, and re-spawn
+  // any live bounty targets back into the fleet. Runs after Enemy.spawnFleet.
+  _restoreFleet(scene, s){
+    const portAt = (c) => { if (!c) return null; const k = c[0] + ',' + c[1]; for (const port of scene.navyPorts){ if (Math.round(port.x) + ',' + Math.round(port.y) === k) return port; } return null; };
+    const stamp = (ship) => { if (typeof ShipTiers !== 'undefined') ShipTiers.apply(scene, ship, true); else { ship.maxHull = ship.maxHull || 130; ship.hull = ship.hull || ship.maxHull; } };
+
+    if (Array.isArray(s.runners) && scene.runners){
+      scene.runners.length = 0;
+      for (let i = 0; i < s.runners.length; i++){
+        const rd = s.runners[i], home = portAt(rd.home) || scene.navyPorts[0];
+        if (!home) continue;
+        const route = (rd.route || []).map(portAt).filter(Boolean);
+        const r = { id:'runner_load_' + i, faction:'runner', owner:'player', isRunner:true,
+          x:rd.x, y:rd.y, heading:rd.h || 0, vel:0, sailState:2, wake:[], tier:rd.tier || STARTER_TIER, crew:0, alive:true, lastHitAt:-999,
+          home, route: route.length ? route : [home], leg:rd.leg || 0, phase:rd.phase || 'repair', timer:rd.timer || 0, earned:rd.earned || 0 };
+        stamp(r); r.hull = Math.min(r.maxHull, rd.hull || r.maxHull);
+        scene.runners.push(r);
+      }
+    }
+    if (Array.isArray(s.escorts) && scene.hire){
+      scene.hire.hired.length = 0;
+      for (let i = 0; i < s.escorts.length; i++){
+        const ed = s.escorts[i];
+        const e = { id:'escort_load_' + i, faction:'privateer', owner:'player', isEscort:true,
+          x:ed.x, y:ed.y, heading:ed.h || 0, vel:0, sailState:2, wake:[], tier:ed.tier || 3, alive:true, fireCd:0, tracer:null, crew:0 };
+        stamp(e); e.hull = Math.min(e.maxHull, ed.hull || e.maxHull);
+        scene.hire.hired.push(e);
+      }
+    }
+    if (Array.isArray(s.bounties) && scene.bounties && typeof Enemy !== 'undefined'){
+      scene.bounties.length = 0;
+      for (let i = 0; i < s.bounties.length; i++){
+        const bd = s.bounties[i], issuer = portAt(bd.issuer);
+        if (!issuer) continue;
+        const targets = [];
+        for (const td of (bd.targets || [])){
+          const ship = Enemy.create('pirate', 75, td.x, td.y, td.h || 0, null, scene.eprng, scene.ships.length);
+          ship.hull = Math.min(ship.maxHull, td.hull || ship.maxHull);
+          scene.ships.push(ship); targets.push(ship);
+        }
+        scene.bounties.push({ id:'bnt_load_' + i, issuer, killsNeeded:bd.killsNeeded, killsDone:bd.killsDone || 0, targets, chunkKey:bd.chunkKey, reward:bd.reward });
+      }
+    }
   },
 
   // ── file export / import (the "Both" storage half) ──
