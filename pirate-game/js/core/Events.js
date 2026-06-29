@@ -22,4 +22,8 @@ const EV = {
   TRADE:          'trade',           // { port, commodity, side, qty, gold } — port economy (M8)
   PORT_DEFENSE_TRIGGERED:'port:defense', // { port }            — cannon towers fire (M8)
   WEATHER_CHANGED:'weather:changed', // { type }                — weather (M11)
+  // declared for forward-compat observers (dev log / achievements); no producer
+  // on this branch yet — they fire once port-capture / runner features land.
+  PORT_CAPTURED:  'port:captured',   // { port }                — port capture (replaces home base)
+  PRIZE_DELIVERED:'prize:delivered', // { ship, port }          — towed prize reached an owned port (M5 runners)
 };
