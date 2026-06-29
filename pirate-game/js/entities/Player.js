@@ -11,7 +11,8 @@ const Player = {
       fire:{ port:0, star:0, bow:0, stern:0 }, wake:[], id:'player', faction:'player',
       lastHitAt:-99, lastFiredAt:-99, sailBroken:false,
     };
-    if (typeof ShipTiers !== 'undefined') ShipTiers.apply(null, p, true);   // hull/scale/sails/broadside from tier
+    const cf = (typeof PLAYER_START_CREW_FRAC !== 'undefined') ? PLAYER_START_CREW_FRAC : null;
+    if (typeof ShipTiers !== 'undefined') ShipTiers.apply(null, p, true, cf);   // hull/scale/sails/broadside + start crew from tier
     return p;
   },
 };
