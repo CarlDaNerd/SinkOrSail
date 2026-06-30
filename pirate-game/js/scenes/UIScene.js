@@ -11,9 +11,12 @@ class UIScene extends Phaser.Scene {
 
     // big map — drawn BELOW the HUD (depth 50) so your instruments stay visible
     // while you sail with the chart up; the chart itself is non-pausing
-    this.mapG = this.add.graphics().setScrollFactor(0).setDepth(50);
+    this.mapG = this.add.graphics().setScrollFactor(0).setDepth(50);                    // backdrop + revealed tint
+    this.mapLandG = this.add.graphics().setScrollFactor(0).setDepth(51);                // land / ports / you — clipped to the revealed area
+    this.mapMaskG = this.make.graphics({ add: false });                                 // mask = the revealed cells
+    this.mapLandG.setMask(this.mapMaskG.createGeometryMask());
     this.mapText = this.add.text(GAME_W/2, GAME_H - 44, '', { fontFamily:'ui-monospace,monospace', fontSize:'12px', color:'#8AAAC8' }).setOrigin(0.5).setScrollFactor(0).setDepth(103);
-    this.mapG.setVisible(false); this.mapText.setVisible(false);
+    this.mapG.setVisible(false); this.mapLandG.setVisible(false); this.mapText.setVisible(false);
 
     // pause menu
     this.menuBg = this.add.graphics().setScrollFactor(0).setDepth(130);
@@ -44,10 +47,10 @@ class UIScene extends Phaser.Scene {
 
     // big map (only re-render on pan/zoom)
     if (gs.mapOpen){
-      if (gs.mapDirty){ drawWorldMap(this.mapG, gs); gs.mapDirty = false; }
-      this.mapG.setVisible(true);
+      if (gs.mapDirty){ drawWorldMap(this.mapG, this.mapLandG, this.mapMaskG, gs); gs.mapDirty = false; }
+      this.mapG.setVisible(true); this.mapLandG.setVisible(true);
       this.mapText.setText('MAP   ' + Math.round(gs.mapCenterX/COORD_SCALE) + ', ' + Math.round(gs.mapCenterY/COORD_SCALE) + '     drag to pan · wheel / Z X zoom · M or Esc close   (still sailing)').setVisible(true);
-    } else { this.mapG.setVisible(false); this.mapText.setVisible(false); }
+    } else { this.mapG.setVisible(false); this.mapLandG.setVisible(false); this.mapText.setVisible(false); }
 
     // pause menu
     const open = gs.menuOpen;

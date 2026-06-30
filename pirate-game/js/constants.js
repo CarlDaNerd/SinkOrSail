@@ -65,8 +65,8 @@ const PORT_ARRIVE_RANGE = 280;          // a merchant counts as "arrived" at a p
 const MERCHANT_PIRATE_FLEE_RANGE = 440; // a merchant flees a pirate within this
 
 // ── MAPS ──
-const MINIMAP_W = 200, MINIMAP_H = 150;   // corner minimap size (px)
-const MINIMAP_RANGE = 1500;       // fixed world half-width (px) the minimap shows each side of the ship (screen-size independent)
+const MINIMAP_W = 178, MINIMAP_H = 134;   // corner minimap size (px); the circle radius is MINIMAP_H/2 (MINIMAP_W is vestigial)
+const MINIMAP_RANGE = 1350;       // world radius (px) the minimap shows AND the big-map fog reveals — kept matched
 const FOG_CELL = 375;             // big-map fog reveal cell size (px) — finer than a chunk so the revealed radius matches the minimap
 const COORD_SCALE = 25;           // world px per displayed coordinate unit (HUD + map show position / COORD_SCALE so numbers stay small)
 const COMPASS_RING_W = 16;        // width (px) of the compass ring wrapped around the circular minimap
