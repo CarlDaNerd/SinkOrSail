@@ -24,9 +24,14 @@ const DEFAULTS = {
   regenCap:30, regenRate:1.5, regenDelay:5,
   // ── FLAGS ──
   flagDelay:1.2, flagCombatLock:5,
+  // ── COLLISION DAMAGE ── impact speed must clear collMin; base = (impact-collMin)*collScale.
+  // Ship-ship damage to a hull = base * collTier^(otherTier - thisTier) (same size = base; the
+  // lighter/lower ship takes more). Land damage = base * collLand from the into-shore speed.
+  collMin:0.6, collScale:10, collTier:1.3, collLand:2.5,
 };
 const P = { ...DEFAULTS };
-const DEBUG = { infAmmo:false, infGold:false, weatherOff:false, ring:{ active:false, radius:0, age:0, label:'' } };
+const DEBUG = { infAmmo:false, infGold:false, weatherOff:false, ramWanted:true, ring:{ active:false, radius:0, age:0, label:'' } };
+const COLLISION_DMG_COOLDOWN = 0.4;   // s — a hull can only take collision damage this often (anti-grind)
 
 // ── fixed structural constants ──
 const SAIL_MULTIPLIERS = [0, 0.55, 1.0];        // 0 none / 1 main / 2 full

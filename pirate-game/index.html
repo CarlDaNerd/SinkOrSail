@@ -141,6 +141,15 @@
       <div class="row"><label>Out-of-combat delay <span class="val" id="v_regenDelay"></span></label><input type="range" id="regenDelay" min="1" max="12" step="1"></div>
     </div>
 
+    <div class="grp" data-g="coll">SHIP DAMAGE (RAM)</div>
+    <div class="body">
+      <div class="row"><label>Min impact speed <span class="val" id="v_collMin"></span></label><input type="range" id="collMin" min="0" max="2" step="0.05"></div>
+      <div class="row"><label>Damage / impact <span class="val" id="v_collScale"></span></label><input type="range" id="collScale" min="0" max="40" step="1"></div>
+      <div class="row"><label>Per tier-level <span class="val" id="v_collTier"></span></label><input type="range" id="collTier" min="1" max="2.5" step="0.05"></div>
+      <div class="row"><label>Land multiplier <span class="val" id="v_collLand"></span></label><input type="range" id="collLand" min="0.5" max="5" step="0.1"></div>
+      <label class="devchk"><input type="checkbox" id="collRamWanted" style="accent-color:#2A9EAE;"> ramming makes you WANTED</label>
+    </div>
+
     <label style="display:flex;align-items:center;gap:7px;font-size:9.5px;color:#8AAAC8;margin-top:6px;cursor:pointer;user-select:none;">
       <input type="checkbox" id="infAmmo" style="accent-color:#2A9EAE;"> infinite ammo (testing)
     </label>

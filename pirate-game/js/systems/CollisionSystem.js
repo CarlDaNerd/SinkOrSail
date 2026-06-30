@@ -55,6 +55,10 @@ const Collision = {
     const col = this.checkIslandHull(scene, s);
     if (!col.hit) return;                                       // clear — move committed
 
+    // land impact damage: a fast crunch into the shore hurts (grazes below collMin are free)
+    const into = -(vx*col.nx + vy*col.ny);
+    if (into > P.collMin) this._collisionDamage(scene, s, (into - P.collMin)*P.collScale*P.collLand, null);
+
     // slide: drop the into-shore component of the TOTAL motion, keep tangential
     const dot = vx*col.nx + vy*col.ny;
     const tvx = vx - dot*col.nx, tvy = vy - dot*col.ny;
@@ -112,7 +116,36 @@ const Collision = {
         const imp = closing*PUSH_TRANSFER;
         a.push.x -= ux*imp*fa; a.push.y -= uy*imp*fa;           // rammer recoils (more vs a heavier target)
         b.push.x += ux*imp*fb; b.push.y += uy*imp*fb;           // target shoved (more from a heavier rammer)
+        // ram damage on a hard enough crunch: same size = base; the lower-tier hull takes more
+        const over = closing - P.collMin;
+        if (over > 0){
+          const base = over*P.collScale, ta = a.tier || 1, tb = b.tier || 1;
+          this._collisionDamage(scene, a, base*Math.pow(P.collTier, tb - ta), b);
+          this._collisionDamage(scene, b, base*Math.pow(P.collTier, ta - tb), a);
+        }
       }
+    }
+  },
+
+  // apply collision/ram damage to a hull, with an anti-grind cooldown. `by` is the
+  // other ship (or null for land). Ramming a non-pirate as the player is a crime
+  // (→ WANTED) when DEBUG.ramWanted; a kill is credited to the rammer.
+  _collisionDamage(scene, ship, dmg, by){
+    if (dmg <= 0 || ship.hull <= 0) return;
+    const now = scene.time.now/1000;
+    if (ship._ramAt && now - ship._ramAt < COLLISION_DMG_COOLDOWN) return;
+    ship._ramAt = now;
+    ship.hull -= dmg; ship.lastHitAt = now;
+    scene.flashPopup(ship.x, ship.y, '-' + Math.round(dmg), 0xE0A040);
+    const byTag = (by === scene.player) ? 'player' : (by ? (by.faction || 'ship') : 'collision');
+    if (DEBUG.ramWanted && by === scene.player && ship.faction && ship.faction !== 'pirate' && typeof FactionSystem !== 'undefined'){
+      FactionSystem.reportCrime(scene, ship.x, ship.y);
+    }
+    if (typeof EV !== 'undefined') scene.events.emit(EV.SHIP_HIT, { ship, by: byTag, amount: dmg });
+    if (ship.hull <= 0 && ship !== scene.player && ship.alive !== false){
+      ship.alive = false;
+      if (typeof Combat !== 'undefined') Combat.spawnLoot(scene, ship);
+      if (typeof EV !== 'undefined') scene.events.emit(EV.SHIP_SUNK, { ship, by: byTag });
     }
   },
 };
