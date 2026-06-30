@@ -52,6 +52,7 @@ const POP_SPAWN_RADIUS = 4500;    // ships spawn within this of the player
 const POP_DESPAWN_RADIUS = 7000;  // ...and despawn beyond this (ambient traffic leaves the area)
 const POP_INTERVAL_S = 1.0;       // how often the population manager runs (seconds)
 const POP_MAX_SHIPS = 50;         // hard cap on live ships (perf)
+const SPAWN_VIEW_MARGIN = 120;    // ships spawn at least this far beyond the visible viewport edge (appear over the horizon)
 const POP_MERCHANTS_AMBIENT = 2;  // open-sea merchant traffic when no ports are near
 const POP_MERCHANTS_PER_PORT = 2; // + this many merchants per nearby port (denser near ports)
 const POP_NAVY_PER_PORT = 2;      // navy guards per nearby DEFENDED port
@@ -67,6 +68,9 @@ const MERCHANT_PIRATE_FLEE_RANGE = 440; // a merchant flees a pirate within this
 const MINIMAP_W = 200, MINIMAP_H = 150;   // corner minimap size (px)
 const MINIMAP_RANGE = 1500;       // fixed world half-width (px) the minimap shows each side of the ship (screen-size independent)
 const FOG_CELL = 375;             // big-map fog reveal cell size (px) — finer than a chunk so the revealed radius matches the minimap
+const COORD_SCALE = 25;           // world px per displayed coordinate unit (HUD + map show position / COORD_SCALE so numbers stay small)
+const COMPASS_RING_W = 16;        // width (px) of the compass ring wrapped around the circular minimap
+const COMPASS_LABEL_PAD = 16;     // space (px) beyond the ring for the cardinal letters (so ticks never cross them)
 const MAP_SCALE_INIT = 0.045;             // big map (M): screen-px per world-px
 const MAP_SCALE_MIN = 0.02, MAP_SCALE_MAX = 0.22;
 
@@ -252,7 +256,7 @@ const PRIZE_DELIVER_RANGE = 70;        // tow a prize this close to an owned por
 // port capture
 const PORT_CAPTURE_THRESHOLD_PCT = 20; // shell a port below this % hull, then take it
 const PORT_CAPTURE_RANGE = 340;        // be within this of the port to capture (~dock radius)
-const PORT_HIT_RADIUS = 30;            // a player shot this close to a port centre damages it
+const PORT_HIT_RADIUS = 50;            // a player shot this close to a port centre damages it (ports are big targets; lets a full volley land)
 const PORT_CANNONBALL_DMG = 10;        // player shot damage to a port hull
 const PORT_REGEN_PER_S = 6;            // a damaged un-owned port heals this fast out of combat
 const PORT_REGEN_DELAY_S = 12;         // ...after this long without taking a hit

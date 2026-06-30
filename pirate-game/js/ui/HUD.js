@@ -8,11 +8,11 @@ class HUD {
   constructor(scene, gs){
     this.s = scene; this.gs = gs;
     this.g = scene.add.graphics().setScrollFactor(0).setDepth(100);
-    // minimap into its own masked graphics so islands never spill past the edges
-    const mmx = GAME_W - MINIMAP_W - 12, mmy = 12;
+    // circular minimap into its own masked graphics so nothing spills past the rim
+    const mmr = MINIMAP_H/2, mmfull = mmr + COMPASS_RING_W + COMPASS_LABEL_PAD, mmcx = GAME_W - 12 - mmfull, mmcy = 12 + mmfull;
     this.miniG = scene.add.graphics().setScrollFactor(0).setDepth(100);
     const mmMask = scene.make.graphics({ add: false });
-    mmMask.fillStyle(0xffffff, 1); mmMask.fillRect(mmx, mmy, MINIMAP_W, MINIMAP_H);
+    mmMask.fillStyle(0xffffff, 1); mmMask.fillCircle(mmcx, mmcy, mmr);
     this.miniG.setMask(mmMask.createGeometryMask());
 
     const mk = (x, y, sz, col) => scene.add.text(x, y, '', { fontFamily:'ui-monospace,monospace', fontSize:sz + 'px', color:col }).setScrollFactor(0).setDepth(101).setOrigin(0, 0);
@@ -40,7 +40,11 @@ class HUD {
     this.tIrons  = scene.add.text(GAME_W/2, GAME_H*0.30, '', { fontFamily:'ui-monospace,monospace', fontSize:'18px', color:'#E0503A', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
     this.tStatus = scene.add.text(GAME_W/2, 26, '', { fontFamily:'ui-monospace,monospace', fontSize:'14px', color:'#E0503A', fontStyle:'bold' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
     this.tOver   = scene.add.text(GAME_W/2, GAME_H/2, '', { fontFamily:'ui-monospace,monospace', fontSize:'30px', color:'#E0503A', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(102);
-    this.cx = GAME_W - MINIMAP_W - 66; this.cy = 66; this.cr = 40;
+    // circular-minimap compass ring: static cardinal letters (north-up), seated OUTSIDE
+    // the ring so the ticks never cross them
+    { const mr = MINIMAP_H/2, full = mr + COMPASS_RING_W + COMPASS_LABEL_PAD, ccx = GAME_W - 12 - full, ccy = 12 + full, lr = mr + COMPASS_RING_W + COMPASS_LABEL_PAD*0.55;
+      const mkC = (lab, deg) => scene.add.text(ccx + Math.sin(deg*RAD)*lr, ccy - Math.cos(deg*RAD)*lr, lab, { fontFamily:'ui-monospace,monospace', fontSize:'13px', color:'#EAD9A6', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+      this.cN = mkC('N', 0); this.cE = mkC('E', 90); this.cS = mkC('S', 180); this.cW = mkC('W', 270); }
     this.tScale = scene.add.text(GAME_W/2, GAME_H - 22, '', { fontFamily:'ui-monospace,monospace', fontSize:'10px', color:'#D4C890' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
     this.tDockPrompt = scene.add.text(GAME_W/2, GAME_H - 96, '', { fontFamily:'ui-monospace,monospace', fontSize:'13px', color:'#F0C840', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(103);
     this.tDockMenu = scene.add.text(GAME_W/2, GAME_H/2, '', { fontFamily:'ui-monospace,monospace', fontSize:'14px', color:'#D4C890', align:'center', lineSpacing:6 }).setOrigin(0.5).setScrollFactor(0).setDepth(103);
@@ -81,7 +85,7 @@ class HUD {
     const crewCap = (typeof ShipTiers !== 'undefined') ? ShipTiers.maxCrew(pl) : (typeof CREW_MAX !== 'undefined' ? CREW_MAX : 40);
     const understaffed = (typeof ShipTiers !== 'undefined') && ShipTiers.understaffed(pl);
     this.tCrew.setText('CREW ' + (pl.crew || 0) + '/' + crewCap + (understaffed ? ' ⚠' : '')).setColor(understaffed ? '#E0503A' : '#8AAAC8');
-    this.tCoord.setText(Math.round(pl.x) + ',' + Math.round(pl.y));
+    this.tCoord.setText(Math.round(pl.x/COORD_SCALE) + ',' + Math.round(pl.y/COORD_SCALE));
     // wanted level (standing 0..-100 → 0..5 pips)
     const wl = Math.min(5, Math.max(0, Math.ceil(-gs.navyStanding / 20))), hostile = gs.navyHostile();
     this.tWanted.setText('WANTED');
@@ -125,9 +129,8 @@ class HUD {
     this.tStatus.setText(banner).setColor(hostile ? '#E0503A' : '#D0A030');
     this.tOver.setText(pl.hull <= 0 ? 'YOU SANK\npress Esc → Reset Game' : '');
 
-    drawWindCompass(g, pl, this.cx, this.cy, this.cr);
     drawMiniMap(this.miniG, gs, pl);
-    g.lineStyle(1.5, 0xD2B48C, 1); g.strokeRect(GAME_W - MINIMAP_W - 12, 12, MINIMAP_W, MINIMAP_H);
+    { const mr = MINIMAP_H/2, full = mr + COMPASS_RING_W + COMPASS_LABEL_PAD; drawCompassRing(g, gs, pl, GAME_W - 12 - full, 12 + full, mr, COMPASS_RING_W); }
     const ref = 200*gs.cameras.main.zoom, bx = GAME_W/2 - ref/2, by = GAME_H - 26;
     g.lineStyle(2, 0xD4C890, 0.8);
     g.lineBetween(bx, by, bx + ref, by); g.lineBetween(bx, by - 5, bx, by + 5); g.lineBetween(bx + ref, by - 5, bx + ref, by + 5);

@@ -14,7 +14,7 @@
 
 // placeholder — feel-tune freely
 const BOUNTY_PORT_KILLS = 1;          // pirates to sink per port bounty
-const BOUNTY_SPAWN_RANGE_PX = 1400;   // how far from the issuer the target spawns
+const BOUNTY_SPAWN_RANGE_PX = 4500;   // how far from the issuer the target spawns (spawns at 0.5–1.0× → ~2250–4500px: a real hunt)
 const BOUNTY_REWARD_GOLD = 250;       // gold credited to the bank on turn-in
 
 const BountySystem = {

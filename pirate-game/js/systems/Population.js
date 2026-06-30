@@ -68,13 +68,17 @@ const Population = {
         const a = r() * TAU, rr = POP_SPAWN_RADIUS * 0.7 + r() * POP_SPAWN_RADIUS * 0.3;
         x = pl.x + Math.cos(a) * rr; y = pl.y + Math.sin(a) * rr;
       }
-      // keep the spawn off land
+      // spawn must be off land AND beyond the visible viewport, so ships appear from
+      // over the horizon and never pop into view
+      const cam = scene.cameras.main;
+      const viewR = cam ? Math.hypot(cam.worldView.width, cam.worldView.height)/2 + SPAWN_VIEW_MARGIN : 0;
+      const bad = (px, py) => Collision.checkIsland(scene, px, py, 40).hit || Math.hypot(px - pl.x, py - pl.y) < viewR;
       let att = 0;
-      while (att < 24 && Collision.checkIsland(scene, x, y, 40).hit){
-        const a = r() * TAU, rr = 400 + r() * 1000, ox = home ? home.x : pl.x, oy = home ? home.y : pl.y;
-        x = ox + Math.cos(a) * rr; y = oy + Math.sin(a) * rr; att++;
+      while (att < 24 && bad(x, y)){
+        const a = r() * TAU, rr = viewR + r() * 1200;               // retry from the player, just beyond the view edge
+        x = pl.x + Math.cos(a) * rr; y = pl.y + Math.sin(a) * rr; att++;
       }
-      if (Collision.checkIsland(scene, x, y, 40).hit) continue;     // couldn't find water — skip this one
+      if (bad(x, y)) continue;     // couldn't find off-screen water — skip this one
 
       const hull = { merchant:50, pirate:75, navy:90, privateer:70 }[faction];
       const ship = Enemy.create(faction, hull, x, y, r() * 360, home, r, (Population._id = (Population._id || 0) + 1));

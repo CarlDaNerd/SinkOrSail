@@ -46,7 +46,7 @@ class UIScene extends Phaser.Scene {
     if (gs.mapOpen){
       if (gs.mapDirty){ drawWorldMap(this.mapG, gs); gs.mapDirty = false; }
       this.mapG.setVisible(true);
-      this.mapText.setText('MAP   ' + Math.round(gs.mapCenterX) + ', ' + Math.round(gs.mapCenterY) + '     drag to pan · wheel / Z X zoom · M or Esc close   (still sailing)').setVisible(true);
+      this.mapText.setText('MAP   ' + Math.round(gs.mapCenterX/COORD_SCALE) + ', ' + Math.round(gs.mapCenterY/COORD_SCALE) + '     drag to pan · wheel / Z X zoom · M or Esc close   (still sailing)').setVisible(true);
     } else { this.mapG.setVisible(false); this.mapText.setVisible(false); }
 
     // pause menu
