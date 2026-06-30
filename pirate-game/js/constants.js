@@ -146,6 +146,11 @@ const MEGA_SUB_SPARSE_CHANCE = 0.20;                    // a sub-group is occasi
 // sibling), so it no longer steals canvas width — toggle it from the edge tab.
 const GAME_W = window.innerWidth, GAME_H = window.innerHeight;
 const SHIP_RADIUS = 22, WAKE_LENGTH = 60, WAKE_MIN_SPEED = 0.2;
+// ── COLLISION PUSH ── each ship carries a decaying drift vector (s.push); land
+// collisions slide along it, ship-ship collisions shove via it (mass = maxHull, so
+// bigger ships push harder). Head-on into a cliff still kills all speed.
+const PUSH_DECAY = 0.90;          // per-frame retention of a ship's collision drift (frame-normalized) — ~gone in ~1s
+const PUSH_TRANSFER = 0.6;        // fraction of the closing speed converted into a shove on ship-ship impact
 const HULL_LEN = 20, HULL_BEAM = 10;            // semi-length / half-beam of hull body (bowsprit excluded)
 
 // ── PORTS / DOCKING ──

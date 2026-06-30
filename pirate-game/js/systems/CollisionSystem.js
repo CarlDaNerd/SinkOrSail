@@ -36,30 +36,58 @@ const Collision = {
     return { hit:false };
   },
 
-  // step the ship; on collision remove the into-shore component and keep the
-  // along-shore component (graze past), never teleport-back.
+  // step the ship by its heading propulsion PLUS its collision drift (s.push). On
+  // hitting shore, slide: the propulsion speed becomes the along-shore part (head-on
+  // → ~0, grazing → near full), and the drift loses its into-shore part. A true
+  // head-on corner is a dead stop. Never teleport-back.
   moveShip(scene, s, dt){
-    const stepX = Math.sin(s.heading*RAD)*s.vel*dt;
-    const stepY = -Math.cos(s.heading*RAD)*s.vel*dt;
+    if (!s.push) s.push = { x:0, y:0 };
+    const k = Math.pow(PUSH_DECAY, dt);                         // decay the drift (frame-rate independent)
+    s.push.x *= k; s.push.y *= k;
+    if (Math.abs(s.push.x) < 0.002) s.push.x = 0;
+    if (Math.abs(s.push.y) < 0.002) s.push.y = 0;
+
+    const hx = Math.sin(s.heading*RAD)*s.vel, hy = -Math.cos(s.heading*RAD)*s.vel;   // heading velocity
+    const vx = hx + s.push.x, vy = hy + s.push.y;               // total velocity = propulsion + drift
     const ox = s.x, oy = s.y;
-    s.x = Phaser.Math.Clamp(s.x + stepX, -WORLD_CAP, WORLD_CAP);
-    s.y = Phaser.Math.Clamp(s.y + stepY, -WORLD_CAP, WORLD_CAP);
+    s.x = Phaser.Math.Clamp(s.x + vx*dt, -WORLD_CAP, WORLD_CAP);
+    s.y = Phaser.Math.Clamp(s.y + vy*dt, -WORLD_CAP, WORLD_CAP);
     const col = this.checkIslandHull(scene, s);
     if (!col.hit) return;                                       // clear — move committed
-    const dot = stepX*col.nx + stepY*col.ny;                    // into-shore component
-    const sx = stepX - dot*col.nx, sy = stepY - dot*col.ny;     // along-shore (tangential)
-    s.x = Phaser.Math.Clamp(ox + sx, -WORLD_CAP, WORLD_CAP);
-    s.y = Phaser.Math.Clamp(oy + sy, -WORLD_CAP, WORLD_CAP);
-    if (!this.checkIslandHull(scene, s).hit){ s.vel *= 0.94; return; }   // grazed past, minor loss
-    s.x = ox; s.y = oy;                                         // still stuck: revert + nudge out
+
+    // slide: drop the into-shore component of the TOTAL motion, keep tangential
+    const dot = vx*col.nx + vy*col.ny;
+    const tvx = vx - dot*col.nx, tvy = vy - dot*col.ny;
+    // place at the tangential spot, then step OUT along the (re-evaluated) shore
+    // normal to clear any residual penetration — so a near-parallel graze keeps
+    // sliding instead of sticking when removing the velocity alone isn't enough
+    let nx = ox + tvx*dt, ny = oy + tvy*dt, clear = false;
+    for (let step = 0; step < 8; step++){
+      s.x = Phaser.Math.Clamp(nx, -WORLD_CAP, WORLD_CAP);
+      s.y = Phaser.Math.Clamp(ny, -WORLD_CAP, WORLD_CAP);
+      const c2 = this.checkIslandHull(scene, s);
+      if (!c2.hit){ clear = true; break; }
+      nx += c2.nx*3; ny += c2.ny*3;                             // nudge out along the current normal
+    }
+    if (clear){
+      const hdot = hx*col.nx + hy*col.ny;                       // propulsion into the shore
+      s.vel = Math.hypot(hx - hdot*col.nx, hy - hdot*col.ny);   // keep only along-shore propulsion
+      const pdot = s.push.x*col.nx + s.push.y*col.ny;           // drift slides along too
+      s.push.x -= pdot*col.nx; s.push.y -= pdot*col.ny;
+      return;
+    }
+    // truly wedged (head-on into a corner): dead stop, nudged off the rock
+    s.x = ox; s.y = oy;
     if (this.checkIslandHull(scene, s).hit){
       s.x = Phaser.Math.Clamp(ox + col.nx*2, -WORLD_CAP, WORLD_CAP);
       s.y = Phaser.Math.Clamp(oy + col.ny*2, -WORLD_CAP, WORLD_CAP);
     }
-    s.vel *= 0.5;
+    s.vel = 0; s.push.x = 0; s.push.y = 0;
   },
 
-  // soft separation so ships can't occupy the same pixel; never push onto land
+  // ship-vs-ship: separate the overlap and SHOVE via the drift vector, weighted by
+  // mass (maxHull) — a heavy ship pushes a light one hard and barely slows; ramming
+  // a bigger hull bounces you. The lighter ship always yields more. Never push onto land.
   resolveShipCollisions(scene){
     const all = [];
     if (scene.player.hull > 0) all.push(scene.player);
@@ -68,11 +96,22 @@ const Collision = {
     for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++){
       const a = all[i], b = all[j];
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-      if (d > 0 && d < min){
-        const overlap = (min - d)/2, ux = dx/d, uy = dy/d;
-        const aOld = { x:a.x, y:a.y }; a.x -= ux*overlap; a.y -= uy*overlap; if (this.checkIslandHull(scene, a).hit){ a.x = aOld.x; a.y = aOld.y; }
-        const bOld = { x:b.x, y:b.y }; b.x += ux*overlap; b.y += uy*overlap; if (this.checkIslandHull(scene, b).hit){ b.x = bOld.x; b.y = bOld.y; }
-        a.vel *= 0.92; b.vel *= 0.92;
+      if (d <= 0 || d >= min) continue;
+      const ux = dx/d, uy = dy/d, overlap = min - d;
+      const ma = a.maxHull || 100, mb = b.maxHull || 100, sum = ma + mb;
+      const fa = mb/sum, fb = ma/sum;                           // each ship's yield share (lighter yields more)
+      if (!a.push) a.push = { x:0, y:0 }; if (!b.push) b.push = { x:0, y:0 };
+      // positional un-overlap (mass-weighted), reverted if it would beach a hull
+      const aOld = { x:a.x, y:a.y }; a.x -= ux*overlap*fa; a.y -= uy*overlap*fa; if (this.checkIslandHull(scene, a).hit){ a.x = aOld.x; a.y = aOld.y; }
+      const bOld = { x:b.x, y:b.y }; b.x += ux*overlap*fb; b.y += uy*overlap*fb; if (this.checkIslandHull(scene, b).hit){ b.x = bOld.x; b.y = bOld.y; }
+      // momentum shove along the contact normal, only while the hulls are closing
+      const avx = Math.sin(a.heading*RAD)*a.vel + a.push.x, avy = -Math.cos(a.heading*RAD)*a.vel + a.push.y;
+      const bvx = Math.sin(b.heading*RAD)*b.vel + b.push.x, bvy = -Math.cos(b.heading*RAD)*b.vel + b.push.y;
+      const closing = (avx - bvx)*ux + (avy - bvy)*uy;          // >0 = approaching
+      if (closing > 0){
+        const imp = closing*PUSH_TRANSFER;
+        a.push.x -= ux*imp*fa; a.push.y -= uy*imp*fa;           // rammer recoils (more vs a heavier target)
+        b.push.x += ux*imp*fb; b.push.y += uy*imp*fb;           // target shoved (more from a heavier rammer)
       }
     }
   },
