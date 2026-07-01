@@ -161,7 +161,11 @@ const MEGA_SUB_SPARSE_CHANCE = 0.20;                    // a sub-group is occasi
 // full-window canvas; the dev panel is a slide-in overlay drawer (not a layout
 // sibling), so it no longer steals canvas width — toggle it from the edge tab.
 let GAME_W = window.innerWidth, GAME_H = window.innerHeight;   // LIVE: updated on resize (R-1)
-const SHIP_RADIUS = 22, WAKE_LENGTH = 28, WAKE_MIN_SPEED = 0.2, WAKE_SLOPE = 0.42;   // WAKE_SLOPE = V divergence per px back from the stern (constant angle at any speed; × ship scale)
+const SHIP_RADIUS = 22, WAKE_LENGTH = 26, WAKE_MIN_SPEED = 0.2;
+// ── MW-14 ── Pokémon-surf-style ripples: short arcs emitted at the stern that
+// widen + fade over their life (replaces the constant-angle V trail). ALL PLACEHOLDER.
+const WAKE_RIPPLE_LIFE_S = 1.1;   // seconds a ripple lives
+const WAKE_EMIT_DIST = 14;        // px of travel between emitted ripples
 // ── COLLISION PUSH ── each ship carries a decaying drift vector (s.push); land
 // collisions slide along it, ship-ship collisions shove via it (mass = maxHull, so
 // bigger ships push harder). Head-on into a cliff still kills all speed.
@@ -341,6 +345,7 @@ const TOUCH_BTN_ALPHA = 0.85;  // resting opacity so buttons don't fully hide th
 // prompts and the dev log must stay ABOVE this band on touch devices. Used by
 // TouchInput.safeBottomY() (consumed by the HUD relayout + steer/tap split).
 const TOUCH_SAFE_BOTTOM_FRAC = 0.30;   // PLACEHOLDER
+const DEVLOG_VISIBLE_TOUCH = 5;        // PLACEHOLDER — fewer feed lines on a phone (MW-12)
 
 // ── MW-7 ── slide-to-steer + bottom-third cannon buttons; ALL PLACEHOLDER
 const TOUCH_STEER_RANGE = 120;   // px of finger travel from touch point for full-rate turn

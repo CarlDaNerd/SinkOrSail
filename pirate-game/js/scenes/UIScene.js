@@ -45,6 +45,12 @@ class UIScene extends Phaser.Scene {
         this._miniZone.on('pointerdown', () => { if (!this.gs.menuOpen && !this.gs.docked && !this.gs.mapOpen) this.gs.toggleMap(); });
         // invisible tappable rows over the docked shop menu (mirror 1-9,0 + F)
         this._buildDockZones();
+        // MW-11: visible CLOSE for the big map (map has no touch exit otherwise)
+        this._mapClose = this.add.text(TOUCH_MARGIN, TOUCH_MARGIN, '✕ CLOSE MAP', {
+          fontFamily:'ui-monospace,monospace', fontSize:'16px', color:'#EAD9A6',
+          backgroundColor:'#16283a', padding:{ x:14, y:10 },
+        }).setScrollFactor(0).setDepth(142).setInteractive({ useHandCursor:true }).setVisible(false);
+        this._mapClose.on('pointerdown', () => { if (this.gs.mapOpen) this.gs.toggleMap(); });
       }
     }
   }
@@ -139,6 +145,7 @@ class UIScene extends Phaser.Scene {
       if (TouchInput._pauseBtn) TouchInput._pauseBtn.setVisible(!gs.docked && !gs.mapOpen);
       if (TouchInput._fsBtn) TouchInput._fsBtn.setVisible(!gs.docked && !gs.mapOpen);
       if (this._miniZone) this._miniZone.setVisible(!gs.menuOpen && !gs.docked && !gs.mapOpen);
+      if (this._mapClose) this._mapClose.setVisible(gs.mapOpen);
       this._layoutDockZones();
     }
   }

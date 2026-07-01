@@ -201,7 +201,21 @@ const WeatherSystem = {
     const w = scene.weather; if (!w || !w.active) return;
     const pl = scene.player;
     if (w.active === 'cyclone'){
-      g.lineStyle(3, 0x8A7AC8, 0.5); for (let k = 1; k <= 4; k++) g.strokeCircle(w.data.cx, w.data.cy, P.cycReach * k / 4);
+      // MW-13: rotating spiral arms + dark eye (replaces the 4 debug rings). PLACEHOLDER look.
+      { const cx = w.data.cx, cy = w.data.cy, rot = (scene.time.now/1000) * 1.4;
+        g.fillStyle(0x2A2440, 0.55); g.fillCircle(cx, cy, CYCLONE_EYE_RADIUS);          // dark eye
+        g.lineStyle(2, 0x8A7AC8, 0.30); g.strokeCircle(cx, cy, P.cycReach);             // faint outer reach
+        for (let arm = 0; arm < 3; arm++){
+          g.lineStyle(3, 0xA89AD8, 0.45);
+          g.beginPath();
+          for (let k = 0; k <= 20; k++){
+            const f = k/20, r = CYCLONE_EYE_RADIUS + f * (P.cycReach - CYCLONE_EYE_RADIUS);
+            const th = rot + arm * (TAU/3) + f * 2.4;                                    // spiral wind-up
+            const px = cx + Math.cos(th) * r, py = cy + Math.sin(th) * r;
+            if (k === 0) g.moveTo(px, py); else g.lineTo(px, py);
+          }
+          g.strokePath();
+        } }
     } else if (w.active === 'storm'){
       g.lineStyle(2, 0x5A6A80, 0.35); g.strokeCircle(w.data.cx, w.data.cy, STORM_RADIUS);   // squall boundary
       // MW-10: inside the cell, rain at ~2× density (rain draws 40 streaks → storm 80)

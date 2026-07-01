@@ -216,7 +216,17 @@ class GameScene extends Phaser.Scene {
   requestFlag(f){ return FlagSystem.requestFlag(this, f); }
   spawnFleet(){ Enemy.spawnFleet(this); }
   flashPopup(x, y, txt, color){ this.popups.push({ x, y, txt, color, age:0, life:1.2 }); }
-  pushWake(s){ if (s.vel > WAKE_MIN_SPEED){ s.wake.push({ x:s.x - Math.sin(s.heading*RAD)*16, y:s.y + Math.cos(s.heading*RAD)*16 }); if (s.wake.length > WAKE_LENGTH) s.wake.shift(); } }
+  // MW-14: emit a ripple at the stern every WAKE_EMIT_DIST of travel (distance-based
+  // → no dt needed). Each ripple carries its spawn time + heading for the draw pass.
+  pushWake(s){
+    if (s.vel <= WAKE_MIN_SPEED) return;
+    const sx = s.x - Math.sin(s.heading*RAD)*16, sy = s.y + Math.cos(s.heading*RAD)*16;
+    const last = s.wake[s.wake.length - 1];
+    if (!last || Math.hypot(sx - last.x, sy - last.y) > WAKE_EMIT_DIST){
+      s.wake.push({ x: sx, y: sy, t0: this.time.now/1000, heading: s.heading });
+      if (s.wake.length > WAKE_LENGTH) s.wake.shift();
+    }
+  }
 
   // ── docking (gold sinks: spend as much as you can afford; partial if short) ──
   repairAtPort(){
@@ -397,25 +407,19 @@ class GameScene extends Phaser.Scene {
 
   draw(){
     const gw = this.gfxWorld; gw.clear();
-    // wakes — a simple V: two arms diverge from the stern at a CONSTANT angle (spread
-    // grows with actual distance back from the stern, so speed doesn't change the angle),
-    // one uniform width + opacity the whole length
-    const drawWake = (s, foam) => {
-      const w = s.wake, n = w.length; if (n < 3) return;
-      const slope = WAKE_SLOPE * (s.scale || 1);
-      const back = new Array(n); back[n - 1] = 0;                                          // cumulative px back from the stern
-      for (let i = n - 2; i >= 0; i--) back[i] = back[i + 1] + Math.hypot(w[i + 1].x - w[i].x, w[i + 1].y - w[i].y);
-      const L = new Array(n), R = new Array(n);
-      for (let i = 0; i < n; i++){
-        const p = w[i], q = w[i < n - 1 ? i + 1 : i - 1], sgn = i < n - 1 ? 1 : -1;
-        let dx = sgn * (q.x - p.x), dy = sgn * (q.y - p.y); const d = Math.hypot(dx, dy) || 1;
-        const px = -dy / d, py = dx / d, spread = back[i] * slope;                         // ∝ distance → constant angle
-        L[i] = [p.x + px * spread, p.y + py * spread];
-        R[i] = [p.x - px * spread, p.y - py * spread];
+    // MW-14: each ripple is a pair of short arcs flanking the travel line — they
+    // widen and fade over WAKE_RIPPLE_LIFE_S (the surf-ripple read). PLACEHOLDER shape.
+    const nowS = this.time.now/1000;
+    const drawWake = (s, col) => {
+      for (const r of s.wake){
+        const a = (nowS - r.t0) / WAKE_RIPPLE_LIFE_S;
+        if (!(a >= 0 && a < 1)) continue;                       // also skips old-format entries safely
+        const grow = 4 + a*11, alpha = 0.34 * (1 - a);
+        const px = Math.cos(r.heading*RAD), py = Math.sin(r.heading*RAD);   // perpendicular to travel
+        gw.lineStyle(1.5, col, alpha);
+        gw.beginPath(); gw.arc(r.x - px*grow*0.7, r.y - py*grow*0.7, grow, 0, Math.PI); gw.strokePath();
+        gw.beginPath(); gw.arc(r.x + px*grow*0.7, r.y + py*grow*0.7, grow, Math.PI, TAU); gw.strokePath();
       }
-      gw.lineStyle(2, foam, 0.30);
-      gw.beginPath(); gw.moveTo(L[0][0], L[0][1]); for (let i = 1; i < n; i++) gw.lineTo(L[i][0], L[i][1]); gw.strokePath();
-      gw.beginPath(); gw.moveTo(R[0][0], R[0][1]); for (let i = 1; i < n; i++) gw.lineTo(R[i][0], R[i][1]); gw.strokePath();
     };
     drawWake(this.player, 0xCFE8F5);
     for (const s of this.ships) if (s.alive) drawWake(s, 0xA8C0D0);

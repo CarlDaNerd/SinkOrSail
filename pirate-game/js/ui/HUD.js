@@ -196,7 +196,9 @@ class HUD {
 
   // ── real-time dev log (bottom-left); newest line at the bottom, older lines fade ──
   drawDevLog(){
-    const gs = this.gs, dl = gs.devlog, on = !!(dl && dl.on), baseY = GAME_H - 30;
+    const gs = this.gs, dl = gs.devlog, on = !!(dl && dl.on);
+    const baseY = (typeof TouchInput !== 'undefined') ? TouchInput.safeBottomY(GAME_H) - 6 : GAME_H - 30;
+    const vis = (typeof TouchInput !== 'undefined' && TouchInput.active) ? Math.min(DEVLOG_VISIBLE, DEVLOG_VISIBLE_TOUCH) : DEVLOG_VISIBLE;
     if (on){
       let hdr = 'DEV LOG  [L hide]';
       if (typeof AchievementSystem !== 'undefined' && gs.achievements){ const c = AchievementSystem.count(gs); hdr += '   ·   ACH ' + c.done + '/' + c.total + ' [J]'; }
@@ -204,7 +206,7 @@ class HUD {
     } else this.tLogHdr.setVisible(false);
     const lines = (dl && dl.lines) ? dl.lines : [], now = gs.time.now/1000;
     for (let i = 0; i < this.logLines.length; i++){
-      const t = this.logLines[i], line = on ? lines[lines.length - 1 - i] : null;
+      const t = this.logLines[i], line = (on && i < vis) ? lines[lines.length - 1 - i] : null;
       if (line){
         const fade = Math.max(0.28, 1 - (now - line.t)/DEVLOG_LINE_TTL);
         t.setText((line.n > 1 ? '(' + line.n + 'x) ' : '') + line.txt)
