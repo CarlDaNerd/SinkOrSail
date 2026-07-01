@@ -46,8 +46,7 @@ function drawWorldMap(g, landG, maskG, gs){
     landG.fillStyle(col, 1); landG.fillCircle(w2x(p.x), w2y(p.y), 4);
     landG.lineStyle(1.5, 0x2A9EAE, 0.6); landG.strokeCircle(w2x(p.x), w2y(p.y), 8);
   }
-  // player marker + heading (masked layer; the player is always within revealed cells)
-  const ppx = w2x(gs.player.x), ppy = w2y(gs.player.y);
-  landG.fillStyle(0x88BBFF, 1); landG.fillCircle(ppx, ppy, 5);
-  landG.lineStyle(2.5, 0xFFFFFF, 0.9); landG.lineBetween(ppx, ppy, ppx + Math.sin(gs.player.heading*RAD)*14, ppy - Math.cos(gs.player.heading*RAD)*14);
+  // player marker — the SAME heading-arrow icon the minimap uses (masked layer; the
+  // player is always within revealed cells)
+  drawPlayerArrow(landG, w2x(gs.player.x), w2y(gs.player.y), gs.player.heading, 9, 0x88BBFF);
 }

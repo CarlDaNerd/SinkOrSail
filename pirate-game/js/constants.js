@@ -87,7 +87,8 @@ const COMPASS_RING_W = 16;        // width (px) of the compass ring wrapped arou
 const COMPASS_LABEL_PAD = 16;     // space (px) beyond the ring for the cardinal letters (so ticks never cross them)
 const BOUNTY_ARROW_RANGE = 4500;  // px — a bounty target within this is tracked by the edge arrow; it hides only once ON the actual screen
 const MAP_SCALE_INIT = 0.045;             // big map (M): screen-px per world-px
-const MAP_SCALE_MIN = 0.02, MAP_SCALE_MAX = 0.22;
+const MAP_RECENTER_S = 0.3;               // seconds for the C-key recenter + zoom-reset animation (eased)
+const MAP_SCALE_MIN = 0.0025, MAP_SCALE_MAX = 0.22;   // MIN low enough to zoom the big map way out (whole world fits)
 
 // ── BIOMES (SEA vs. CLUSTER) ──────────────────────────────────────────────
 // The world is MOSTLY OPEN SEA. Land is concentrated into discrete CLUSTERS. A
@@ -229,6 +230,9 @@ const EXTRAS_DEFAULT = true;      // weather on by default (pause-menu "Weather"
 const ZOOM_DEFAULT = 1.0;         // normal sailing zoom
 const ZOOM_BATTLE_LEVEL = 1.4;    // camera zoom while in combat — edit to taste
 const ZOOM_LERP = 0.02;           // smoothing toward the target zoom (per 1/60s)
+// max manual zoom-OUT: the screen rectangle stays inscribed in the minimap sight
+// circle (screen half-diagonal = MINIMAP_RANGE), so the corners never show past it
+const ZOOM_MIN = Math.hypot(GAME_W / 2, GAME_H / 2) / MINIMAP_RANGE;
 
 // ── WIND (dynamic direction) ── P.windFrom is driven each frame by WindSystem: a
 // prevailing base (moved by occasional "front" shifts) PLUS a multi-sine oscillation

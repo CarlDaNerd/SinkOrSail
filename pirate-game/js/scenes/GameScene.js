@@ -23,7 +23,9 @@ class GameScene extends Phaser.Scene {
     this.achOpen = false;                               // achievements list overlay (J)
     this.mapOpen = false; this.mapDirty = false;        // big map (M) — non-pausing chart
     this.mapFollow = true;                              // chart tracks the ship until you drag it
+    this.mapAnim = null;                                // active C-key recenter tween { sx, sy, ss, t0 }
     this.mapCenterX = 0; this.mapCenterY = 0; this.mapScale = MAP_SCALE_INIT;
+    this.viewZoom = ZOOM_DEFAULT;                        // manual in-game camera zoom (scroll wheel); ZoomSystem lerps to it out of combat
     Chunks.init(this);                                 // stream terrain around the player
     this.navyPorts = this.placeStartPorts();
     Island.drawPortMarkers(this);
@@ -35,9 +37,12 @@ class GameScene extends Phaser.Scene {
     this.follow = this.add.rectangle(this.player.x, this.player.y, 1, 1, 0, 0);
     this.cameras.main.startFollow(this.follow, true, 0.08, 0.08);
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,ZERO,M,Z,X,T,J,L,B');
-    this.input.on('wheel', (p, over, dx, dy) => { if (!this.mapOpen) return; this.mapScale = Phaser.Math.Clamp(this.mapScale * (dy < 0 ? 1.12 : 0.892), MAP_SCALE_MIN, MAP_SCALE_MAX); this.mapDirty = true; });
-    this.input.on('pointermove', (p) => { if (!this.mapOpen || !p.isDown) return; this.mapFollow = false; this.mapCenterX -= (p.position.x - p.prevPosition.x)/this.mapScale; this.mapCenterY -= (p.position.y - p.prevPosition.y)/this.mapScale; this.mapDirty = true; });
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,ZERO,M,Z,X,T,J,L,B,C');
+    this.input.on('wheel', (p, over, dx, dy) => {
+      if (this.mapOpen){ this.mapAnim = null; this.mapScale = Phaser.Math.Clamp(this.mapScale * (dy < 0 ? 1.12 : 0.892), MAP_SCALE_MIN, MAP_SCALE_MAX); this.mapDirty = true; }
+      else if (!this.docked && !this.menuOpen){ this.viewZoom = Phaser.Math.Clamp(this.viewZoom * (dy < 0 ? 1.08 : 0.926), ZOOM_MIN, ZOOM_DEFAULT); }   // in-game: scroll to zoom OUT (down to the sight-circle limit)
+    });
+    this.input.on('pointermove', (p) => { if (!this.mapOpen || !p.isDown) return; this.mapFollow = false; this.mapAnim = null; this.mapCenterX -= (p.position.x - p.prevPosition.x)/this.mapScale; this.mapCenterY -= (p.position.y - p.prevPosition.y)/this.mapScale; this.mapDirty = true; });
 
     this.missions = new MissionLoader(this); this.missions.scan();
 
@@ -146,7 +151,7 @@ class GameScene extends Phaser.Scene {
   // ── maps + pause menu ──
   toggleMap(){
     this.mapOpen = !this.mapOpen;
-    if (this.mapOpen){ this.mapFollow = true; this.mapCenterX = this.player.x; this.mapCenterY = this.player.y; this.mapScale = MAP_SCALE_INIT; this.mapDirty = true; }
+    if (this.mapOpen){ this.mapFollow = true; this.mapAnim = null; this.mapCenterX = this.player.x; this.mapCenterY = this.player.y; this.mapScale = MAP_SCALE_INIT; this.mapDirty = true; }
   }
   toggleMenu(){ this.menuOpen = !this.menuOpen; }
   // pause-menu load helpers
@@ -154,9 +159,17 @@ class GameScene extends Phaser.Scene {
   importGame(){ Save.importFile(s => { if (s && Save.apply(this, s)){ this.flashPopup(this.player.x, this.player.y - 30, 'SAVE IMPORTED', 0x8AAAC8); } this.menuOpen = false; }); }
   // map keeps updating while you sail: follow the ship (until dragged) + key zoom
   updateMap(dts){
-    if (this.mapFollow){ this.mapCenterX = this.player.x; this.mapCenterY = this.player.y; }
-    if (this.keys.Z.isDown) this.mapScale = Math.max(MAP_SCALE_MIN, this.mapScale*(1 - 1.6*dts));
-    if (this.keys.X.isDown) this.mapScale = Math.min(MAP_SCALE_MAX, this.mapScale*(1 + 1.6*dts));
+    // C: ease the chart back to the ship + reset zoom over MAP_RECENTER_S, then re-follow
+    if (Phaser.Input.Keyboard.JustDown(this.keys.C)){ this.mapFollow = false; this.mapAnim = { sx:this.mapCenterX, sy:this.mapCenterY, ss:this.mapScale, t0:this.time.now/1000 }; }
+    if (this.mapAnim){
+      const p = Math.min(1, (this.time.now/1000 - this.mapAnim.t0) / MAP_RECENTER_S), e = p*p*(3 - 2*p);   // smoothstep
+      this.mapCenterX = this.mapAnim.sx + (this.player.x - this.mapAnim.sx)*e;   // targets the LIVE ship (still sailing)
+      this.mapCenterY = this.mapAnim.sy + (this.player.y - this.mapAnim.sy)*e;
+      this.mapScale   = this.mapAnim.ss + (MAP_SCALE_INIT - this.mapAnim.ss)*e;
+      if (p >= 1){ this.mapAnim = null; this.mapFollow = true; }   // done → resume following the ship
+    } else if (this.mapFollow){ this.mapCenterX = this.player.x; this.mapCenterY = this.player.y; }
+    if (this.keys.Z.isDown){ this.mapAnim = null; this.mapScale = Math.max(MAP_SCALE_MIN, this.mapScale*(1 - 1.6*dts)); }
+    if (this.keys.X.isDown){ this.mapAnim = null; this.mapScale = Math.min(MAP_SCALE_MAX, this.mapScale*(1 + 1.6*dts)); }
     this.mapDirty = true;
   }
   // full run restart (the Reset Game menu button)

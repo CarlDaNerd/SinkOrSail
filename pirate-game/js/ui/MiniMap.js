@@ -36,10 +36,16 @@ function drawMiniMap(g, gs, pl){
       g.fillStyle(0xE0503A, 0.95); g.fillCircle(cxp + (dxp / dd) * (mr - 4), cyp + (dyp / dd) * (mr - 4), 2.8);
     }
   }
-  // YOU — a triangle pointing in your heading
-  const hx = Math.sin(pl.heading*RAD), hy = -Math.cos(pl.heading*RAD), rx = -hy, ry = hx, sz = 6.5;
-  g.fillStyle(0x88BBFF, 1);
-  g.fillTriangle(cxp + hx*sz, cyp + hy*sz,
-                 cxp - hx*sz*0.55 + rx*sz*0.55, cyp - hy*sz*0.55 + ry*sz*0.55,
-                 cxp - hx*sz*0.55 - rx*sz*0.55, cyp - hy*sz*0.55 - ry*sz*0.55);
+  // YOU — a heading arrow (shared with the big map so the icon matches)
+  drawPlayerArrow(g, cxp, cyp, pl.heading, 6.5, 0x88BBFF);
+}
+
+// shared player marker: a triangle pointing in the heading. Used by BOTH the minimap
+// and the big map (WorldMap) so the player icon is identical on each.
+function drawPlayerArrow(g, cx, cy, heading, sz, color){
+  const hx = Math.sin(heading*RAD), hy = -Math.cos(heading*RAD), rx = -hy, ry = hx;
+  g.fillStyle(color, 1);
+  g.fillTriangle(cx + hx*sz, cy + hy*sz,
+                 cx - hx*sz*0.55 + rx*sz*0.55, cy - hy*sz*0.55 + ry*sz*0.55,
+                 cx - hx*sz*0.55 - rx*sz*0.55, cy - hy*sz*0.55 - ry*sz*0.55);
 }
