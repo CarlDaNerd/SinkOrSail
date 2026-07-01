@@ -453,6 +453,9 @@ class GameScene extends Phaser.Scene {
     const sc = s.scale || 1; g.scaleCanvas(sc, sc);                      // tier visual size
     g.fillStyle(colors[0], 1); g.fillEllipse(0, 0, 20, 40);
     g.fillStyle(colors[1], 1); g.fillEllipse(0, 2, 13, 30);
+    // MW-15: dull-red overlay fading out over HIT_FLASH_S after a hit
+    { const fs = this.time.now/1000 - (s.lastHitAt || -99);
+      if (fs >= 0 && fs < HIT_FLASH_S){ g.fillStyle(0xB03028, 0.55 * (1 - fs/HIT_FLASH_S)); g.fillEllipse(0, 0, 20, 40); } }
     g.lineStyle(2.5, 0x2A1404, 1); g.lineBetween(-11, -3, 11, -3); g.lineBetween(0, -18, 0, -26);
     // sails — one per mast (count from tier; default 1), stacked toward the bow
     if (s.sailState > 0){

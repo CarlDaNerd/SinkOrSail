@@ -113,7 +113,10 @@ class HUD {
     const crewCap = (typeof ShipTiers !== 'undefined') ? ShipTiers.maxCrew(pl) : (typeof CREW_MAX !== 'undefined' ? CREW_MAX : 40);
     const understaffed = (typeof ShipTiers !== 'undefined') && ShipTiers.understaffed(pl);
     this.tCrew.setText('CREW ' + (pl.crew || 0) + '/' + crewCap + (understaffed ? ' ⚠' : '')).setColor(understaffed ? '#E0503A' : '#8AAAC8');
-    this.tCoord.setText(Math.round(pl.x/COORD_SCALE) + ',' + Math.round(pl.y/COORD_SCALE));
+    { const cxv = Math.round(pl.x/COORD_SCALE), cyv = Math.round(pl.y/COORD_SCALE);
+      // ASSUMPTION: −y = North, +x = East (screen-up is north); keeps raw x,y AND adds the compass form
+      const ns = cyv <= 0 ? 'N' : 'S', ew = cxv >= 0 ? 'E' : 'W';
+      this.tCoord.setText(cxv + ',' + cyv + '   ' + Math.abs(cyv) + '°' + ns + ' ' + Math.abs(cxv) + '°' + ew); }
     // wanted level (standing 0..-100 → 0..5 pips)
     const wl = Math.min(5, Math.max(0, Math.ceil(-gs.navyStanding / 20))), hostile = gs.navyHostile();
     this.tWanted.setText('WANTED');

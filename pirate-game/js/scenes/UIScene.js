@@ -51,6 +51,12 @@ class UIScene extends Phaser.Scene {
           backgroundColor:'#16283a', padding:{ x:14, y:10 },
         }).setScrollFactor(0).setDepth(142).setInteractive({ useHandCursor:true }).setVisible(false);
         this._mapClose.on('pointerdown', () => { if (this.gs.mapOpen) this.gs.toggleMap(); });
+        // MW-17: visible DEPART while docked (menu otherwise exits only via the F key)
+        this._btnDepart = this.add.text(0, 0, '⚓ DEPART', {
+          fontFamily:'ui-monospace,monospace', fontSize:'16px', color:'#F0C840',
+          backgroundColor:'#16283a', padding:{ x:16, y:10 },
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(142).setInteractive({ useHandCursor:true }).setVisible(false);
+        this._btnDepart.on('pointerdown', () => { if (this.gs.docked){ this.gs.docked = false; this.gs.dockPort = null; } });
       }
     }
   }
@@ -146,6 +152,7 @@ class UIScene extends Phaser.Scene {
       if (TouchInput._fsBtn) TouchInput._fsBtn.setVisible(!gs.docked && !gs.mapOpen);
       if (this._miniZone) this._miniZone.setVisible(!gs.menuOpen && !gs.docked && !gs.mapOpen);
       if (this._mapClose) this._mapClose.setVisible(gs.mapOpen);
+      if (this._btnDepart) this._btnDepart.setPosition(GAME_W/2, GAME_H - 70).setVisible(!!gs.docked);
       this._layoutDockZones();
     }
   }

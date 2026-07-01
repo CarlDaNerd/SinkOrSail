@@ -357,3 +357,6 @@ const TOUCH_CHASER_W    = 84,  TOUCH_CHASER_H = 44;   // smaller bow/stern butto
 // ── T-6 / MW-10 ── storm feel guards + lightning visual
 const STORM_PLAYER_STRIKE_CAP = 2;   // PLACEHOLDER — max sail strikes on the player per storm
 const STORM_BOLT_S = 0.22;           // PLACEHOLDER — seconds the lightning bolt stays visible
+
+// ── MW-15 ── dull-red flash on a ship that just took a hit
+const HIT_FLASH_S = 0.35;   // PLACEHOLDER — flash duration (s)

@@ -53,6 +53,7 @@ const Combat = {
 
   onHit(scene, ball, target){
     target.hull -= P.damage;
+    target.lastHitAt = scene.time.now/1000;                 // MW-15: damage-flash timestamp
     scene.events.emit(EV.SHIP_HIT, { ship: target, by: ball.ownerFaction, amount: P.damage });
     if (ball.ownerFaction === 'player'){
       target.hostileToPlayer = true;
