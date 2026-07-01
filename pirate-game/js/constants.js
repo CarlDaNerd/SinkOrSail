@@ -324,3 +324,13 @@ const ESCORT_DAMAGE = 12;              // damage per escort shot
 const ESCORT_FIRE_COOLDOWN_S = 1.6;    // seconds between escort shots
 const ESCORT_SPEED = 1.9;              // escort cruise speed
 const ESCORT_PATROL_RADIUS = 360;      // orbit radius around the guard anchor when idle
+
+// ── TOUCH / MOBILE INPUT (MT add-on) ── all PLACEHOLDER, tuned live ──
+const TOUCH_BTN_W     = 92;    // logical button footprint width (layout math)
+const TOUCH_BTN_H     = 56;    // logical button footprint height
+const TOUCH_BTN_GAP   = 12;    // gap between buttons in a cluster
+const TOUCH_MARGIN    = 16;    // screen-edge margin
+const TOUCH_BTN_FONT  = 18;    // button label font size (px)
+const TOUCH_BTN_PAD_X = 20;    // button text padding x
+const TOUCH_BTN_PAD_Y = 14;    // button text padding y
+const TOUCH_BTN_ALPHA = 0.85;  // resting opacity so buttons don't fully hide the sea
