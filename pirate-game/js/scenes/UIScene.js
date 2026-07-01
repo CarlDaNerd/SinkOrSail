@@ -30,6 +30,63 @@ class UIScene extends Phaser.Scene {
     this.btnExtras   = this._btn(GAME_W/2, GAME_H/2 + 152, 'Weather',          () => { this.gs.extrasOn = !this.gs.extrasOn; });   // toggles M11 weather only (zoom is always on)
     this._menuObjs = [this.menuBg, this.menuTitle, this.btnResume, this.btnNew, this.btnLoad, this.btnDownload, this.btnImport, this.btnTuning, this.btnExtras];
     for (const o of this._menuObjs) o.setVisible(false);
+
+    // ── touch add-on: build on-screen controls (no-op on desktop) ──
+    if (typeof TouchInput !== 'undefined'){
+      TouchInput.init(this, this.gs);
+      if (TouchInput.active){
+        // tap the minimap (top-right circle) → open the world map (mirrors M)
+        const mr = MINIMAP_H/2, full = mr + COMPASS_RING_W + COMPASS_LABEL_PAD;
+        const cxp = GAME_W - 12 - full, cyp = 12 + full;
+        this._miniZone = this.add.zone(cxp, cyp, mr*2, mr*2).setScrollFactor(0).setDepth(141)
+          .setInteractive(new Phaser.Geom.Circle(mr, mr, mr), Phaser.Geom.Circle.Contains);
+        this._miniZone.on('pointerdown', () => { if (!this.gs.menuOpen && !this.gs.docked && !this.gs.mapOpen) this.gs.toggleMap(); });
+        // invisible tappable rows over the docked shop menu (mirror 1-9,0 + F)
+        this._buildDockZones();
+      }
+    }
+  }
+
+  // Invisible tap zones stacked over the docked shop text rows. Each calls the
+  // same GameScene action its number key does. Positions track drawDock()'s
+  // layout (w=440,h=400, centered); rows are the menu lines in order.
+  _buildDockZones(){
+    const acts = [
+      () => this.gs.repairAtPort(),                                   // [1]
+      () => this.gs.restockAtPort(),                                  // [2]
+      () => this.gs.sellAllAtPort(),                                  // [3]
+      () => this.gs.buySourceAtPort(),                                // [4]
+      () => { if (typeof CrewSystem !== 'undefined') CrewSystem.hireOne(this.gs, this.gs.dockPort); },   // [5]
+      () => { if (typeof UpgradeSystem !== 'undefined') UpgradeSystem.buySail(this.gs); },               // [6]
+      () => { if (typeof UpgradeSystem !== 'undefined') UpgradeSystem.buyCannon(this.gs); },             // [7]
+      () => { if (typeof UpgradeSystem !== 'undefined') UpgradeSystem.buyShip(this.gs); },               // [8]
+      () => { if (typeof HireSystem !== 'undefined') HireSystem.hireAtDock(this.gs); },                  // [9]
+      () => { if (typeof BountySystem !== 'undefined') BountySystem.acceptAtDock(this.gs); },            // [0]
+      () => { this.gs.docked = false; this.gs.dockPort = null; },                                        // [F] depart
+    ];
+    this._dockZones = [];
+    for (const fn of acts){
+      const z = this.add.zone(0, 0, 400, 15).setOrigin(0, 0).setScrollFactor(0).setDepth(141)
+        .setInteractive({ useHandCursor: true });
+      z.on('pointerdown', () => { if (this.gs.docked) fn(); });
+      z.setVisible(false);
+      this._dockZones.push(z);
+    }
+  }
+
+  // Position/toggle dock zones to overlay the menu text lines (called each frame
+  // while docked). PLACEHOLDER geometry — tuned against the live menu layout.
+  _layoutDockZones(){
+    if (!this._dockZones || !this._dockZones.length) return;
+    const on = !!(this.gs.docked && this.gs.dockPort);
+    const w = 440, x = GAME_W/2 - w/2, y = GAME_H/2 - 200;
+    // menu body starts after title(1) + blank(1) + gold line(1) + blank(1) ≈ 5 lines
+    const rowH = 17, firstRowY = y + 24 + rowH*5, zw = w - 40, zx = x + 20;
+    for (let i = 0; i < this._dockZones.length; i++){
+      const z = this._dockZones[i];
+      z.setVisible(on);
+      if (on){ z.setPosition(zx, firstRowY + i*rowH); z.setSize(zw, rowH); z.input.hitArea.setTo(0, 0, zw, rowH); }
+    }
   }
 
   _btn(x, y, label, fn){
@@ -71,5 +128,15 @@ class UIScene extends Phaser.Scene {
     // HUD always updates (it renders above the map so instruments stay visible)
     this.hud.update(gs.player, windOff(gs.player.heading, WindSystem.dirAt(gs, gs.player.x, gs.player.y)));
     this.hud.drawPopups(gs.popups);
+
+    // touch overlay: movement+fire buttons show only while actively sailing
+    // (hidden when paused, docked, or the chart is up — those have their own UI).
+    if (typeof TouchInput !== 'undefined' && TouchInput.active){
+      TouchInput.setControlsVisible(!gs.menuOpen && !gs.docked && !gs.mapOpen && gs.player.hull > 0);
+      if (this._pauseVis === undefined) this._pauseVis = true;
+      if (TouchInput._pauseBtn) TouchInput._pauseBtn.setVisible(!gs.docked && !gs.mapOpen);
+      if (this._miniZone) this._miniZone.setVisible(!gs.menuOpen && !gs.docked && !gs.mapOpen);
+      this._layoutDockZones();
+    }
   }
 }

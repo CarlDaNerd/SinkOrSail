@@ -12,5 +12,9 @@ const config = {
   backgroundColor: '#15263C',
   scene: [BootScene, MenuScene, GameScene, UIScene],
   fps: { target: 60 },
+  // RESIZE: canvas tracks the window (phone rotate / browser resize). GAME_W/H
+  // are read at boot for initial layout; the resize handler keeps globals fresh
+  // so touch-button layout and HUD anchors reposition correctly.
+  scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
 };
 const game = new Phaser.Game(config);
