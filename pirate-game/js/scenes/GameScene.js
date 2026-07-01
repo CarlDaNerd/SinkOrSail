@@ -46,13 +46,25 @@ class GameScene extends Phaser.Scene {
     // touch: tap the world (a port/ship in range) → dock or capture. Ignored on
     // desktop (TouchInput.active false) and when the tap hit a UI button — the
     // parallel UIScene reports what interactive object (if any) is under the pointer.
+    // MW-7: press on open water = start of a steer-drag OR a tap. Movement past the
+    // tap threshold steers (slide left/right); a short still press = world tap
+    // (dock / capture). Presses on UI buttons are excluded via hitTestPointer.
     this.input.on('pointerdown', (p) => {
       if (typeof TouchInput === 'undefined' || !TouchInput.active) return;
+      if (this.mapOpen || this.docked || this.menuOpen) return;
       const ui = this.scene.get('UIScene');
       const hits = ui ? ui.input.hitTestPointer(p) : [];
-      if (hits && hits.length) return;               // tap landed on a button/HUD control
-      if (this.mapOpen) return;                      // map has its own pan/close handling
-      TouchInput.handleWorldTap(this);
+      if (hits && hits.length) return;
+      TouchInput.steerStart(p);
+    });
+    this.input.on('pointermove', (p) => {
+      if (typeof TouchInput === 'undefined' || !TouchInput.active || !p.isDown) return;
+      TouchInput.steerMove(p);
+    });
+    this.input.on('pointerup', (p) => {
+      if (typeof TouchInput === 'undefined' || !TouchInput.active) return;
+      const wasTap = TouchInput.steerEnd(p);
+      if (wasTap && !this.mapOpen) TouchInput.handleWorldTap(this);
     });
 
     this.missions = new MissionLoader(this); this.missions.scan();
@@ -299,10 +311,11 @@ class GameScene extends Phaser.Scene {
 
     if (pl.hull > 0){
       const T = (typeof TouchInput !== 'undefined') ? TouchInput : null;
-      if (Phaser.Input.Keyboard.JustDown(this.keys.W) || (T && T.justDown('sailUp'))) pl.sailState = Math.min(2, pl.sailState + 1);
-      if (Phaser.Input.Keyboard.JustDown(this.keys.S) || (T && T.justDown('sailDn'))) pl.sailState = Math.max(0, pl.sailState - 1);
-      if (Phaser.Input.Keyboard.JustDown(this.keys.Q) || (T && T.justDown('firePort'))) Combat.fire(this, pl, 'port');
-      if (Phaser.Input.Keyboard.JustDown(this.keys.E) || (T && T.justDown('fireStar'))) Combat.fire(this, pl, 'star');
+      if (Phaser.Input.Keyboard.JustDown(this.keys.W)) pl.sailState = Math.min(2, pl.sailState + 1);
+      if (Phaser.Input.Keyboard.JustDown(this.keys.S)) pl.sailState = Math.max(0, pl.sailState - 1);
+      if (T && T.justDown('sailCycle')) pl.sailState = (pl.sailState + 1) % 3;   // MW-9: half → full → down → …
+      if (Phaser.Input.Keyboard.JustDown(this.keys.Q) || (T && T.justDown('cannonL'))) Combat.fire(this, pl, 'port');
+      if (Phaser.Input.Keyboard.JustDown(this.keys.E) || (T && T.justDown('cannonR'))) Combat.fire(this, pl, 'star');
       if (Phaser.Input.Keyboard.JustDown(this.cursors.space)){ Combat.fire(this, pl, 'port'); Combat.fire(this, pl, 'star'); }   // spacebar = full broadside (both sides)
       // bow/stern chaser guns (only mounted on Brig+ / Galleon+); no-op at lower tiers
       if (Phaser.Input.Keyboard.JustDown(this.cursors.up)   || (T && T.justDown('fireBow')))   Combat.fireChaser(this, pl, 'bow');
@@ -318,8 +331,11 @@ class GameScene extends Phaser.Scene {
         this.flashPopup(pl.x, pl.y - 32, '⚓ ' + ShipTiers.get(pl.tier).name.toUpperCase(), 0x6ED0E0);
       }
       const td = calcTurnDegS(pl.vel)*dts;
-      if (this.cursors.left.isDown  || this.keys.A.isDown || (T && T.held('turnL'))) pl.heading = (pl.heading - td + 360)%360;
-      if (this.cursors.right.isDown || this.keys.D.isDown || (T && T.held('turnR'))) pl.heading = (pl.heading + td)%360;
+      if (this.cursors.left.isDown  || this.keys.A.isDown) pl.heading = (pl.heading - td + 360)%360;
+      if (this.cursors.right.isDown || this.keys.D.isDown) pl.heading = (pl.heading + td)%360;
+      // MW-7: finger-drag axis scales the SAME locked turn rate (never exceeds it)
+      { const ax = (T && T.active) ? T.steerAxis() : 0;
+        if (ax !== 0) pl.heading = (pl.heading + td*ax + 360)%360; }
       const wa = windOff(pl.heading, WindSystem.dirAt(this, pl.x, pl.y));
       const wMult = (typeof WeatherSystem !== 'undefined') ? WeatherSystem.speedMult(this) : 1;   // rain slow (1 otherwise)
       const cMult = (typeof crewSpeedMult !== 'undefined') ? crewSpeedMult(pl) : 1;               // crew bonus / understaffed penalty

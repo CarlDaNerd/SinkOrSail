@@ -14,6 +14,7 @@ class HUD {
     const mmMask = scene.make.graphics({ add: false });
     mmMask.fillStyle(0xffffff, 1); mmMask.fillCircle(mmcx, mmcy, mmr);
     this.miniG.setMask(mmMask.createGeometryMask());
+    this.mmMask = mmMask;                                   // kept so relayout() can move the mask
     // bounty edge arrow on its OWN top layer, above the minimap + cardinal letters,
     // so it's never clipped underneath the compass
     this.arrowG = scene.add.graphics().setScrollFactor(0).setDepth(105);
@@ -34,10 +35,12 @@ class HUD {
     this.tChaseStern = mk(252, 118, 8, '#6aA8C8');
     // flag switch buttons (below the panel)
     const flagBtn = (x, label) => scene.add.text(x, 166, label, { fontFamily:'ui-monospace,monospace', fontSize:'11px', color:'#9fb6cc', backgroundColor:'#1a2c3c', padding:{ x:9, y:5 } }).setScrollFactor(0).setDepth(101).setOrigin(0, 0).setInteractive({ useHandCursor:true });
-    this.btnFlagN = flagBtn(20, '⚐ NEUTRAL');
-    this.btnFlagP = flagBtn(130, '☠ PIRATE');
-    this.btnFlagN.on('pointerdown', () => { if (!this.gs.menuOpen) this.gs.requestFlag('neutral'); });
-    this.btnFlagP.on('pointerdown', () => { if (!this.gs.menuOpen) this.gs.requestFlag('pirate'); });
+    // MW-4: ONE toggle — shows the current flag, tap to request the other one
+    this.btnFlag = flagBtn(20, '⚐ NEUTRAL');
+    this.btnFlag.on('pointerdown', () => {
+      if (this.gs.menuOpen || this.gs.inCombat()) return;
+      this.gs.requestFlag(this.gs.flag === 'pirate' ? 'neutral' : 'pirate');
+    });
     this.tFlagStatus = mk(20, 196, 9, '#6a8298');
 
     this.tIrons  = scene.add.text(GAME_W/2, GAME_H*0.30, '', { fontFamily:'ui-monospace,monospace', fontSize:'18px', color:'#E0503A', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
@@ -59,6 +62,28 @@ class HUD {
     for (let i = 0; i < DEVLOG_VISIBLE; i++){ this.logLines.push(scene.add.text(0, 0, '', { fontFamily:'ui-monospace,monospace', fontSize:'10px', color:'#9FB6C8' }).setScrollFactor(0).setDepth(101).setOrigin(0, 0)); }
     this.tAchToast = scene.add.text(GAME_W/2, GAME_H*0.20, '', { fontFamily:'ui-monospace,monospace', fontSize:'14px', color:'#F0C840', fontStyle:'bold', align:'center', lineSpacing:3 }).setScrollFactor(0).setDepth(103).setOrigin(0.5, 0);
     this.tAchList = scene.add.text(GAME_W/2, GAME_H/2, '', { fontFamily:'ui-monospace,monospace', fontSize:'11px', color:'#D4C890', align:'left', lineSpacing:4 }).setScrollFactor(0).setDepth(103).setOrigin(0.5);
+  }
+
+  // Reposition screen-anchored HUD elements after a canvas resize (rotate / window
+  // resize). Per-frame draws read the now-live GAME_W/H and self-correct; only
+  // create-time positions need moving. Touch-safe bottom keeps prompts above the
+  // control band (C-8). (R-1 / MW-3 / MW-8 / MW-12)
+  relayout(){
+    const mmr = MINIMAP_H/2, full = mmr + COMPASS_RING_W + COMPASS_LABEL_PAD;
+    const cx = GAME_W - 12 - full, cy = 12 + full;
+    this.mmMask.clear(); this.mmMask.fillStyle(0xffffff, 1); this.mmMask.fillCircle(cx, cy, mmr);
+    const lr = mmr + COMPASS_RING_W + COMPASS_LABEL_PAD*0.55;
+    const setC = (t, deg) => t.setPosition(cx + Math.sin(deg*RAD)*lr, cy - Math.cos(deg*RAD)*lr);
+    setC(this.cN, 0); setC(this.cE, 90); setC(this.cS, 180); setC(this.cW, 270);
+    const safeB = (typeof TouchInput !== 'undefined') ? TouchInput.safeBottomY(GAME_H) : GAME_H - 30;
+    this.tIrons.setPosition(GAME_W/2, GAME_H*0.30);
+    this.tStatus.setPosition(GAME_W/2, 26);
+    this.tOver.setPosition(GAME_W/2, GAME_H/2);
+    this.tScale.setPosition(GAME_W/2, safeB - 8);
+    this.tDockPrompt.setPosition(GAME_W/2, safeB - 34);
+    this.tDockMenu.setPosition(GAME_W/2, GAME_H/2);
+    this.tAchToast.setPosition(GAME_W/2, GAME_H*0.20);
+    this.tAchList.setPosition(GAME_W/2, GAME_H/2);
   }
 
   drawPopups(popups){
@@ -120,8 +145,8 @@ class HUD {
 
     // flag buttons
     const f = gs.flag, pend = gs.flagPending, locked = gs.inCombat();
-    this.btnFlagN.setColor((!pend && f === 'neutral') ? '#F0C840' : '#9fb6cc').setAlpha(locked ? 0.45 : 1);
-    this.btnFlagP.setColor((!pend && f === 'pirate')  ? '#F0C840' : '#9fb6cc').setAlpha(locked ? 0.45 : 1);
+    this.btnFlag.setText(f === 'pirate' ? '☠ PIRATE' : '⚐ NEUTRAL')
+      .setColor(pend ? '#9fb6cc' : '#F0C840').setAlpha(locked ? 0.45 : 1);
     this.tFlagStatus.setText(locked ? '⚠ colors locked (in combat)'
       : pend ? 'raising ' + pend + ' colors… ' + Math.max(0, gs.flagChangeAt - gs.time.now/1000).toFixed(1) + 's'
       : 'flying ' + f + ' colors');
@@ -240,7 +265,9 @@ class HUD {
       let msg;
       if (gs.navyHostile()) msg = '⚓  ' + gs.nearPort.name + ' — PORT CLOSED (WANTED)';
       else if (gs.inCombat()) msg = '⚓  cannot dock in combat';
-      else msg = '⚓  Press F to dock at ' + gs.nearPort.name;
+      else msg = (typeof TouchInput !== 'undefined' && TouchInput.active)
+        ? '⚓  TAP THE PORT to dock at ' + gs.nearPort.name
+        : '⚓  Press F to dock at ' + gs.nearPort.name;
       this.tDockPrompt.setText(msg).setVisible(true);
       this.tDockMenu.setVisible(false);
     } else {

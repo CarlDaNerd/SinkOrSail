@@ -30,6 +30,8 @@ class UIScene extends Phaser.Scene {
     this.btnExtras   = this._btn(GAME_W/2, GAME_H/2 + 152, 'Weather',          () => { this.gs.extrasOn = !this.gs.extrasOn; });   // toggles M11 weather only (zoom is always on)
     this._menuObjs = [this.menuBg, this.menuTitle, this.btnResume, this.btnNew, this.btnLoad, this.btnDownload, this.btnImport, this.btnTuning, this.btnExtras];
     for (const o of this._menuObjs) o.setVisible(false);
+    // R-1: reflow the HUD (and touch controls) whenever the canvas re-fits
+    this.scale.on('resize', () => { if (this.hud) this.hud.relayout(); });
 
     // ── touch add-on: build on-screen controls (no-op on desktop) ──
     if (typeof TouchInput !== 'undefined'){
@@ -135,6 +137,7 @@ class UIScene extends Phaser.Scene {
       TouchInput.setControlsVisible(!gs.menuOpen && !gs.docked && !gs.mapOpen && gs.player.hull > 0);
       if (this._pauseVis === undefined) this._pauseVis = true;
       if (TouchInput._pauseBtn) TouchInput._pauseBtn.setVisible(!gs.docked && !gs.mapOpen);
+      if (TouchInput._fsBtn) TouchInput._fsBtn.setVisible(!gs.docked && !gs.mapOpen);
       if (this._miniZone) this._miniZone.setVisible(!gs.menuOpen && !gs.docked && !gs.mapOpen);
       this._layoutDockZones();
     }

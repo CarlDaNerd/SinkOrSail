@@ -48,41 +48,43 @@ const TouchInput = {
     uiScene.scale.on('resize', () => this._layout());
   },
 
-  // A pressable button. `name` is the logical control; `hold` marks it HOLD-type.
-  _mkButton(scene, name, label, hold){
-    const t = scene.add.text(0, 0, label, {
-      fontFamily: 'ui-monospace,monospace', fontSize: TOUCH_BTN_FONT + 'px',
-      color: '#D4C890', backgroundColor: '#16283a',
-      padding: { x: TOUCH_BTN_PAD_X, y: TOUCH_BTN_PAD_Y },
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(140).setAlpha(TOUCH_BTN_ALPHA)
+  // A visible, fixed-size button: bordered rectangle + centered label (MW-6).
+  _mkButton(scene, name, label, hold, w, h){
+    const bw = w || TOUCH_BTN_W, bh = h || TOUCH_BTN_H;
+    const bg = scene.add.rectangle(0, 0, bw, bh, 0x16283a, TOUCH_BTN_ALPHA)
+      .setStrokeStyle(2, 0x8AAAC8, 0.9).setScrollFactor(0).setDepth(140)
       .setInteractive({ useHandCursor: true });
-
+    const t = scene.add.text(0, 0, label, {
+      fontFamily: 'ui-monospace,monospace', fontSize: TOUCH_BTN_FONT + 'px', color: '#D4C890',
+      align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(141);
     const press = () => {
-      if (this._scene && this._scene.menuOpen) return;   // menu owns input while paused
+      if (this._scene && this._scene.menuOpen) return;
       this._held[name] = true; this._edge[name] = true;
-      t.setColor('#F0C840');
+      bg.setFillStyle(0x2a4a66, 1); t.setColor('#F0C840');
     };
-    const release = () => { this._held[name] = false; t.setColor('#D4C890'); };
-
-    t.on('pointerdown', press);
-    t.on('pointerup', release);
-    t.on('pointerout', release);      // finger slid off the button
-    t._touchName = name; t._touchHold = hold;
-    this._btns.push(t);
-    return t;
+    const release = () => { this._held[name] = false; bg.setFillStyle(0x16283a, TOUCH_BTN_ALPHA); t.setColor('#D4C890'); };
+    bg.on('pointerdown', press); bg.on('pointerup', release); bg.on('pointerout', release);
+    const self = this;
+    const btn = {
+      bg, t, _touchName: name,
+      setPosition(x, y){ bg.setPosition(x, y); t.setPosition(x, y); return btn; },
+      setVisible(v){ bg.setVisible(v); t.setVisible(v); return btn; },
+    };
+    this._btns.push(btn);
+    return btn;
   },
 
   _buildButtons(scene){
-    // LEFT cluster — movement (turn L/R hold, sail +/-)
-    this._mkButton(scene, 'turnL', '◀', true);
-    this._mkButton(scene, 'turnR', '▶', true);
-    this._mkButton(scene, 'sailUp', 'SAIL +', false);
-    this._mkButton(scene, 'sailDn', 'SAIL −', false);
-    // RIGHT cluster — firing (bow / stern / port / star)
-    this._mkButton(scene, 'fireBow',  'BOW',  false);
-    this._mkButton(scene, 'fireStern','STERN',false);
-    this._mkButton(scene, 'firePort', 'PORT', false);
-    this._mkButton(scene, 'fireStar', 'STAR', false);
+    // MW-7 layout: steering is finger-drag on open screen (see steer* below).
+    // LEFT bottom-third: PORT broadside cannon; RIGHT bottom-third: STARBOARD cannon.
+    // One SAILS button cycles half → full → down (MW-9). Chasers kept as smaller
+    // buttons above each cannon (ASSUMPTION — Noah to confirm chasers stay).
+    this._mkButton(scene, 'cannonL', 'CANNON\n◀ PORT', false, TOUCH_CANNON_W, TOUCH_CANNON_H);
+    this._mkButton(scene, 'cannonR', 'CANNON\nSTAR ▶', false, TOUCH_CANNON_W, TOUCH_CANNON_H);
+    this._mkButton(scene, 'fireBow',   'BOW',   false, TOUCH_CHASER_W, TOUCH_CHASER_H);
+    this._mkButton(scene, 'fireStern', 'STERN', false, TOUCH_CHASER_W, TOUCH_CHASER_H);
+    this._mkButton(scene, 'sailCycle', 'SAILS', false, TOUCH_CHASER_W, TOUCH_CHASER_H);
     this._layout();
   },
 
@@ -95,28 +97,34 @@ const TouchInput = {
       .setInteractive({ useHandCursor: true });
     t.on('pointerdown', () => { if (this._scene) this._scene.toggleMenu(); });
     this._pauseBtn = t;
+    // MW-1: fullscreen toggle. Must run inside a user gesture (browser rule) — a
+    // pointerdown qualifies. NOTE: iOS Safari support for element fullscreen is
+    // limited; if it no-ops there, the fallback answer is add-to-Home-Screen (PWA).
+    const fs = scene.add.text(TOUCH_MARGIN + 56, TOUCH_MARGIN, '⛶', {
+      fontFamily: 'ui-monospace,monospace', fontSize: (TOUCH_BTN_FONT + 4) + 'px',
+      color: '#D4C890', backgroundColor: '#16283a',
+      padding: { x: TOUCH_BTN_PAD_X, y: TOUCH_BTN_PAD_Y },
+    }).setOrigin(0, 0).setScrollFactor(0).setDepth(140).setAlpha(TOUCH_BTN_ALPHA)
+      .setInteractive({ useHandCursor: true });
+    fs.on('pointerdown', () => { if (scene.scale.isFullscreen) scene.scale.stopFullscreen(); else scene.scale.startFullscreen(); });
+    this._fsBtn = fs;
   },
 
-  // Position the two clusters relative to current screen size (thumb-reachable).
   _layout(){
     if (!this.active) return;
     const sz = (this._scene && this._scene.scale) ? this._scene.scale.gameSize : { width: GAME_W, height: GAME_H };
     const W = sz.width, H = sz.height, m = TOUCH_MARGIN, gap = TOUCH_BTN_GAP;
-    const by = H - m - TOUCH_BTN_H/2;                     // bottom row baseline
-    const pos = {};
-    // left cluster (bottom-left)
-    pos.turnL  = [m + TOUCH_BTN_W*0.5, by];
-    pos.turnR  = [m + TOUCH_BTN_W*1.5 + gap, by];
-    pos.sailUp = [m + TOUCH_BTN_W*0.5, by - TOUCH_BTN_H - gap];
-    pos.sailDn = [m + TOUCH_BTN_W*1.5 + gap, by - TOUCH_BTN_H - gap];
-    // right cluster (bottom-right): diamond-ish — port/star bottom, bow/stern above
-    const rx = W - m - TOUCH_BTN_W*1.5 - gap, rx2 = W - m - TOUCH_BTN_W*0.5;
-    pos.firePort  = [rx,  by];
-    pos.fireStar  = [rx2, by];
-    pos.fireBow   = [rx,  by - TOUCH_BTN_H - gap];
-    pos.fireStern = [rx2, by - TOUCH_BTN_H - gap];
+    const cy = H * 0.78;                                   // bottom-third band (PLACEHOLDER)
+    const pos = {
+      cannonL:   [m + TOUCH_CANNON_W/2,      cy],
+      cannonR:   [W - m - TOUCH_CANNON_W/2,  cy],
+      fireBow:   [m + TOUCH_CHASER_W/2,      cy - TOUCH_CANNON_H/2 - TOUCH_CHASER_H/2 - gap],
+      fireStern: [W - m - TOUCH_CHASER_W/2,  cy - TOUCH_CANNON_H/2 - TOUCH_CHASER_H/2 - gap],
+      sailCycle: [m + TOUCH_CHASER_W/2,      cy + TOUCH_CANNON_H/2 + TOUCH_CHASER_H/2 + gap],
+    };
     for (const b of this._btns){ const p = pos[b._touchName]; if (p) b.setPosition(p[0], p[1]); }
     if (this._pauseBtn) this._pauseBtn.setPosition(m, m);
+    if (this._fsBtn) this._fsBtn.setPosition(m + 56, m);
   },
 
   // ── read API (consumed by GameScene) ────────────────────────────────────────
@@ -127,6 +135,28 @@ const TouchInput = {
     if (this._edge[name]){ this._edge[name] = false; return true; }
     return false;
   },
+
+  // y-coordinate of the top of the reserved control band (MW-12). Desktop: near screen bottom.
+  safeBottomY(H){ return this.active ? H * (1 - TOUCH_SAFE_BOTTOM_FRAC) : H - 30; },
+
+  // ── MW-7 slide-to-steer ── an invisible "virtual stick" anchored where the
+  // finger lands: horizontal offset from the touch point maps to a turn axis in
+  // [−1, 1]. The axis SCALES the existing calcTurnDegS turn rate in GameScene, so
+  // the locked turn physics stay authoritative. (Mapping choice = ASSUMPTION.)
+  _steer: null,
+  steerStart(p){ this._steer = { x0: p.x, y0: p.y, t0: Date.now()/1000, moved: 0, axis: 0 }; },
+  steerMove(p){
+    const s = this._steer; if (!s) return;
+    s.moved = Math.max(s.moved, Math.hypot(p.x - s.x0, p.y - s.y0));
+    s.axis = Phaser.Math.Clamp((p.x - s.x0) / TOUCH_STEER_RANGE, -1, 1);
+  },
+  // returns true if the release was a TAP (short + still) — caller then runs the world-tap
+  steerEnd(p){
+    const s = this._steer; this._steer = null;
+    if (!s) return false;
+    return (s.moved < TOUCH_TAP_MAX_PX) && (Date.now()/1000 - s.t0 < TOUCH_TAP_MAX_S);
+  },
+  steerAxis(){ return this._steer ? this._steer.axis : 0; },
 
   // Show/hide the movement+fire overlay (hidden while docked or paused; those
   // states have their own touch surfaces). Called each frame from UIScene.
