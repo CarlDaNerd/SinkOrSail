@@ -206,8 +206,10 @@ const PORT_TYPES = {
   IronMine:        { terrain:'rare-small-mainland',towerChance:0.50, navy:'maybe',  source:'iron',     slots:[1,2], color:0x7FA8C8 },
   ClothMill:       { terrain:'medium-mainland',    towerChance:0.25, navy:'none',   source:'cloth',    slots:[1,2], color:0xC77BC9 },
 };
-// port cannon towers (M8 defense) — fire on the player when WANTED / pirate nearby
+// port cannon towers (M8 defense) — fire on the player when WANTED / pirate nearby,
+// or while the port itself is being RAIDED (shelled within the last defend-window)
 const TOWER_RANGE = 360, TOWER_COOLDOWN_S = 2.2, TOWER_DAMAGE = 10, TOWER_BALL_SPEED = 5.0;
+const TOWER_DEFEND_WINDOW_S = 8;   // a port keeps firing this long after the last player shell landed
 // a port's hull (set by PortEconomy.assignType; sized by dock count)
 const PORT_HULL_BASE = 300, PORT_HULL_PER_DOCK = 120;
 

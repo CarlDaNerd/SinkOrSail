@@ -414,6 +414,7 @@ class GameScene extends Phaser.Scene {
     // ships
     const gs = this.gfxShips; gs.clear();
     for (const s of this.ships) if (s.alive) this.drawShip(gs, s);
+    for (const s of (this.tows || [])) this.drawShip(gs, s);   // captured prizes trailing the player (drawn as real hulls, not a blob)
     if (this.player.hull > 0) this.drawShip(gs, this.player);
     // cannonballs
     const gf = this.gfxFx; gf.clear(); gf.fillStyle(0x201810, 1);
@@ -426,7 +427,8 @@ class GameScene extends Phaser.Scene {
     const colors = {
       player:[0x7A4E28, 0xC08840], merchant:[0xB89A60, 0xD0AA70],
       pirate:[0x5A2010, 0x7A3020], navy:[0x24506E, 0x3E7AA0], privateer:[0x2B5A2B, 0x46863C],
-    }[s.faction];
+      prize:[0x5F5A4E, 0x918A72],   // captured empty hull (weathered) — trailed as a tow
+    }[s.faction] || [0x5F5A4E, 0x918A72];
     g.save(); g.translateCanvas(s.x, s.y); g.rotateCanvas(s.heading*RAD);
     const sc = s.scale || 1; g.scaleCanvas(sc, sc);                      // tier visual size
     g.fillStyle(colors[0], 1); g.fillEllipse(0, 0, 20, 40);

@@ -128,8 +128,7 @@ const BoardingSystem = {
       if (b.target){ g.lineStyle(2, 0xF0C840, 0.7); g.lineBetween(pl.x, pl.y, b.target.x, b.target.y); }
     }
     for (const s of (scene.tows || [])){
-      g.lineStyle(2, 0x6ED0E0, 0.5); g.lineBetween(pl.x, pl.y, s.x, s.y);
-      g.fillStyle(0x6ED0E0, 0.25); g.fillCircle(s.x, s.y, SHIP_RADIUS * 0.7);
+      g.lineStyle(2, 0x6ED0E0, 0.5); g.lineBetween(pl.x, pl.y, s.x, s.y);   // tow rope; the prize hull itself is drawn by GameScene.drawShip
     }
   },
 };
