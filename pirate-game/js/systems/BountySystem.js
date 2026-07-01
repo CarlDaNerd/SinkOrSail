@@ -98,18 +98,18 @@ const BountySystem = {
     if (!scene.bounties || !scene.bounties.length) return;
   },
 
-  // nearest ALIVE target of an ACTIVE (current-chunk) bounty, for the HUD compass
+  // nearest ALIVE bounty target within tracking range, for the HUD edge arrow.
+  // Gated by DISTANCE (not chunk) so the arrow keeps pointing as the pirate closes
+  // in — the HUD hides it only once the target is actually on the screen.
   compassTarget(scene){
     const pl = scene.player;
-    const here = this.chunkKeyOf(pl.x, pl.y);
     let best = null, bd = Infinity;
     for (const b of scene.bounties){
-      if (b.chunkKey !== here) continue;               // dormant outside its chunk
       if (b.killsDone >= b.killsNeeded) continue;       // already hunted
       for (const t of b.targets){
         if (!t || !t.alive) continue;
         const d = dist(pl, t);
-        if (d < bd){ bd = d; best = t; }
+        if (d < bd && d <= BOUNTY_ARROW_RANGE){ bd = d; best = t; }
       }
     }
     return best ? { x: best.x, y: best.y } : null;

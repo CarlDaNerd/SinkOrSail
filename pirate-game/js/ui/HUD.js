@@ -14,6 +14,9 @@ class HUD {
     const mmMask = scene.make.graphics({ add: false });
     mmMask.fillStyle(0xffffff, 1); mmMask.fillCircle(mmcx, mmcy, mmr);
     this.miniG.setMask(mmMask.createGeometryMask());
+    // bounty edge arrow on its OWN top layer, above the minimap + cardinal letters,
+    // so it's never clipped underneath the compass
+    this.arrowG = scene.add.graphics().setScrollFactor(0).setDepth(105);
 
     const mk = (x, y, sz, col) => scene.add.text(x, y, '', { fontFamily:'ui-monospace,monospace', fontSize:sz + 'px', color:col }).setScrollFactor(0).setDepth(101).setOrigin(0, 0);
     // left stats panel
@@ -140,18 +143,21 @@ class HUD {
     this.drawDevLog();
     this.drawAchToast();
     this.drawAchOverlay(g);
-    this.drawBountyArrow(g);
+    this.drawBountyArrow();
   }
 
-  // off-screen red arrow pointing at the active bounty target; hidden once the
-  // target is on-screen (in sight), reappears when it leaves the view again
-  drawBountyArrow(g){
+  // off-screen red arrow pointing at the active bounty target; hidden only once the
+  // target is actually ON the screen (not just on the minimap), reappears when it
+  // leaves the view again. Drawn on its own top layer (this.arrowG) so it rides ABOVE
+  // the compass/minimap instead of clipping underneath them.
+  drawBountyArrow(){
+    const g = this.arrowG; g.clear();
     const gs = this.gs;
     if (typeof BountySystem === 'undefined' || !gs.bounties || !gs.bounties.length) return;
     const t = BountySystem.compassTarget(gs);
     if (!t) return;
     const view = gs.cameras.main.worldView;
-    if (view.contains(t.x, t.y)) return;                       // in sight → no arrow
+    if (view.contains(t.x, t.y)) return;                       // on the actual screen → no arrow
     const ang = Math.atan2(t.y - (view.y + view.height/2), t.x - (view.x + view.width/2));
     const ux = Math.cos(ang), uy = Math.sin(ang), margin = 46;
     const scale = Math.min((GAME_W/2 - margin)/Math.max(Math.abs(ux), 1e-4), (GAME_H/2 - margin)/Math.max(Math.abs(uy), 1e-4));
