@@ -1,6 +1,7 @@
 // ── systems/WeatherSystem.js ── (M11)
 // One weather effect active at a time, rolled every 2-5 minutes. Effects are
-// SHIP-only status effects; WIND IS NEVER TOUCHED. Types:
+// SHIP-only status effects; WeatherSystem never touches wind DIRECTION (that's
+// owned by WindSystem — effects can layer gusts on top later). Types:
 //   rain    — player speed x0.75; ends after 10000px travelled OR 45s
 //   snow    — icebergs drift in the field; contact damages the hull
 //   tsunami — only near land; shoves the ship toward the nearest island (always survived)

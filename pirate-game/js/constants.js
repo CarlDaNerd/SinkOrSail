@@ -28,6 +28,11 @@ const DEFAULTS = {
   // Ship-ship damage to a hull = base * collTier^(otherTier - thisTier) (same size = base; the
   // lighter/lower ship takes more). Land damage = base * collLand from the into-shore speed.
   collMin:0.6, collScale:10, collTier:1.3, collLand:2.5,
+  // ── WIND (dynamic direction) ── windFrom (above) is the INITIAL prevailing bearing;
+  // WindSystem drives P.windFrom live from these. Oscillation = a smooth ±windOscAmp°
+  // wander (windOscSpeed scales its pace). Fronts = the prevailing base eases to a new
+  // bearing (±windShiftSize°) over windShiftDur s, roughly every windShiftEvery s.
+  windOscAmp:12, windOscSpeed:1, windShiftEvery:75, windShiftSize:40, windShiftDur:14,
 };
 const P = { ...DEFAULTS };
 const DEBUG = { infAmmo:false, infGold:false, weatherOff:false, ramWanted:true, ring:{ active:false, radius:0, age:0, label:'' } };
@@ -220,7 +225,14 @@ const ZOOM_DEFAULT = 1.0;         // normal sailing zoom
 const ZOOM_BATTLE_LEVEL = 1.4;    // camera zoom while in combat — edit to taste
 const ZOOM_LERP = 0.02;           // smoothing toward the target zoom (per 1/60s)
 
-// ── M11 WEATHER ── one effect at a time, rolled every few minutes; never touches WIND ──
+// ── WIND (dynamic direction) ── P.windFrom is driven each frame by WindSystem: a
+// prevailing base (moved by occasional "front" shifts) PLUS a multi-sine oscillation
+// on top. Layered incommensurate periods → a smooth, organic, non-repeating wander.
+const WIND_OSC_PERIODS = [23, 61, 149];        // s — the three oscillation waves (unrelated periods)
+const WIND_OSC_WEIGHTS = [0.55, 0.30, 0.15];   // their amplitude shares (sum 1 → peak deviation ≈ windOscAmp)
+const WIND_SEED_SALT = 0x57494E44;             // 'WIND' — its own PRNG stream, decoupled from enemy determinism
+
+// ── M11 WEATHER ── one effect at a time, rolled every few minutes; wind direction is owned by WindSystem ──
 const WEATHER_INTERVAL_MIN_S = 120, WEATHER_INTERVAL_MAX_S = 300;   // 2–5 min between effects
 const WEATHER_TYPES = ['rain', 'snow', 'tsunami', 'cyclone', 'storm'];
 // rain — gentle speed tax; ends on distance OR time
