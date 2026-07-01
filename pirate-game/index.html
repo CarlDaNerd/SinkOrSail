@@ -66,7 +66,7 @@
       <label class="devchk"><input type="checkbox" id="dbgWeatherOff" style="accent-color:#2A9EAE;"> disable weather</label>
       <div class="devrow">
         <select id="dbgWxType" style="flex:1;">
-          <option value="rain">rain</option><option value="snow">snow</option><option value="tsunami">tsunami</option><option value="cyclone">cyclone</option><option value="storm">storm</option>
+          <option value="rain">rain</option><option value="storm">storm</option><option value="cyclone">cyclone</option>
         </select>
         <button id="dbgWxGo">FORCE WX</button><button id="dbgWxClear">CLEAR</button>
       </div>
@@ -157,6 +157,18 @@
       <div class="row"><label>Front interval <span class="val" id="v_windShiftEvery"></span></label><input type="range" id="windShiftEvery" min="15" max="240" step="5"></div>
       <div class="row"><label>Front size <span class="val" id="v_windShiftSize"></span></label><input type="range" id="windShiftSize" min="0" max="90" step="5"></div>
       <div class="row"><label>Front duration <span class="val" id="v_windShiftDur"></span></label><input type="range" id="windShiftDur" min="2" max="40" step="1"></div>
+    </div>
+
+    <div class="grp" data-g="wx">WEATHER</div>
+    <div class="body">
+      <div class="row"><label>Rain speed boost <span class="val" id="v_rainBoost"></span></label><input type="range" id="rainBoost" min="1" max="1.6" step="0.05"></div>
+      <div class="row"><label>Rain gustiness <span class="val" id="v_rainGust"></span></label><input type="range" id="rainGust" min="1" max="4" step="0.1"></div>
+      <div class="row"><label>Storm strike chance <span class="val" id="v_stormChance"></span></label><input type="range" id="stormChance" min="0" max="100" step="5"></div>
+      <div class="row"><label>Storm gustiness <span class="val" id="v_stormGust"></span></label><input type="range" id="stormGust" min="1" max="4" step="0.1"></div>
+      <div class="row"><label>Cyclone pull <span class="val" id="v_cycPull"></span></label><input type="range" id="cycPull" min="0.4" max="3" step="0.1"></div>
+      <div class="row"><label>Cyclone reach <span class="val" id="v_cycReach"></span></label><input type="range" id="cycReach" min="500" max="1800" step="50"></div>
+      <div class="row"><label>Cyclone drift <span class="val" id="v_cycDrift"></span></label><input type="range" id="cycDrift" min="0.1" max="1.5" step="0.05"></div>
+      <div class="row"><label>Cyclone eye hit <span class="val" id="v_cycDmg"></span></label><input type="range" id="cycDmg" min="10" max="70" step="5"></div>
     </div>
 
     <label style="display:flex;align-items:center;gap:7px;font-size:9.5px;color:#8AAAC8;margin-top:6px;cursor:pointer;user-select:none;">

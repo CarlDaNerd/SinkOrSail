@@ -33,6 +33,10 @@ const DEFAULTS = {
   // wander (windOscSpeed scales its pace). Fronts = the prevailing base eases to a new
   // bearing (±windShiftSize°) over windShiftDur s, roughly every windShiftEvery s.
   windOscAmp:12, windOscSpeed:1, windShiftEvery:75, windShiftSize:40, windShiftDur:14,
+  // ── WEATHER (live-tunable; structural timings/sizes are consts further down) ──
+  rainBoost:1.2, rainGust:1.8,          // rain: ship-speed × / wind-gust amplitude ×
+  stormChance:45, stormGust:1.5,        // storm: per-strike hit chance %, wind-gust amplitude ×
+  cycPull:1.6, cycReach:1000, cycDrift:0.55, cycDmg:50,   // cyclone: core current, radius, drift, eye-hit % max hull
 };
 const P = { ...DEFAULTS };
 const DEBUG = { infAmmo:false, infGold:false, weatherOff:false, ramWanted:true, ring:{ active:false, radius:0, age:0, label:'' } };
@@ -232,29 +236,33 @@ const WIND_OSC_PERIODS = [23, 61, 149];        // s — the three oscillation wa
 const WIND_OSC_WEIGHTS = [0.55, 0.30, 0.15];   // their amplitude shares (sum 1 → peak deviation ≈ windOscAmp)
 const WIND_SEED_SALT = 0x57494E44;             // 'WIND' — its own PRNG stream, decoupled from enemy determinism
 
-// ── M11 WEATHER ── one effect at a time, rolled every few minutes; wind direction is owned by WindSystem ──
+// ── M11 WEATHER ── one moving effect at a time, rolled every few minutes; each affects
+// ALL ships. Wind DIRECTION is owned by WindSystem; weather layers gusts + cells on top.
+// Live-tunable feel knobs (rainBoost/stormChance/cyc*, etc.) live in DEFAULTS/P above.
 const WEATHER_INTERVAL_MIN_S = 120, WEATHER_INTERVAL_MAX_S = 300;   // 2–5 min between effects
-const WEATHER_TYPES = ['rain', 'snow', 'tsunami', 'cyclone', 'storm'];
-// rain — gentle speed tax; ends on distance OR time
-const RAIN_SPEED_MULT = 0.75, RAIN_DURATION_S = 45, RAIN_DURATION_PX = 10000;
-// snow — drifting icebergs damage the hull on contact
-const SNOW_DURATION_S = 40, SNOW_ICEBERG_COUNT = 14, SNOW_ICEBERG_DAMAGE = 12, SNOW_ICEBERG_INTERVAL = 1.0;
-// tsunami — only near land; shoves the ship toward the nearest island (survivable)
-const TSUNAMI_ISLAND_PROXIMITY_PX = 1800, TSUNAMI_PUSH_S = 6, TSUNAMI_PUSH_SPEED = 2.2;
-// cyclone — a MOVING vortex: spawns just outside minimap range (upwind), rides the
-// base wind, swirls the local wind + drags every ship toward the eye (escapable if
-// you out-sail the current), 50% max hull at the eye. Telegraphed by a hard wind shift.
-const CYCLONE_DURATION_S = 60, CYCLONE_RADIUS = 1000, CYCLONE_DAMAGE_PCT = 50;
-const CYCLONE_DRIFT = 0.55;              // px/frame the eye rides downwind (follows the base wind)
-const CYCLONE_PULL = 1.6;               // peak inward+swirl current at the eye (px/frame); falls off as (1-d/R)² → strong core, escapable rim
+const WEATHER_TYPES = ['rain', 'storm', 'cyclone'];
+// rain — a following breeze: SPEEDS ships up (P.rainBoost) + gusts the wind (P.rainGust);
+// commoner far from land. Ends on distance OR time.
+const RAIN_DURATION_S = 45, RAIN_DURATION_PX = 10000;
+const RAIN_FAR_FULL_PX = 2600;          // distance-from-land at which rain reaches its full spawn weight
+const WX_WEIGHT_RAIN_NEAR = 0.6, WX_WEIGHT_RAIN_FAR = 2.4;   // rain roll weight interpolates this range by distance-from-land
+const WX_WEIGHT_STORM = 1.0, WX_WEIGHT_CYCLONE = 0.7;        // storm/cyclone are location-agnostic
+// storm — a MOVING squall cell riding a front: drifts downwind, lightning strikes any ship
+// inside (P.stormChance to break the player's sail / hit a bot), gusty wind (P.stormGust).
+const STORM_DURATION_S = 26, STORM_STRIKE_INTERVAL_S = 2.2, STORM_BROKEN_SAIL_MAX_STATE = 1;
+const STORM_RADIUS = 1400;              // cell radius — you're in the squall while within this of its centre
+const STORM_DRIFT = 0.5;                // px/frame the cell rides downwind (moves with the front)
+const STORM_STRIKE_DAMAGE = 14;         // hull hit when a bolt strikes a (non-player) ship
+const STORM_TELEGRAPH_SHIFT = 45;       // deg — the front the squall rides in on
+// cyclone — a MOVING vortex: spawns just outside minimap range (upwind), rides the base wind,
+// swirls the local wind + drags every ship toward the eye (escapable if you out-sail the current).
+const CYCLONE_DURATION_S = 60;
 const CYCLONE_WIND_INWARD = 0.6;        // swirl spiral: inward pull vs pure tangential (0 = ring, 1 = straight in)
 const CYCLONE_EYE_RADIUS = 90;          // within this of the eye → the big hit
 const CYCLONE_EYE_COOLDOWN = 4;         // s between eye hits on one ship (so a trapped hull isn't shredded per-frame)
 const CYCLONE_SPAWN_MARGIN = 380;       // px beyond minimap range the eye first appears (upwind of you)
 const CYCLONE_DESPAWN_DIST = 3200;      // eye drifts this far from you → the cyclone is gone
 const CYCLONE_TELEGRAPH_SHIFT = 70;     // deg — the drastic wind front its arrival rides in on
-// storm — lightning strikes can break the sail (capped to half) until a port repair
-const STORM_DURATION_S = 20, STORM_STRIKE_INTERVAL_S = 2.5, STORM_SAIL_HIT_CHANCE_PCT = 45, STORM_BROKEN_SAIL_MAX_STATE = 1;
 
 // ── DEV LOG ── real-time world-event feed (bottom-left; toggle with L) ──
 const DEVLOG_DEFAULT_ON = true;   // PLACEHOLDER: show the dev log by default (it's a dev/QC build)

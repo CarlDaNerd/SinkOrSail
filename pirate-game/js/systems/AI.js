@@ -162,7 +162,8 @@ const AI = {
     // speed (faction speed factor: merchants slower, navy slightly slower)
     const wa = windOff(s.heading, WindSystem.dirAt(scene, s.x, s.y));
     const sf = s.faction === 'merchant' ? 0.8 : s.faction === 'navy' ? 0.92 : 1.0;
-    const tspd = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[s.sailState]*sf;
+    const wxMult = (typeof WeatherSystem !== 'undefined') ? WeatherSystem.speedMult(scene) : 1;   // rain following-breeze boost
+    const tspd = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[s.sailState]*sf*wxMult;
     s.vel += (tspd - s.vel)*Math.min(0.012*dt, 1);
     Collision.moveShip(scene, s, dt);
     scene.pushWake(s);

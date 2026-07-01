@@ -96,7 +96,8 @@ const RunnerSystem = {
     r.sailState = 2;
     const wa = windOff(r.heading, WindSystem.dirAt(scene, r.x, r.y));
     const cruise = RUNNER_SPEED / (P.maxSpeed || 2);                 // runner cruises a bit under player top speed
-    const tspd = calcTargetSpeed(wa) * SAIL_MULTIPLIERS[r.sailState] * cruise;
+    const wxMult = (typeof WeatherSystem !== 'undefined') ? WeatherSystem.speedMult(scene) : 1;   // rain following-breeze boost
+    const tspd = calcTargetSpeed(wa) * SAIL_MULTIPLIERS[r.sailState] * cruise * wxMult;
     r.vel += (tspd - r.vel) * Math.min(0.012 * dt, 1);
     Collision.moveShip(scene, r, dt);
     scene.pushWake(r);
