@@ -52,7 +52,7 @@ const WORLD_SEED = 42;            // fixed → same world every launch (determin
 const CHUNK_SIZE = 1500;          // px per chunk (square)
 const LOAD_RADIUS = 2;            // chunks loaded each side of the player → (2r+1)² window
 const UNLOAD_RADIUS = 3;          // unload only beyond this (hysteresis vs. boundary thrash)
-const WORLD_CAP = 50000;          // soft cap: ships clamp to ±this (keeps coords/floats sane far out)
+const WORLD_CAP = 150000;         // soft cap: ships clamp to ±this (keeps coords/floats sane far out). Port coverage (PORT_REGION_RADIUS) scales with this.
 const ISLAND_PAD = 290;           // keep island bodies inside their chunk (clean per-chunk ownership)
 const START_CLEAR_RADIUS = 700;   // open water kept around the world origin (player start)
 const SPAWN_RANGE = 3000;         // Phase-1 fleet spawns within this of origin (legacy; Population streams now)
@@ -85,6 +85,7 @@ const FOG_CELL = 375;             // big-map fog reveal cell size (px) — finer
 const COORD_SCALE = 25;           // world px per displayed coordinate unit (HUD + map show position / COORD_SCALE so numbers stay small)
 const COMPASS_RING_W = 16;        // width (px) of the compass ring wrapped around the circular minimap
 const COMPASS_LABEL_PAD = 16;     // space (px) beyond the ring for the cardinal letters (so ticks never cross them)
+const BOUNTY_ARROW_RANGE = 4500;  // px — a bounty target within this is tracked by the edge arrow; it hides only once ON the actual screen
 const MAP_SCALE_INIT = 0.045;             // big map (M): screen-px per world-px
 const MAP_SCALE_MIN = 0.02, MAP_SCALE_MAX = 0.22;
 
@@ -214,7 +215,7 @@ const PORT_HULL_BASE = 300, PORT_HULL_PER_DOCK = 120;
 // couple of the larger islands per cluster get one, and the odd lone sea-cluster
 // gets a frontier outpost. (One-time scan of ±PORT_REGION_RADIUS regions for now;
 // fully-streaming placement is a later pass.)
-const PORT_REGION_RADIUS = 7;          // place ports across ± this many regions of origin (≈ ±28000px)
+const PORT_REGION_RADIUS = Math.ceil(WORLD_CAP / REGION_SIZE);   // cover the whole reachable world (±WORLD_CAP), not just the inner regions — otherwise islands out near the soft border get no ports
 const MAINLAND_PORTS_MIN = 2, MAINLAND_PORTS_MAX = 3;   // ports per mainland (2–3, scales with size)
 const MAINLAND_PORT_PER_RAD = 600;     // ~1 port per this much mainland footprint radius
 const ISLAND_PORT_MIN_RAD = 90;        // an island must be at least this big to host a port (excludes tiny outcrops)

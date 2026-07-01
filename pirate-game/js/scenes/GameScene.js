@@ -278,6 +278,7 @@ class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.keys.S)) pl.sailState = Math.max(0, pl.sailState - 1);
       if (Phaser.Input.Keyboard.JustDown(this.keys.Q)) Combat.fire(this, pl, 'port');
       if (Phaser.Input.Keyboard.JustDown(this.keys.E)) Combat.fire(this, pl, 'star');
+      if (Phaser.Input.Keyboard.JustDown(this.cursors.space)){ Combat.fire(this, pl, 'port'); Combat.fire(this, pl, 'star'); }   // spacebar = full broadside (both sides)
       // bow/stern chaser guns (only mounted on Brig+ / Galleon+); no-op at lower tiers
       if (Phaser.Input.Keyboard.JustDown(this.cursors.up))   Combat.fireChaser(this, pl, 'bow');
       if (Phaser.Input.Keyboard.JustDown(this.cursors.down)) Combat.fireChaser(this, pl, 'stern');
