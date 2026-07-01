@@ -381,10 +381,28 @@ class GameScene extends Phaser.Scene {
 
   draw(){
     const gw = this.gfxWorld; gw.clear();
-    // wakes
-    const drawWake = (s, col) => { if (s.wake.length < 2) return; gw.lineStyle(2, col, 0.28); for (let i = 1; i < s.wake.length; i += 2){ const a = s.wake[i - 1], b = s.wake[i]; gw.lineBetween(a.x, a.y, b.x, b.y); } };
-    drawWake(this.player, 0xA0CCD8);
-    for (const s of this.ships) if (s.alive) drawWake(s, 0x88AABB);
+    // wakes — a simple V: two arms diverge from the stern at a CONSTANT angle (spread
+    // grows with actual distance back from the stern, so speed doesn't change the angle),
+    // one uniform width + opacity the whole length
+    const drawWake = (s, foam) => {
+      const w = s.wake, n = w.length; if (n < 3) return;
+      const slope = WAKE_SLOPE * (s.scale || 1);
+      const back = new Array(n); back[n - 1] = 0;                                          // cumulative px back from the stern
+      for (let i = n - 2; i >= 0; i--) back[i] = back[i + 1] + Math.hypot(w[i + 1].x - w[i].x, w[i + 1].y - w[i].y);
+      const L = new Array(n), R = new Array(n);
+      for (let i = 0; i < n; i++){
+        const p = w[i], q = w[i < n - 1 ? i + 1 : i - 1], sgn = i < n - 1 ? 1 : -1;
+        let dx = sgn * (q.x - p.x), dy = sgn * (q.y - p.y); const d = Math.hypot(dx, dy) || 1;
+        const px = -dy / d, py = dx / d, spread = back[i] * slope;                         // ∝ distance → constant angle
+        L[i] = [p.x + px * spread, p.y + py * spread];
+        R[i] = [p.x - px * spread, p.y - py * spread];
+      }
+      gw.lineStyle(2, foam, 0.30);
+      gw.beginPath(); gw.moveTo(L[0][0], L[0][1]); for (let i = 1; i < n; i++) gw.lineTo(L[i][0], L[i][1]); gw.strokePath();
+      gw.beginPath(); gw.moveTo(R[0][0], R[0][1]); for (let i = 1; i < n; i++) gw.lineTo(R[i][0], R[i][1]); gw.strokePath();
+    };
+    drawWake(this.player, 0xCFE8F5);
+    for (const s of this.ships) if (s.alive) drawWake(s, 0xA8C0D0);
     // loot
     for (const l of this.loot){ const fade = l.age > l.life - 2 ? (l.life - l.age)/2 : 1; gw.fillStyle(0xF0C840, 0.85*fade); gw.fillCircle(l.x, l.y, 7); gw.lineStyle(2, 0xF0C840, 0.4*fade); gw.strokeCircle(l.x, l.y, 12); }
     // debug range ring (world space, centered on player)

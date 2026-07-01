@@ -161,7 +161,7 @@ const MEGA_SUB_SPARSE_CHANCE = 0.20;                    // a sub-group is occasi
 // full-window canvas; the dev panel is a slide-in overlay drawer (not a layout
 // sibling), so it no longer steals canvas width — toggle it from the edge tab.
 const GAME_W = window.innerWidth, GAME_H = window.innerHeight;
-const SHIP_RADIUS = 22, WAKE_LENGTH = 60, WAKE_MIN_SPEED = 0.2;
+const SHIP_RADIUS = 22, WAKE_LENGTH = 28, WAKE_MIN_SPEED = 0.2, WAKE_SLOPE = 0.42;   // WAKE_SLOPE = V divergence per px back from the stern (constant angle at any speed; × ship scale)
 // ── COLLISION PUSH ── each ship carries a decaying drift vector (s.push); land
 // collisions slide along it, ship-ship collisions shove via it (mass = maxHull, so
 // bigger ships push harder). Head-on into a cliff still kills all speed.
