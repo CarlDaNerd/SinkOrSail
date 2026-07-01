@@ -152,7 +152,7 @@ const AI = {
 
     // steer around land first, then ensure the chosen heading is sailable (not in irons)
     targetHeading = Steering.avoidLand(scene, s, targetHeading);
-    targetHeading = Steering.avoidIrons(targetHeading);
+    targetHeading = Steering.avoidIrons(scene, s, targetHeading);
 
     // turn toward the (clamped) target heading
     const diff = angleDiff(s.heading, targetHeading);
@@ -160,7 +160,7 @@ const AI = {
     s.heading = (s.heading + Math.sign(diff)*Math.min(Math.abs(diff), tr) + 360)%360;
     s.sailState = desiredSail;
     // speed (faction speed factor: merchants slower, navy slightly slower)
-    const wa = windOff(s.heading, P.windFrom);
+    const wa = windOff(s.heading, WindSystem.dirAt(scene, s.x, s.y));
     const sf = s.faction === 'merchant' ? 0.8 : s.faction === 'navy' ? 0.92 : 1.0;
     const tspd = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[s.sailState]*sf;
     s.vel += (tspd - s.vel)*Math.min(0.012*dt, 1);

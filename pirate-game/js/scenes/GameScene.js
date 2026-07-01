@@ -294,7 +294,7 @@ class GameScene extends Phaser.Scene {
       const td = calcTurnDegS(pl.vel)*dts;
       if (this.cursors.left.isDown  || this.keys.A.isDown) pl.heading = (pl.heading - td + 360)%360;
       if (this.cursors.right.isDown || this.keys.D.isDown) pl.heading = (pl.heading + td)%360;
-      const wa = windOff(pl.heading, P.windFrom);
+      const wa = windOff(pl.heading, WindSystem.dirAt(this, pl.x, pl.y));
       const wMult = (typeof WeatherSystem !== 'undefined') ? WeatherSystem.speedMult(this) : 1;   // rain slow (1 otherwise)
       const cMult = (typeof crewSpeedMult !== 'undefined') ? crewSpeedMult(pl) : 1;               // crew bonus / understaffed penalty
       const uMult = (typeof UpgradeSystem !== 'undefined') ? UpgradeSystem.speedMult(this) : 1;   // sail-material upgrade

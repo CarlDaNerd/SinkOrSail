@@ -21,7 +21,8 @@ function drawCompassRing(g, gs, pl, cx, cy, mr, rw){
     g.lineStyle(card ? 1.5 : 1, card ? 0xD2B48C : 0x8a9aa8, card ? 0.9 : 0.6);
     g.lineBetween(i[0], i[1], o[0], o[1]);
   }
-  _compassNoGo(g, cx, cy, inner, outer, P.windFrom, P.noGo);          // red no-go band + inward triangle
+  const localWind = (typeof WindSystem !== 'undefined') ? WindSystem.dirAt(gs, pl.x, pl.y) : P.windFrom;
+  _compassNoGo(g, cx, cy, inner, outer, localWind, P.noGo);           // red no-go band + inward triangle (player-LOCAL wind → swirls near a cyclone)
   _compassArrow(g, cx, cy, inner, outer, pl.heading, 0xF0C840);       // yellow heading arrow (outward)
 }
 

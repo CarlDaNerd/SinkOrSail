@@ -89,12 +89,12 @@ const RunnerSystem = {
   _sail(scene, r, target, dt, dts){
     let th = angleTo(r, target);
     th = Steering.avoidLand(scene, r, th);
-    th = Steering.avoidIrons(th);
+    th = Steering.avoidIrons(scene, r, th);
     const diff = angleDiff(r.heading, th);
     const tr = calcTurnDegS(r.vel) * 0.7 * dts;
     r.heading = (r.heading + Math.sign(diff) * Math.min(Math.abs(diff), tr) + 360) % 360;
     r.sailState = 2;
-    const wa = windOff(r.heading, P.windFrom);
+    const wa = windOff(r.heading, WindSystem.dirAt(scene, r.x, r.y));
     const cruise = RUNNER_SPEED / (P.maxSpeed || 2);                 // runner cruises a bit under player top speed
     const tspd = calcTargetSpeed(wa) * SAIL_MULTIPLIERS[r.sailState] * cruise;
     r.vel += (tspd - r.vel) * Math.min(0.012 * dt, 1);

@@ -24,13 +24,16 @@ const Steering = {
     return false;
   },
 
-  // never let an AI ship park head-to-wind: nudge a no-go heading to the
-  // nearest sailable edge on the side it's already leaning.
-  avoidIrons(heading){
-    const wa = windOff(heading, P.windFrom);
+  // never let an AI ship park head-to-wind: nudge a no-go heading to the nearest
+  // sailable edge on the side it's already leaning. Reads the LOCAL wind at the
+  // ship (so a ship inside a cyclone's swirl steers against that wind, not the
+  // distant ambient).
+  avoidIrons(scene, s, heading){
+    const wind = WindSystem.dirAt(scene, s.x, s.y);
+    const wa = windOff(heading, wind);
     if (wa >= P.noGo) return heading;
-    const rel = angleDiff(P.windFrom, heading);                 // near 0 = pointing into wind
+    const rel = angleDiff(wind, heading);                       // near 0 = pointing into wind
     const edge = rel >= 0 ? P.noGo + 2 : -(P.noGo + 2);
-    return (P.windFrom + edge + 360)%360;
+    return (wind + edge + 360)%360;
   },
 };

@@ -69,7 +69,7 @@ class UIScene extends Phaser.Scene {
     }
 
     // HUD always updates (it renders above the map so instruments stay visible)
-    this.hud.update(gs.player, windOff(gs.player.heading, P.windFrom));
+    this.hud.update(gs.player, windOff(gs.player.heading, WindSystem.dirAt(gs, gs.player.x, gs.player.y)));
     this.hud.drawPopups(gs.popups);
   }
 }

@@ -28,11 +28,36 @@ const WindSystem = {
       shiftStart: t, shiftEnd: t,                         // no front in progress at start
       nextShiftAt: t + this._shiftGap(),
       phase: WIND_OSC_PERIODS.map(() => this._prng() * TAU),   // fixed oscillation phases (per launch)
+      dir: prevailing,                                    // current AMBIENT wind bearing (base + oscillation)
+      gust: 1,                                            // oscillation-amplitude multiplier (weather cranks this)
     };
+  },
+
+  // wind bearing (degrees "from") at a WORLD POINT. Ambient dynamic wind everywhere,
+  // blended toward an inward spiral near an active cyclone (see _cycloneDir). Sailing,
+  // steering, and the HUD compass sample this per-ship, so weather's wind is felt at
+  // each position rather than as one global value. Safe before init (falls back to P).
+  dirAt(scene, x, y){
+    const w = scene.wind;
+    const ambient = w ? w.dir : P.windFrom;
+    return (typeof WeatherSystem !== 'undefined' && WeatherSystem.cycloneDirAt)
+      ? WeatherSystem.cycloneDirAt(scene, x, y, ambient) : ambient;
   },
 
   // seconds until the next front — mean ≈ windShiftEvery (rolled 0.5×–1.5×)
   _shiftGap(){ return P.windShiftEvery * (0.5 + this._prng()); },
+
+  // force a drastic wind shift NOW — the telegraph a cyclone/storm rides in on. Eases
+  // the prevailing base by ±sizeDeg over a fraction of the normal front duration.
+  forceFront(scene, sizeDeg){
+    const w = scene.wind; if (!w) return;
+    const t = scene.time.now / 1000;
+    w.from = w.base;
+    const delta = (this._prng() * 2 - 1) * (sizeDeg || P.windShiftSize * 2);
+    w.to = (w.from + delta + 360) % 360;
+    w.shiftStart = t; w.shiftEnd = t + Math.max(0.5, P.windShiftDur * 0.6);
+    w.nextShiftAt = w.shiftEnd + this._shiftGap();
+  },
 
   // smoothstep 0→1 (eased front transition)
   _smooth(k){ k = k < 0 ? 0 : k > 1 ? 1 : k; return k * k * (3 - 2 * k); },
@@ -47,7 +72,7 @@ const WindSystem = {
       const period = WIND_OSC_PERIODS[i] / Math.max(0.05, P.windOscSpeed);
       o += WIND_OSC_WEIGHTS[i] * Math.sin(TAU * t / period + ph[i]);
     }
-    return o * P.windOscAmp;
+    return o * P.windOscAmp * (scene.wind.gust || 1);    // weather (rain/storm) gusts crank the swing
   },
 
   update(scene, dt, dts){
@@ -67,6 +92,7 @@ const WindSystem = {
     if (t < w.shiftEnd) w.base = this._angLerp(w.from, w.to, this._smooth((t - w.shiftStart) / (w.shiftEnd - w.shiftStart)));
     else                w.base = w.to;
 
-    P.windFrom = (w.base + this._osc(scene, t) + 360) % 360;         // prevailing + oscillation → live wind
+    w.dir = (w.base + this._osc(scene, t) + 360) % 360;              // prevailing + oscillation → ambient wind
+    P.windFrom = w.dir;                                              // keep the global in sync (ambient; dirAt adds local swirl)
   },
 };

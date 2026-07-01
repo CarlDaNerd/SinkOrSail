@@ -99,12 +99,12 @@ const HireSystem = {
 
   _move(scene, e, th, desiredSpeed, dt, dts){
     th = Steering.avoidLand(scene, e, th);
-    th = Steering.avoidIrons(th);
+    th = Steering.avoidIrons(scene, e, th);
     const diff = angleDiff(e.heading, th);
     const tr = calcTurnDegS(e.vel) * 0.7 * dts;
     e.heading = (e.heading + Math.sign(diff) * Math.min(Math.abs(diff), tr) + 360) % 360;
     e.sailState = 2;
-    const wa = windOff(e.heading, P.windFrom);
+    const wa = windOff(e.heading, WindSystem.dirAt(scene, e.x, e.y));
     const cruise = desiredSpeed / (P.maxSpeed || 2);
     const tspd = calcTargetSpeed(wa) * SAIL_MULTIPLIERS[e.sailState] * cruise;
     e.vel += (tspd - e.vel) * Math.min(0.012 * dt, 1);

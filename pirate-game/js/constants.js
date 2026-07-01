@@ -241,8 +241,18 @@ const RAIN_SPEED_MULT = 0.75, RAIN_DURATION_S = 45, RAIN_DURATION_PX = 10000;
 const SNOW_DURATION_S = 40, SNOW_ICEBERG_COUNT = 14, SNOW_ICEBERG_DAMAGE = 12, SNOW_ICEBERG_INTERVAL = 1.0;
 // tsunami — only near land; shoves the ship toward the nearest island (survivable)
 const TSUNAMI_ISLAND_PROXIMITY_PX = 1800, TSUNAMI_PUSH_S = 6, TSUNAMI_PUSH_SPEED = 2.2;
-// cyclone — pulls the ship toward a centre; one big hit at the eye
-const CYCLONE_DURATION_S = 16, CYCLONE_RADIUS = 900, CYCLONE_PULL = 1.4, CYCLONE_DAMAGE_PCT = 50;
+// cyclone — a MOVING vortex: spawns just outside minimap range (upwind), rides the
+// base wind, swirls the local wind + drags every ship toward the eye (escapable if
+// you out-sail the current), 50% max hull at the eye. Telegraphed by a hard wind shift.
+const CYCLONE_DURATION_S = 60, CYCLONE_RADIUS = 1000, CYCLONE_DAMAGE_PCT = 50;
+const CYCLONE_DRIFT = 0.55;              // px/frame the eye rides downwind (follows the base wind)
+const CYCLONE_PULL = 1.6;               // peak inward+swirl current at the eye (px/frame); falls off as (1-d/R)² → strong core, escapable rim
+const CYCLONE_WIND_INWARD = 0.6;        // swirl spiral: inward pull vs pure tangential (0 = ring, 1 = straight in)
+const CYCLONE_EYE_RADIUS = 90;          // within this of the eye → the big hit
+const CYCLONE_EYE_COOLDOWN = 4;         // s between eye hits on one ship (so a trapped hull isn't shredded per-frame)
+const CYCLONE_SPAWN_MARGIN = 380;       // px beyond minimap range the eye first appears (upwind of you)
+const CYCLONE_DESPAWN_DIST = 3200;      // eye drifts this far from you → the cyclone is gone
+const CYCLONE_TELEGRAPH_SHIFT = 70;     // deg — the drastic wind front its arrival rides in on
 // storm — lightning strikes can break the sail (capped to half) until a port repair
 const STORM_DURATION_S = 20, STORM_STRIKE_INTERVAL_S = 2.5, STORM_SAIL_HIT_CHANCE_PCT = 45, STORM_BROKEN_SAIL_MAX_STATE = 1;
 

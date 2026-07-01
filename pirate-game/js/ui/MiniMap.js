@@ -24,6 +24,18 @@ function drawMiniMap(g, gs, pl){
   for (const p of gs.navyPorts) if (within(p.x, p.y)){ g.fillStyle((PORT_TYPES[p.type] && PORT_TYPES[p.type].color) || 0x8AC8E0, 1); g.fillCircle(w2x(p.x), w2y(p.y), 2.8); }
   // ships: ALL within the sight range (the whole minimap), faction-coloured
   for (const s of gs.ships){ if (!s.alive || !within(s.x, s.y)) continue; const c = { merchant:0xD0AA70, pirate:0xE0503A, navy:0x6AB0D8, privateer:0x6AC060 }[s.faction]; g.fillStyle(c, 1); g.fillCircle(w2x(s.x), w2y(s.y), 1.8); }
+  // cyclone: a swirl icon at its eye when in sight, else a red warning dot pinned to
+  // the rim in its direction (it spawns just beyond range and drifts in)
+  if (typeof WeatherSystem !== 'undefined' && gs.weather && gs.weather.active === 'cyclone' && gs.weather.data){
+    const d = gs.weather.data, dxp = d.cx - pl.x, dyp = d.cy - pl.y, dd = Math.hypot(dxp, dyp) || 1;
+    if (dd <= R){
+      const ix = w2x(d.cx), iy = w2y(d.cy);
+      g.lineStyle(1.4, 0xC080E0, 0.95); g.strokeCircle(ix, iy, 5.5); g.strokeCircle(ix, iy, 2.8);
+      g.fillStyle(0xC080E0, 1); g.fillCircle(ix, iy, 1.3);
+    } else {
+      g.fillStyle(0xE0503A, 0.95); g.fillCircle(cxp + (dxp / dd) * (mr - 4), cyp + (dyp / dd) * (mr - 4), 2.8);
+    }
+  }
   // YOU — a triangle pointing in your heading
   const hx = Math.sin(pl.heading*RAD), hy = -Math.cos(pl.heading*RAD), rx = -hy, ry = hx, sz = 6.5;
   g.fillStyle(0x88BBFF, 1);

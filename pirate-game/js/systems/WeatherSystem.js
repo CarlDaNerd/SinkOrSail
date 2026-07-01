@@ -5,7 +5,10 @@
 //   rain    — player speed x0.75; ends after 10000px travelled OR 45s
 //   snow    — icebergs drift in the field; contact damages the hull
 //   tsunami — only near land; shoves the ship toward the nearest island (always survived)
-//   cyclone — pulls the ship toward a center; deals 50% max hull once near center
+//   cyclone — a MOVING vortex (affects ALL ships): spawns just outside minimap range
+//             upwind, rides the base wind, swirls the LOCAL wind (via cycloneDirAt →
+//             WindSystem.dirAt) and drags every ship toward the eye; 50% hull at the eye.
+//             Escapable by out-sailing the current. Telegraphed by a hard wind shift.
 //   storm   — lightning; >=45% chance per strike to break the sail (cap at half sail) until repaired
 //
 // Gated by scene.extrasOn (the pause-menu checkbox): when off, any active effect
@@ -38,7 +41,14 @@ const WeatherSystem = {
       if (!isl || Math.hypot(isl.cx - pl.x, isl.cy - pl.y) > TSUNAMI_ISLAND_PROXIMITY_PX){ w.active = null; return; }
       w.endsAt = t + TSUNAMI_PUSH_S; w.data.tx = isl.cx; w.data.ty = isl.cy;
     }
-    else if (type === 'cyclone'){ w.endsAt = t + CYCLONE_DURATION_S; w.data.cx = pl.x; w.data.cy = pl.y; w.data.dealt = false; }
+    else if (type === 'cyclone'){
+      w.endsAt = t + CYCLONE_DURATION_S;
+      const wf = scene.wind ? scene.wind.dir : P.windFrom, dsp = MINIMAP_RANGE + CYCLONE_SPAWN_MARGIN;
+      w.data.cx = pl.x + Math.sin(wf * RAD) * dsp;         // spawn UPWIND, just past minimap range → it drifts in toward you
+      w.data.cy = pl.y - Math.cos(wf * RAD) * dsp;
+      if (typeof WindSystem !== 'undefined' && WindSystem.forceFront) WindSystem.forceFront(scene, CYCLONE_TELEGRAPH_SHIFT);   // drastic wind shift = the warning
+      scene.flashPopup(pl.x, pl.y - 40, '⚠ CYCLONE FORMING', 0xB0A0E0);
+    }
     else if (type === 'storm'){ w.endsAt = t + STORM_DURATION_S; w.data.nextStrike = t + STORM_STRIKE_INTERVAL_S; w.data.flash = 0; }
     if (w.active) scene.events.emit(EV.WEATHER_CHANGED, { type: w.active });
   },
@@ -81,16 +91,8 @@ const WeatherSystem = {
       if (t >= w.endsAt) this.clear(scene);
 
     } else if (w.active === 'cyclone'){
-      const dx = w.data.cx - pl.x, dy = w.data.cy - pl.y, d = Math.hypot(dx, dy);
-      if (d < CYCLONE_RADIUS && d > 1){
-        const pull = CYCLONE_PULL * (1 - d / CYCLONE_RADIUS);
-        pl.x += (dx / d) * pull * dt; pl.y += (dy / d) * pull * dt;
-      }
-      if (!w.data.dealt && d < 80){                          // reached the eye → one big hit
-        pl.hull = Math.max(0, pl.hull - pl.maxHull * CYCLONE_DAMAGE_PCT / 100); pl.lastHitAt = t; w.data.dealt = true;
-        scene.flashPopup(pl.x, pl.y - 20, 'CYCLONE!', 0xB0A0E0);
-      }
-      if (t >= w.endsAt) this.clear(scene);
+      this._updateCyclone(scene, w.data, dt, t);
+      if (t >= w.endsAt || Math.hypot(w.data.cx - pl.x, w.data.cy - pl.y) > CYCLONE_DESPAWN_DIST) this.clear(scene);
 
     } else if (w.active === 'storm'){
       w.data.flash = Math.max(0, w.data.flash - dts);
@@ -121,6 +123,67 @@ const WeatherSystem = {
     return bergs;
   },
   _driftBergs(scene, dt){ for (const b of scene.weather.data.bergs){ b.x += b.vx * dt; b.y += b.vy * dt; } },
+
+  // ── cyclone (moving vortex) ──
+  // every ship in the world, so the storm sweeps friend and foe alike
+  _allShips(scene){
+    const out = [];
+    if (scene.player && scene.player.hull > 0) out.push(scene.player);
+    for (const s of (scene.ships || [])) if (s.alive) out.push(s);
+    for (const r of (scene.runners || [])) if (r.alive !== false) out.push(r);
+    if (scene.hire && scene.hire.hired) for (const e of scene.hire.hired) if (e.alive !== false) out.push(e);
+    return out;
+  },
+
+  // move a ship, reverting if the step would beach it (so the current can't shove a hull into land)
+  _nudge(scene, s, nx, ny){
+    const ox = s.x, oy = s.y; s.x = nx; s.y = ny;
+    if (typeof Collision !== 'undefined' && Collision.checkIslandHull && Collision.checkIslandHull(scene, s).hit){ s.x = ox; s.y = oy; }
+  },
+
+  // drift the eye downwind and apply the swirling inward current + eye hits to ALL ships
+  _updateCyclone(scene, d, dt, t){
+    const wf = scene.wind ? scene.wind.dir : P.windFrom;
+    d.cx += -Math.sin(wf * RAD) * CYCLONE_DRIFT * dt;       // ride downwind (follows the base wind's path)
+    d.cy +=  Math.cos(wf * RAD) * CYCLONE_DRIFT * dt;
+    for (const s of this._allShips(scene)){
+      const dx = s.x - d.cx, dy = s.y - d.cy, dist = Math.hypot(dx, dy);
+      if (dist >= CYCLONE_RADIUS || dist < 1) continue;
+      const ux = dx / dist, uy = dy / dist;                 // outward unit
+      const ramp = 1 - dist / CYCLONE_RADIUS;               // 0 at the rim → 1 at the eye
+      const mag = CYCLONE_PULL * ramp * ramp * dt;          // squared: gentle out near the rim (escapable), fierce in the core
+      // spiral current = tangential (CCW) + inward, normalized, scaled by proximity
+      let vx = -uy - ux * CYCLONE_WIND_INWARD, vy = ux - uy * CYCLONE_WIND_INWARD;
+      const vm = Math.hypot(vx, vy) || 1;
+      this._nudge(scene, s, s.x + (vx / vm) * mag, s.y + (vy / vm) * mag);
+      // eye hit (per-ship cooldown so a trapped hull isn't shredded every frame)
+      if (dist < CYCLONE_EYE_RADIUS && (!s._cycHitAt || t - s._cycHitAt > CYCLONE_EYE_COOLDOWN)){
+        s._cycHitAt = t; s.hull = Math.max(0, s.hull - s.maxHull * CYCLONE_DAMAGE_PCT / 100); s.lastHitAt = t;
+        scene.flashPopup(s.x, s.y - 20, 'CYCLONE!', 0xB0A0E0);
+        if (s.hull <= 0 && s !== scene.player && s.alive !== false){
+          s.alive = false;
+          if (typeof Combat !== 'undefined' && Combat.spawnLoot) Combat.spawnLoot(scene, s);
+          if (typeof EV !== 'undefined') scene.events.emit(EV.SHIP_SUNK, { ship: s, by: 'cyclone' });
+        }
+      }
+    }
+  },
+
+  // wind bearing at (x,y) when a cyclone is active: ambient blended toward an inward
+  // spiral near the eye (strong at the centre, fading to ambient at the rim). Called by
+  // WindSystem.dirAt, so sailing/steering/compass all feel the swirl. No cyclone → ambient.
+  cycloneDirAt(scene, x, y, ambient){
+    const w = scene.weather;
+    if (!w || w.active !== 'cyclone' || !w.data) return ambient;
+    const d = w.data, dx = x - d.cx, dy = y - d.cy, dist = Math.hypot(dx, dy);
+    if (dist >= CYCLONE_RADIUS || dist < 1) return ambient;
+    const ux = dx / dist, uy = dy / dist;                   // outward
+    const fx = -uy - ux * CYCLONE_WIND_INWARD, fy = ux - uy * CYCLONE_WIND_INWARD;   // swirl FLOW (toward)
+    const fromBearing = (Math.atan2(-fx, fy) * 180 / Math.PI + 360) % 360;           // wind "from" = reverse of flow
+    const k = 1 - dist / CYCLONE_RADIUS, wgt = k * k * (3 - 2 * k);                   // smoothstep: eye → rim
+    const diff = ((fromBearing - ambient + 540) % 360) - 180;
+    return (ambient + diff * wgt + 360) % 360;
+  },
 
   // overlay rendering (on the world graphics layer). Cosmetic per-frame marks use
   // Math.random (not the gameplay PRNG) so rendering never perturbs the sim.
