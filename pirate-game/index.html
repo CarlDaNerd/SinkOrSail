@@ -15,9 +15,18 @@
 <title>Pirate — Combat + Factions V1 (modular)</title>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 <style>
-  html, body { margin:0; padding:0; background:#0b1622; overflow:hidden; font-family:ui-monospace,"SF Mono",Menlo,monospace; }
-  #wrap { width:100vw; height:100vh; }
-  #game { width:100vw; height:100vh; }
+  html, body { margin:0; padding:0; background:#0b1622; overflow:hidden; font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    /* MB2-A3: mobile-web armor (pattern: slither.io / diep.io / agar.io) —
+       kill pull-to-refresh + the grey tap flash at the page level. */
+    overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  /* MB2-A3: dvh = the iOS-Safari-safe viewport unit (100vh overflows behind the
+     URL bar); vh line kept first as the fallback for older browsers.
+     Gesture suppression scoped to the CANVAS so the dev tuning panel keeps
+     native scrolling / text selection. */
+  #wrap { width:100vw; height:100vh; height:100dvh; }
+  #game { width:100vw; height:100vh; height:100dvh;
+    touch-action: none; -webkit-touch-callout: none;
+    -webkit-user-select: none; user-select: none; }
   /* MB2-9: landscape-only on touch devices. body.touchdev is set by TouchInput.init;
      in portrait a blocking overlay asks for a rotate. Desktop is untouched (no class).
      FLAG-5 RULED: auto-pauses on portrait (TouchInput matchMedia hook); resume is manual. */

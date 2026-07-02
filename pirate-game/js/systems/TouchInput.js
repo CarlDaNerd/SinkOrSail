@@ -137,13 +137,12 @@ const TouchInput = {
       .setInteractive({ useHandCursor: true });
     t.on('pointerdown', () => { if (this._scene) this._scene.toggleMenu(); });
     this._pauseBtn = t;
-    // MB2-8: fullscreen toggle rework. Must run inside a user gesture (browser
-    // rule). Three paths by capability:
-    //   • real Fullscreen API (desktop / Android / iPadOS 16.4+) → toggle, then
-    //     try screen.orientation.lock('landscape') (MB2-9; Android-only, silent no-op elsewhere)
-    //   • iPhone browser — Apple ships NO element-fullscreen API → show a
-    //     dismissible "Add to Home Screen" instruction popup (PWA = true fullscreen)
-    //   • already running standalone (installed PWA) → button hidden (nothing to do)
+    // MB2-8 (RULED: kill fullscreen where it can't work properly): the ⛶ button
+    // exists ONLY where a real element-fullscreen API does — desktop, Android,
+    // iPadOS 16.4+. iPhone has no such API by Apple design, so there the button
+    // is simply absent (the old Add-to-Home-Screen popup is removed). The PWA
+    // manifest/meta stay: an INSTALLED SinkOrSail launches truly fullscreen on
+    // iPhone anyway, no button needed. Also hidden when already standalone.
     const fs = scene.add.text(TOUCH_MARGIN + 56, TOUCH_MARGIN, '⛶', {
       fontFamily: 'ui-monospace,monospace', fontSize: (TOUCH_BTN_FONT + 4) + 'px',
       color: '#D4C890', backgroundColor: '#16283a',
@@ -152,7 +151,7 @@ const TouchInput = {
       .setInteractive({ useHandCursor: true });
     fs.on('pointerdown', () => this._toggleFullscreen(scene));
     this._fsBtn = fs;
-    if (this._isStandalone()) fs.setVisible(false).disableInteractive();
+    if (this._isStandalone() || !this._canFullscreen()) fs.setVisible(false).disableInteractive();
   },
 
   // ── MB2-8 fullscreen helpers ──────────────────────────────────────────────
@@ -166,27 +165,23 @@ const TouchInput = {
     return !!(el.requestFullscreen || el.webkitRequestFullscreen);
   },
   _toggleFullscreen(scene){
-    if (this._isStandalone()) return;
-    if (this._canFullscreen()){
-      const doc = document, el = doc.documentElement;
-      const inFs = !!(doc.fullscreenElement || doc.webkitFullscreenElement || scene.scale.isFullscreen);
-      try {
-        if (inFs){
-          if (scene.scale.isFullscreen) scene.scale.stopFullscreen();
-          else if (doc.exitFullscreen) doc.exitFullscreen();
-          else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
-        } else {
-          // prefer Phaser (keeps its internal isFullscreen in sync); fall back to
-          // the raw API (incl. webkit prefix for iPad) if Phaser's path fails.
-          if (scene.scale.fullscreen && scene.scale.fullscreen.available) scene.scale.startFullscreen();
-          else if (el.requestFullscreen) el.requestFullscreen();
-          else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-          this._lockLandscape();                                   // MB2-9
-        }
-      } catch (e) { /* fullscreen refusal is non-fatal */ }
-    } else {
-      this._showA2HSPopup();                                       // iPhone
-    }
+    if (this._isStandalone() || !this._canFullscreen()) return;   // button shouldn't exist here anyway
+    const doc = document, el = doc.documentElement;
+    const inFs = !!(doc.fullscreenElement || doc.webkitFullscreenElement || scene.scale.isFullscreen);
+    try {
+      if (inFs){
+        if (scene.scale.isFullscreen) scene.scale.stopFullscreen();
+        else if (doc.exitFullscreen) doc.exitFullscreen();
+        else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+      } else {
+        // prefer Phaser (keeps its internal isFullscreen in sync); fall back to
+        // the raw API (incl. webkit prefix for iPad) if Phaser's path fails.
+        if (scene.scale.fullscreen && scene.scale.fullscreen.available) scene.scale.startFullscreen();
+        else if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        this._lockLandscape();                                   // MB2-9
+      }
+    } catch (e) { /* fullscreen refusal is non-fatal */ }
   },
   // MB2-9: orientation lock only works in fullscreen, Android Chrome; a rejected
   // promise elsewhere is expected and swallowed. The portrait CSS overlay
@@ -196,19 +191,6 @@ const TouchInput = {
       if (screen.orientation && screen.orientation.lock)
         screen.orientation.lock('landscape').catch(() => {});
     } catch (e) { /* not supported */ }
-  },
-  // iPhone: DOM popup (not Phaser — must overlay everything incl. browser chrome area)
-  _showA2HSPopup(){
-    if (document.getElementById('a2hsPopup')) return;
-    const d = document.createElement('div');
-    d.id = 'a2hsPopup';
-    d.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(8,14,22,.88);display:flex;align-items:center;justify-content:center;font-family:ui-monospace,monospace;color:#D4C890;text-align:center;padding:24px;';
-    d.innerHTML = '<div style="max-width:340px;background:#16283a;border:1px solid #8AAAC8;padding:22px 26px;border-radius:10px;">' +
-      '<div style="font-size:16px;letter-spacing:1px;margin-bottom:10px;">FULLSCREEN ON iPHONE</div>' +
-      '<div style="font-size:12px;line-height:1.6;color:#9fb6cc;">Safari doesn\u2019t allow fullscreen web games.<br>For true fullscreen:<br><br>1. Tap the <b>Share</b> button<br>2. Choose <b>Add to Home Screen</b><br>3. Launch the game from the new icon</div>' +
-      '<div id="a2hsClose" style="margin-top:16px;font-size:13px;color:#F0C840;border:1px solid #F0C840;display:inline-block;padding:6px 18px;border-radius:6px;">GOT IT</div></div>';
-    d.addEventListener('pointerdown', () => d.remove());
-    document.body.appendChild(d);
   },
 
   _layout(){
@@ -251,18 +233,20 @@ const TouchInput = {
   // (steerStart/Move/End/steerAxis) is unchanged so GameScene wiring is untouched.
   _steer: null,
   steerStart(p){
+    if (this._steer) return;                                  // MB2-A2: one steer hold at a time
     const W = (this._scene && this._scene.scale) ? this._scene.scale.gameSize.width : GAME_W;
-    this._steer = { x0: p.x, y0: p.y, t0: Date.now()/1000, moved: 0,
+    this._steer = { id: p.id, x0: p.x, y0: p.y, t0: Date.now()/1000, moved: 0,
                     axis: (p.x < W / 2) ? -1 : 1 };        // left half = port turn, right = starboard
   },
   steerMove(p){
-    const s = this._steer; if (!s) return;
+    const s = this._steer; if (!s || p.id !== s.id) return;   // MB2-A2: ignore other fingers
     s.moved = Math.max(s.moved, Math.hypot(p.x - s.x0, p.y - s.y0));
   },
   // returns true if the release was a TAP (short + still) — caller then runs the world-tap
   steerEnd(p){
-    const s = this._steer; this._steer = null;
-    if (!s) return false;
+    const s = this._steer;
+    if (!s || p.id !== s.id) return false;                    // MB2-A2: a fire-button finger lifting must not kill the steer hold
+    this._steer = null;
     return (s.moved < TOUCH_TAP_MAX_PX) && (Date.now()/1000 - s.t0 < TOUCH_TAP_MAX_S);
   },
   steerAxis(){ return this._steer ? this._steer.axis : 0; },
