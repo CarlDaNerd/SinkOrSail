@@ -100,6 +100,15 @@ const TouchInput = {
     g.fillStyle(color, 1);
     g.fillTriangle(1*s, -13*s, 12*s, 9*s, 1*s, 9*s);            // sail
   },
+  // SW1: swap — two opposing arrows (trade hulls).
+  _iconSwap(g, color, r){
+    const s = r / TOUCH_CIRCLE_R_CHASER;
+    g.lineStyle(2.5*s, color, 1);
+    g.lineBetween(-10*s, -5*s, 8*s, -5*s);  g.fillStyle(color, 1);
+    g.fillTriangle(8*s, -10*s, 8*s, 0, 14*s, -5*s);
+    g.lineBetween(10*s, 5*s, -8*s, 5*s);
+    g.fillTriangle(-8*s, 0, -8*s, 10*s, -14*s, 5*s);
+  },
   // MB3-3: anchor — ring, shank, stock, curved arms with fluke tips.
   _iconAnchor(g, color, r){
     const s = r / TOUCH_CIRCLE_R_CHASER;
@@ -129,6 +138,8 @@ const TouchInput = {
     // MB3-3: ACCESS PORT — appears only while in dock range (gated in
     // setControlsVisible); fires the same guarded dock path as the F key.
     this._mkCircleButton(scene, 'dockPort', TOUCH_CIRCLE_R_CANNON, (g, c, r) => this._iconAnchor(g, c, r), 0);
+    // SW1: MAKE FLAGSHIP — appears only while towing a prize; mirrors the V key
+    this._mkCircleButton(scene, 'swapPrize', TOUCH_CIRCLE_R_CHASER, (g, c, r) => this._iconSwap(g, c, r), 0);
     this._layout();
   },
 
@@ -210,6 +221,7 @@ const TouchInput = {
       fireStern: [W - m - rS,  hy],
       sailCycle: [m + rS,      sy],
       dockPort:  [W / 2,       cy],        // MB3-3: bottom-center (FLAG-7 PLACEHOLDER)
+      swapPrize: [W / 2,       hy],        // SW1: above the anchor button (PLACEHOLDER)
     };
     for (const b of this._btns){ const p = pos[b._touchName]; if (p) b.setPosition(p[0], p[1]); }
     if (this._pauseBtn) this._pauseBtn.setPosition(m, m);
@@ -298,6 +310,8 @@ const TouchInput = {
       }
       // MB3-3: ACCESS PORT only inside dock range
       if (show && b._touchName === 'dockPort') show = !!(this._scene && this._scene.nearPort);
+      // SW1: MAKE FLAGSHIP only while towing a prize
+      if (show && b._touchName === 'swapPrize') show = !!(this._scene && this._scene.tows && this._scene.tows.length);
       b.setVisible(show);
     }
   },

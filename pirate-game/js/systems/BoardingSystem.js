@@ -91,7 +91,7 @@ const BoardingSystem = {
     if (typeof Docks !== 'undefined') Docks.releaseAnywhere(scene, target);   // free any berth it held
     target.beingTowed = true; target.crew = 0; target.faction = 'prize'; target.state = 'towed';
     scene.tows.push(target);
-    scene.flashPopup(pl.x, pl.y - 24, 'CAPTURED — TOW TO YOUR PORT', 0x6ED0E0);
+    scene.flashPopup(pl.x, pl.y - 24, 'CAPTURED — [V] MAKE FLAGSHIP, OR TOW HOME', 0x6ED0E0);
     scene.events.emit(EV.SHIP_CAPTURED, { ship: target });
   },
 

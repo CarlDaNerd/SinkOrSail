@@ -42,7 +42,7 @@ class GameScene extends Phaser.Scene {
     this.follow = this.add.rectangle(this.player.x, this.player.y, 1, 1, 0, 0);
     this.cameras.main.startFollow(this.follow, true, 0.08, 0.08);
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,ZERO,M,Z,X,T,J,L,B,C');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,ZERO,M,Z,X,T,J,L,B,C,V');   // V: make prize flagship (SW1)
     this.input.on('wheel', (p, over, dx, dy) => {
       if (this.mapOpen){ this.mapAnim = null; this.mapScale = Phaser.Math.Clamp(this.mapScale * (dy < 0 ? 1.12 : 0.892), MAP_SCALE_MIN, MAP_SCALE_MAX); this.mapDirty = true; }
       else if (!this.docked && !this.menuOpen){ this.viewZoom = Phaser.Math.Clamp(this.viewZoom * (dy < 0 ? 1.08 : 0.926), ZOOM_MIN, ZOOM_DEFAULT); }   // in-game: scroll to zoom OUT (down to the sight-circle limit)
@@ -340,6 +340,9 @@ class GameScene extends Phaser.Scene {
         let consumed = (typeof PortCaptureSystem !== 'undefined') && PortCaptureSystem.tryCapture(this);
         if (!consumed && typeof BoardingSystem !== 'undefined') BoardingSystem.tryBoard(this);
       }
+      // SW1: V (or the touch swap button) — make the towed prize your flagship
+      if (Phaser.Input.Keyboard.JustDown(this.keys.V) ||
+          (typeof TouchInput !== 'undefined' && TouchInput.active && TouchInput.justDown('swapPrize'))) this.swapToPrize();
       // DEV: cycle ship tier (until a real buy/capture progression exists)
       if (Phaser.Input.Keyboard.JustDown(this.keys.T) && typeof ShipTiers !== 'undefined'){
         ShipTiers.setTier(this, pl, (pl.tier % TIER_MAX) + 1);
@@ -412,6 +415,45 @@ class GameScene extends Phaser.Scene {
 
     Systems.update(this, dt, dts);                 // feature systems (bank, ...) run late, before draw
     this.draw();
+  }
+
+  // ── SW1: make the captured prize your flagship (doc: keep-captured-ship) ──
+  // RULED: works both at sea and while docked (V key / touch button); the OLD
+  // ship becomes the towed prize (role swap); blocked with a warning if your
+  // crew is below the prize's min-to-operate; gold (on you), cargo (hold
+  // travels, capacity re-set by tier), and crew carry over — upgrades stay
+  // with each HULL (snapshot on the tow, restored if you swap back).
+  swapToPrize(){
+    const pl = this.player;
+    const tow = (this.tows && this.tows.length) ? this.tows[this.tows.length - 1] : null;
+    if (!tow){ this.flashPopup(pl.x, pl.y - 30, 'NO CAPTURED PRIZE IN TOW', 0xE0503A); return; }
+    const spec = ShipTiers.get(tow.tier || 1);
+    if (pl.crew < spec.minCrew){                                     // RULED c: block, prize stays a tow
+      this.flashPopup(pl.x, pl.y - 30, 'NEED ' + spec.minCrew + ' CREW TO SAIL THE ' + spec.name.toUpperCase() + ' — STAYS IN TOW', 0xE0503A);
+      return;
+    }
+    const t = this.time.now/1000;
+    const keptCrew = Math.min(pl.crew, spec.maxCrew), lost = pl.crew - keptCrew;
+    if (!this._swapArm || t - this._swapArm > 4){                    // two-press confirm (4s window)
+      this._swapArm = t;
+      this.flashPopup(pl.x, pl.y - 30, 'BOARD THE ' + spec.name.toUpperCase() + '? PRESS AGAIN' + (lost > 0 ? ' — ' + lost + ' CREW WON\'T FIT (FLAG-9)' : ''), 0xF0C840);
+      return;
+    }
+    this._swapArm = 0;
+    // snapshot the old hull, then trade roles in place
+    const old = { tier: pl.tier, hull: pl.hull, upgrades: pl.upgrades, hold: pl.hold };
+    pl.tier = tow.tier || 1;
+    pl.upgrades = tow.upgrades || null;                              // RULED d: hull keeps its own upgrades (enemy hulls: none)
+    pl.hull = tow.hull;
+    pl.hold = tow.hold || null;
+    ShipTiers.apply(this, pl, false);                                // clamps hull/ammo/crew, re-caps the hold to the new tier
+    if (typeof UpgradeSystem !== 'undefined' && UpgradeSystem.init) UpgradeSystem.init(this);   // re-seed the slice if the new hull had none
+    pl.crew = keptCrew;                                              // RULED: crew carries (FLAG-9: overflow is lost)
+    // gold never moves — it's on the player, not the hull (RULED: gold carries)
+    tow.tier = old.tier; tow.hull = old.hull; tow.upgrades = old.upgrades; tow.hold = old.hold;
+    ShipTiers.apply(this, tow, false); tow.crew = 0;                 // tows stay crewless
+    this.flashPopup(pl.x, pl.y - 30, '⚓ FLAGSHIP: ' + spec.name.toUpperCase(), 0x6ED0E0);
+    this.events.emit('ship-tier-changed', { ship: pl, tier: pl.tier });
   }
 
   draw(){
