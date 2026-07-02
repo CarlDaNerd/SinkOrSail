@@ -201,7 +201,7 @@ const SELL_SPREAD = 0.85;               // ports buy from you at 85% of their se
 // 8 port types — terrain hint, tower odds, navy presence, source good, dock count,
 // and a distinct map/marker COLOUR per type (placeholders — tune to taste).
 const PORT_TYPES = {
-  TradingHub:      { terrain:'mainland',          towerChance:1.00, navy:'always', source:null,       slots:[2,5], crewDiscount:true, merchantLootMult:2.0, color:0xF0C840 },
+  TradingHub:      { terrain:'mainland',          towerChance:1.00, navy:'always', source:null,       slots:[2,3], crewDiscount:true, merchantLootMult:2.0, color:0xF0C840 },
   LumberYard:      { terrain:'small-mainland',     towerChance:0.25, navy:'none',   source:'lumber',   slots:[1,2], repairDiscount:true, color:0xB5793A },
   FrontierOutpost: { terrain:'far',               towerChance:0.50, navy:'none',   source:null,       slots:[1,2], buyBonus:true, color:0xB0B6BE },
   SugarFarm:       { terrain:'small-mainland',     towerChance:0.25, navy:'none',   source:'sugar',    slots:[1,2], color:0xF2E7B0 },
@@ -359,6 +359,10 @@ const TOUCH_ICON_HOT        = 0xF0C840;   // pressed icon tint
 // ── MB3-6 ── phone/tablet UI mode (pause-menu setting; persisted in localStorage)
 const TABLET_BTN_SCALE = 1.3;          // PLACEHOLDER — touch-button scale-up in tablet mode
 const TABLET_MIN_DIM   = 600;          // PLACEHOLDER — auto-detect: min(W,H) >= this => tablet
+
+// ── MD2 ── merchants physically dock: berth hold time (PLACEHOLDER, live-tune)
+const MERCHANT_DOCK_MIN_S = 3;
+const MERCHANT_DOCK_MAX_S = 7;
 
 // ── MB2-5 ── muzzle flash on every cannon shot (player + AI, unified fire path)
 const MUZZLE_FLASH_LIFE = 0.14;   // PLACEHOLDER — seconds the flash lives

@@ -24,6 +24,28 @@ function drawMiniMap(g, gs, pl){
   for (const p of gs.navyPorts) if (within(p.x, p.y)){ g.fillStyle((PORT_TYPES[p.type] && PORT_TYPES[p.type].color) || 0x8AC8E0, 1); g.fillCircle(w2x(p.x), w2y(p.y), 2.8); }
   // ships: ALL within the sight range (the whole minimap), faction-coloured
   for (const s of gs.ships){ if (!s.alive || !within(s.x, s.y)) continue; const c = { merchant:0xD0AA70, pirate:0xE0503A, navy:0x6AB0D8, privateer:0x6AC060 }[s.faction]; g.fillStyle(c, 1); g.fillCircle(w2x(s.x), w2y(s.y), 1.8); }
+  // DOC-V: highlight marker for hunted bounty targets — red double ring over any
+  // live target inside minimap range; a rim dot toward the nearest one beyond
+  // range (same idiom as the cyclone warning dot below).
+  if (typeof BountySystem !== 'undefined' && gs.bounties && gs.bounties.length){
+    let nearest = null, nd = Infinity;
+    for (const b of gs.bounties){
+      if (b.killsDone >= b.killsNeeded) continue;
+      for (const t of b.targets){
+        if (!t || !t.alive) continue;
+        const d = Math.hypot(t.x - pl.x, t.y - pl.y);
+        if (d <= R){
+          const ix = w2x(t.x), iy = w2y(t.y);
+          g.lineStyle(1.5, 0xE0503A, 0.95); g.strokeCircle(ix, iy, 4.5);
+          g.lineStyle(1, 0xE0503A, 0.45);   g.strokeCircle(ix, iy, 7);
+        } else if (d < nd){ nd = d; nearest = t; }
+      }
+    }
+    if (nearest && nd <= BOUNTY_ARROW_RANGE){
+      const dx = nearest.x - pl.x, dy = nearest.y - pl.y, dd = Math.hypot(dx, dy) || 1;
+      g.fillStyle(0xE0503A, 0.95); g.fillCircle(cxp + (dx/dd)*(mr - 4), cyp + (dy/dd)*(mr - 4), 2.2);
+    }
+  }
   // cyclone: a swirl icon at its eye when in sight, else a red warning dot pinned to
   // the rim in its direction (it spawns just beyond range and drifts in)
   if (typeof WeatherSystem !== 'undefined' && gs.weather && gs.weather.active === 'cyclone' && gs.weather.data){

@@ -71,7 +71,7 @@ const Combat = {
       if (target.faction === 'privateer') target.hitsByPlayer++;
       if (target.faction !== 'pirate') FactionSystem.reportCrime(scene, target.x, target.y); // pirate-hunting is lawful
     }
-    if (target.hull <= 0){ target.alive = false; this.spawnLoot(scene, target); scene.events.emit(EV.SHIP_SUNK, { ship: target, by: ball.ownerFaction }); }
+    if (target.hull <= 0){ target.alive = false; if (typeof Docks !== 'undefined') Docks.releaseAnywhere(scene, target); this.spawnLoot(scene, target); scene.events.emit(EV.SHIP_SUNK, { ship: target, by: ball.ownerFaction }); }   // MD2: a sunk ship frees its berth
   },
 
   spawnLoot(scene, s){ scene.loot.push(Loot.create(s.x, s.y, Loot.valueFor(s.faction))); },
