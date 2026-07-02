@@ -245,6 +245,10 @@ const ZOOM_MIN = Math.hypot(GAME_W / 2, GAME_H / 2) / MINIMAP_RANGE;
 // on top. Layered incommensurate periods → a smooth, organic, non-repeating wander.
 const WIND_OSC_PERIODS = [23, 61, 149];        // s — the three oscillation waves (unrelated periods)
 const WIND_OSC_WEIGHTS = [0.55, 0.30, 0.15];   // their amplitude shares (sum 1 → peak deviation ≈ windOscAmp)
+const RAIN_TO_STORM_CHANCE = 0.35;             // WD1b: rain can ESCALATE into a storm as it ends (PLACEHOLDER)
+const CYCLONE_FAR_FULL_PX = 3000;              // WD1b: cyclone odds scale up to full this far from land
+const WIND_STR_PERIODS = [37, 97];             // s — wind-strength oscillation waves (WD1)
+const WIND_STR_AMP = 0.15;                     // ±15% sailing-speed swing at peak (PLACEHOLDER)
 const WIND_SEED_SALT = 0x57494E44;             // 'WIND' — its own PRNG stream, decoupled from enemy determinism
 
 // ── M11 WEATHER ── one moving effect at a time, rolled every few minutes; each affects

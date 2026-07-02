@@ -80,6 +80,15 @@ const WeatherSystem = {
 
   update(scene, dt, dts){
     const w = scene.weather, pl = scene.player, t = scene.time.now / 1000;
+    // WD1b (doc VI): a rainstorm can ESCALATE — as rain ends there's a chance the
+    // squall breaks open into a full storm right on top of you (one-weather-at-a-
+    // time preserved: the storm REPLACES the rain rather than stacking on it).
+    if (w.active === 'rain' && t >= w.endsAt && scene.eprng() < RAIN_TO_STORM_CHANCE){
+      this.clear(scene);
+      this.start(scene, 'storm');
+      scene.flashPopup(pl.x, pl.y - 52, 'THE RAIN BREAKS INTO A STORM', 0xE0A040);
+      return;
+    }
     if (!scene.extrasOn || (typeof DEBUG !== 'undefined' && DEBUG.weatherOff)){ if (w.active) this.clear(scene); return; }   // off via pause-menu checkbox or the dev "disable weather" toggle
     if (!w.active){
       if (t >= w.nextAt){ this.start(scene, this._rollType(scene)); if (!w.active) w.nextAt = this._rollNext(scene); }
@@ -138,7 +147,10 @@ const WeatherSystem = {
   _rollType(scene){
     const far = Math.max(0, Math.min(1, this._distToLand(scene) / RAIN_FAR_FULL_PX));
     const wRain = WX_WEIGHT_RAIN_NEAR + (WX_WEIGHT_RAIN_FAR - WX_WEIGHT_RAIN_NEAR) * far;
-    const entries = [['rain', wRain], ['storm', WX_WEIGHT_STORM], ['cyclone', WX_WEIGHT_CYCLONE], ['snow', WX_WEIGHT_SNOW]];
+    // WD1b (doc VI): weather is tied to WHERE you are — cyclones belong to open
+    // water, so their odds scale from 30% near land up to 200% far out to sea.
+    const cycScale = Math.max(0.3, Math.min(2, this._distToLand(scene) / CYCLONE_FAR_FULL_PX * 2));
+    const entries = [['rain', wRain], ['storm', WX_WEIGHT_STORM], ['cyclone', WX_WEIGHT_CYCLONE * cycScale], ['snow', WX_WEIGHT_SNOW]];
     // DOC-VI: tsunami only rolls within TSUNAMI_NEAR_LAND_PX of an island (doc rule)
     if (this._distToLand(scene) <= TSUNAMI_NEAR_LAND_PX) entries.push(['tsunami', WX_WEIGHT_TSUNAMI]);
     let total = 0; for (const e of entries) total += e[1];

@@ -396,7 +396,8 @@ class GameScene extends Phaser.Scene {
       const wMult = (typeof WeatherSystem !== 'undefined') ? WeatherSystem.speedMult(this) : 1;   // rain slow (1 otherwise)
       const cMult = (typeof crewSpeedMult !== 'undefined') ? crewSpeedMult(pl) : 1;               // crew bonus / understaffed penalty
       const uMult = (typeof UpgradeSystem !== 'undefined') ? UpgradeSystem.speedMult(this) : 1;   // sail-material upgrade
-      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState]*wMult*cMult*uMult*hullSpeedMult(pl);   // CQ: battered hull slows, then stops (regen recovers you)
+      const sMult = (typeof WindSystem !== 'undefined' && WindSystem.speedFactor) ? WindSystem.speedFactor(this) : 1;   // WD1: breathing wind strength
+      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState]*wMult*cMult*uMult*hullSpeedMult(pl)*sMult;   // CQ: battered hull slows, then stops (regen recovers you)
       pl.vel += (tgt - pl.vel)*Math.min((tgt > pl.vel ? P.accel : P.decel)*dt, 1);
       Collision.moveShip(this, pl, dt);
       // reefs: drag + periodic hull damage while grounded (they don't block, they hurt)
