@@ -209,6 +209,8 @@ class GameScene extends Phaser.Scene {
     this.flag = 'neutral'; this.flagPending = null; this.flagChangeAt = 0;
     this.docked = false; this.dockPort = null; this.nearPort = null;
     this.cannonballs.length = 0; this.loot.length = 0; this.popups.length = 0;
+    if (this.tows) this.tows.length = 0;                            // BUGFIX: prizes must not survive New Game
+    for (const port of (this.navyPorts || [])) for (const d of (port.docks || [])){ d.occupantId = null; }   // BUGFIX: void ghost berth claims
     this.ships = []; Enemy.spawnFleet(this);
     this.explored.clear();
     this.follow.setPosition(0, 0);

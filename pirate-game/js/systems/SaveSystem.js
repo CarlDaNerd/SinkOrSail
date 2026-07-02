@@ -22,6 +22,8 @@ const Save = {
       runners: (scene.runners || []).map(r => ({ x:Math.round(r.x), y:Math.round(r.y), h:Math.round(r.heading) || 0, tier:r.tier, hull:Math.round(r.hull), phase:r.phase, timer:r.timer, leg:r.leg, earned:r.earned,
         home: r.home ? [Math.round(r.home.x), Math.round(r.home.y)] : null, route: (r.route || []).map(p => [Math.round(p.x), Math.round(p.y)]) })),
       escorts: ((scene.hire && scene.hire.hired) || []).map(e => ({ x:Math.round(e.x), y:Math.round(e.y), h:Math.round(e.heading) || 0, tier:e.tier, hull:Math.round(e.hull) })),
+      // captured prizes in tow — coords/tier/hull only; re-stamped on load
+      tows: (scene.tows || []).map(t => ({ x:Math.round(t.x), y:Math.round(t.y), h:Math.round(t.heading) || 0, tier:t.tier || 1, hull:Math.round(t.hull) })),
       bounties: (scene.bounties || []).map(b => ({ killsNeeded:b.killsNeeded, killsDone:b.killsDone, reward:b.reward, chunkKey:b.chunkKey,
         issuer: b.issuer ? [Math.round(b.issuer.x), Math.round(b.issuer.y)] : null, targets: (b.targets || []).filter(t => t && t.alive).map(t => ({ x:Math.round(t.x), y:Math.round(t.y), h:Math.round(t.heading) || 0, hull:Math.round(t.hull) })) })),
     };
@@ -67,7 +69,24 @@ const Save = {
     }
     scene.docked = false; scene.dockPort = null; scene.menuOpen = false; scene.mapOpen = false;
     scene.cannonballs.length = 0; scene.loot.length = 0; scene.popups.length = 0;
+    // BUGFIX: the pre-load fleet is discarded below, so every berth claim from it
+    // must be voided or those docks stay blocked by ghost occupants forever
+    if (scene.navyPorts) for (const port of scene.navyPorts) for (const d of (port.docks || [])){ d.occupantId = null; }
+    // BUGFIX: pre-load weather would sit at stale coordinates — clear it
+    if (typeof WeatherSystem !== 'undefined' && scene.weather) WeatherSystem.clear(scene);
     scene.ships = []; Enemy.spawnFleet(scene);
+    // BUGFIX: restore towed prizes (they were silently dropped — lost on load —
+    // while STALE tows ghosted through into the loaded game)
+    scene.tows = [];
+    if (Array.isArray(s.tows)){
+      for (const tv of s.tows){
+        const tow = { id: 'tow_' + Math.random().toString(36).slice(2, 8), x: tv.x, y: tv.y, heading: tv.h || 0,
+          tier: tv.tier || 1, hull: tv.hull, crew: 0, vel: 0, faction: 'prize', state: 'towed', beingTowed: true,
+          alive: true, wake: [], fire: { port:0, star:0, bow:0, stern:0 } };
+        if (typeof ShipTiers !== 'undefined') ShipTiers.apply(scene, tow, false);
+        scene.tows.push(tow);
+      }
+    }
     this._restoreFleet(scene, s);                         // runners / escorts / bounties (player-built state)
     Chunks.update(scene);                                  // unload the old window, stream terrain at the loaded spot
     // safety: if an old save lands inside land (world-gen changed since it was
