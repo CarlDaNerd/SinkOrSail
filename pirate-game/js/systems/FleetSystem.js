@@ -54,8 +54,10 @@ const FleetSystem = {
     const route = []; let from = home;
     for (let i = 0; i < n; i++){
       let best = null, bs = -Infinity;
-      for (let k = 0; k < Math.min(3, pool.length); k++){          // 3 PRNG candidates per leg
-        const cand = pool[Math.floor(scene.eprng() * pool.length)];
+      const legPool = pool.filter(p => p !== from);                // no consecutive repeat stops (dwell-farming)
+      const src = legPool.length ? legPool : pool;
+      for (let k = 0; k < Math.min(3, src.length); k++){           // 3 PRNG candidates per leg
+        const cand = src[Math.floor(scene.eprng() * src.length)];
         const th = Math.atan2(cand.y - from.y, cand.x - from.x) / RAD + 90;   // travel heading, deg
         const score = calcTargetSpeed(windOff((th + 360) % 360, WindSystem.dirAt(scene, from.x, from.y)));
         if (score > bs){ bs = score; best = cand; }
