@@ -23,9 +23,10 @@ const TavernSystem = {
   onDock(scene, port){
     const defs = (typeof MISSION_DEFS !== 'undefined') ? MISSION_DEFS : [];
     scene._tavernOffers = [];
-    for (let i = 0; i < TAVERN_OFFERS && defs.length; i++){
-      const def = defs[Math.floor(scene.eprng() * defs.length)];
-      const offer = def.roll(scene, port);
+    // distinct def per slot (offset walk) so one board never offers duplicates
+    const base = Math.floor(scene.eprng() * Math.max(1, defs.length));
+    for (let i = 0; i < TAVERN_OFFERS && i < defs.length; i++){
+      const offer = defs[(base + i) % defs.length].roll(scene, port);
       if (offer) scene._tavernOffers.push(offer);
     }
     // delivery turn-in: docking at the destination completes it
@@ -58,7 +59,7 @@ const TavernSystem = {
   _onSink(scene, e){
     if (!e || !e.ship || e.by !== 'player') return;
     if (e.ship.faction !== 'pirate') return;
-    for (let i = scene.activeMissions.length - 1; i >= 0; i--){
+    for (let i = 0; i < scene.activeMissions.length; i++){        // oldest mission credits first
       const m = scene.activeMissions[i];
       if (m.type !== 'hunt') continue;
       m.done++;
