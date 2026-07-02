@@ -43,22 +43,6 @@ const TouchInput = {
 
     this._buildButtons(uiScene);
     this._buildPauseButton(uiScene);
-    // MB2-9: flag the DOM as a touch device — index.html shows the portrait
-    // "ROTATE YOUR DEVICE" overlay only for body.touchdev.
-    document.body.classList.add('touchdev');
-    // FLAG-5 ruling (Noah): AUTO-PAUSE when rotated to portrait. Opens the pause
-    // menu (resume stays manual — no surprise unpause on rotate-back). Checks the
-    // current orientation once at init too, in case the game loads in portrait.
-    try {
-      const mq = window.matchMedia('(orientation: portrait)');
-      const onFlip = () => {
-        const gs = this._scene;
-        if (mq.matches && gs && !gs.menuOpen && gs.toggleMenu) gs.toggleMenu();
-      };
-      if (mq.addEventListener) mq.addEventListener('change', onFlip);
-      else if (mq.addListener) mq.addListener(onFlip);               // older Safari
-      onFlip();
-    } catch (e) { /* matchMedia unavailable — overlay alone still blocks input */ }
     // resize: re-fit the canvas is handled by Phaser.Scale.RESIZE (main.js);
     // we just reposition our buttons when the game size changes.
     uiScene.scale.on('resize', () => this._layout());
@@ -111,6 +95,18 @@ const TouchInput = {
     g.fillStyle(color, 1);
     g.fillTriangle(1*s, -13*s, 12*s, 9*s, 1*s, 9*s);            // sail
   },
+  // MB3-3: anchor — ring, shank, stock, curved arms with fluke tips.
+  _iconAnchor(g, color, r){
+    const s = r / TOUCH_CIRCLE_R_CHASER;
+    g.lineStyle(2.5*s, color, 1);
+    g.strokeCircle(0, -12*s, 3.5*s);                            // ring
+    g.lineBetween(0, -8.5*s, 0, 12*s);                          // shank
+    g.lineBetween(-7*s, -4*s, 7*s, -4*s);                       // stock
+    g.beginPath(); g.arc(0, 4*s, 10*s, Math.PI*0.15, Math.PI*0.85); g.strokePath();   // arms
+    g.fillStyle(color, 1);
+    g.fillTriangle(-13*s, 8*s, -7*s, 6*s, -9*s, 13*s);          // port fluke
+    g.fillTriangle(13*s, 8*s, 7*s, 6*s, 9*s, 13*s);             // starboard fluke
+  },
 
   _buildButtons(scene){
     // MB2 layout: LEFT bottom-third = PORT broadside; RIGHT = STARBOARD. Chasers
@@ -125,6 +121,9 @@ const TouchInput = {
     this._mkCircleButton(scene, 'fireBow',   TOUCH_CIRCLE_R_CHASER, C,  0);
     this._mkCircleButton(scene, 'fireStern', TOUCH_CIRCLE_R_CHASER, C,  Math.PI);
     this._mkCircleButton(scene, 'sailCycle', TOUCH_CIRCLE_R_CHASER, (g, c, r) => this._iconSail(g, c, r), 0);
+    // MB3-3: ACCESS PORT — appears only while in dock range (gated in
+    // setControlsVisible); fires the same guarded dock path as the F key.
+    this._mkCircleButton(scene, 'dockPort', TOUCH_CIRCLE_R_CANNON, (g, c, r) => this._iconAnchor(g, c, r), 0);
     this._layout();
   },
 
@@ -179,18 +178,8 @@ const TouchInput = {
         if (scene.scale.fullscreen && scene.scale.fullscreen.available) scene.scale.startFullscreen();
         else if (el.requestFullscreen) el.requestFullscreen();
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        this._lockLandscape();                                   // MB2-9
       }
     } catch (e) { /* fullscreen refusal is non-fatal */ }
-  },
-  // MB2-9: orientation lock only works in fullscreen, Android Chrome; a rejected
-  // promise elsewhere is expected and swallowed. The portrait CSS overlay
-  // (index.html #rotateOverlay) is the universal fallback.
-  _lockLandscape(){
-    try {
-      if (screen.orientation && screen.orientation.lock)
-        screen.orientation.lock('landscape').catch(() => {});
-    } catch (e) { /* not supported */ }
   },
 
   _layout(){
@@ -205,6 +194,7 @@ const TouchInput = {
       fireBow:   [m + rS,      cy - rC - rS - gap],
       fireStern: [W - m - rS,  cy - rC - rS - gap],
       sailCycle: [m + rS,      cy + rC + rS + gap],
+      dockPort:  [W / 2,        cy],                       // MB3-3: bottom-center (FLAG-7 PLACEHOLDER)
     };
     for (const b of this._btns){ const p = pos[b._touchName]; if (p) b.setPosition(p[0], p[1]); }
     if (this._pauseBtn) this._pauseBtn.setPosition(m, m);
@@ -264,31 +254,25 @@ const TouchInput = {
         if (b._touchName === 'fireBow')   show = ShipTiers.has(pl, 'bow');
         if (b._touchName === 'fireStern') show = ShipTiers.has(pl, 'stern');
       }
+      // MB3-3: ACCESS PORT only inside dock range
+      if (show && b._touchName === 'dockPort') show = !!(this._scene && this._scene.nearPort);
       b.setVisible(show);
     }
   },
 
-  // ── world-tap: dock or capture ───────────────────────────────────────────────
+  // ── world-tap: capture only (MB3-3) ─────────────────────────────────────────
   // Wired from GameScene: a pointerdown on the world (not on a button/overlay).
-  // Noah's rule: in combat → capture; not in combat → dock. Capture fns already
-  // self-check range + threshold and return truthy when they consume.
+  // In combat → capture (port-capture wins over boarding, matches B). Outside
+  // combat a tap does NOTHING now — docking moved to the dedicated ACCESS-PORT
+  // button (MB3-3), because "tap anywhere = open port menu" fired constantly
+  // while maneuvering near a port.
   handleWorldTap(scene){
     if (!this.active) return;
     if (scene.menuOpen || scene.mapOpen || scene.docked) return;
     const pl = scene.player; if (!pl || pl.hull <= 0) return;
     if (scene.inCombat()){
-      // capture: port-capture wins over boarding if both are eligible (matches B key)
       let consumed = (typeof PortCaptureSystem !== 'undefined') && PortCaptureSystem.tryCapture(scene);
       if (!consumed && typeof BoardingSystem !== 'undefined') BoardingSystem.tryBoard(scene);
-    } else {
-      // dock: reuse the exact near-port dock branch conditions
-      if (scene.nearPort){
-        if (scene.navyHostile()) scene.flashPopup(pl.x, pl.y, 'PORT CLOSED — WANTED', 0xE0503A);
-        else { scene.docked = true; scene.dockPort = scene.nearPort; pl.vel = 0;
-          scene.events.emit(EV.DOCK_ENTERED, { port: scene.nearPort });
-          Systems.onDock(scene, scene.nearPort);
-          if (Save.write(scene)) scene.flashPopup(pl.x, pl.y - 40, 'GAME SAVED', 0x8AAAC8); }
-      }
     }
   },
 };

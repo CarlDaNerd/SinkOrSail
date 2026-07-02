@@ -4,7 +4,7 @@
   "description": "Top-down Age-of-Sail pirate sandbox",
   "start_url": "./index.html",
   "display": "fullscreen",
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#0b1622",
   "theme_color": "#15263C",
   "icons": [

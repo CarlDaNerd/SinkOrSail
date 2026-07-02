@@ -37,12 +37,17 @@ class UIScene extends Phaser.Scene {
     if (typeof TouchInput !== 'undefined'){
       TouchInput.init(this, this.gs);
       if (TouchInput.active){
-        // tap the minimap (top-right circle) → open the world map (mirrors M)
-        const mr = MINIMAP_H/2, full = mr + COMPASS_RING_W + COMPASS_LABEL_PAD;
-        const cxp = GAME_W - 12 - full, cyp = 12 + full;
-        this._miniZone = this.add.zone(cxp, cyp, mr*2, mr*2).setScrollFactor(0).setDepth(141)
+        // tap the minimap (top-right circle) → open the world map (mirrors M).
+        // MB3-1: the zone is REPOSITIONED on every resize — it used to be placed
+        // once from boot-time GAME_W, so after a rotate the drawn minimap moved
+        // but the invisible tap circle didn't (map "wouldn't open" in the other
+        // orientation because taps landed on empty space).
+        const mr = MINIMAP_H/2;
+        this._miniZone = this.add.zone(0, 0, mr*2, mr*2).setScrollFactor(0).setDepth(141)
           .setInteractive(new Phaser.Geom.Circle(mr, mr, mr), Phaser.Geom.Circle.Contains);
         this._miniZone.on('pointerdown', () => { if (!this.gs.menuOpen && !this.gs.docked && !this.gs.mapOpen) this.gs.toggleMap(); });
+        this._layoutMiniZone();
+        this.scale.on('resize', () => this._layoutMiniZone());
         // invisible tappable rows over the docked shop menu (mirror 1-9,0 + F)
         this._buildDockZones();
         // MW-11: visible CLOSE for the big map (map has no touch exit otherwise)
@@ -59,6 +64,16 @@ class UIScene extends Phaser.Scene {
         this._btnDepart.on('pointerdown', () => { if (this.gs.docked){ this.gs.docked = false; this.gs.dockPort = null; } });
       }
     }
+  }
+
+  // MB3-1: minimap tap-zone position from the LIVE canvas size. The zone is
+  // center-origined on the compass-ring center; the circular hit area inside it
+  // is already defined in local space, so only the position needs moving.
+  _layoutMiniZone(){
+    if (!this._miniZone) return;
+    const mr = MINIMAP_H/2, full = mr + COMPASS_RING_W + COMPASS_LABEL_PAD;
+    const W = this.scale.gameSize.width;
+    this._miniZone.setPosition(W - 12 - full, 12 + full);
   }
 
   // Invisible tap zones stacked over the docked shop text rows. Each calls the

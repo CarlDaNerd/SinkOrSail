@@ -374,7 +374,11 @@ class GameScene extends Phaser.Scene {
     if (pl.hull > 0){
       let best = DOCK_RADIUS;
       for (const p of this.navyPorts){ const dd = Math.hypot(pl.x - p.x, pl.y - p.y); if (dd < best){ best = dd; this.nearPort = p; } }
-      if (this.nearPort && Phaser.Input.Keyboard.JustDown(this.keys.F)){
+      // MB3-3: the touch ACCESS-PORT button (shown only in dock range) fires the
+      // exact same path as F — same WANTED / in-combat guards, same save sweep.
+      const dockPressed = Phaser.Input.Keyboard.JustDown(this.keys.F) ||
+        (typeof TouchInput !== 'undefined' && TouchInput.active && TouchInput.justDown('dockPort'));
+      if (this.nearPort && dockPressed){
         if (this.navyHostile()) this.flashPopup(pl.x, pl.y, 'PORT CLOSED — WANTED', 0xE0503A);
         else if (this.inCombat()) this.flashPopup(pl.x, pl.y, "CAN'T DOCK IN COMBAT", 0xE0503A);
         else { this.docked = true; this.dockPort = this.nearPort; pl.vel = 0; this.events.emit(EV.DOCK_ENTERED, { port: this.nearPort }); Systems.onDock(this, this.nearPort); if (Save.write(this)) this.flashPopup(pl.x, pl.y - 40, 'GAME SAVED', 0x8AAAC8); }   // sweep gold->bank, then auto-save
