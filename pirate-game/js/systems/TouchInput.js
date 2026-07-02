@@ -186,15 +186,24 @@ const TouchInput = {
     if (!this.active) return;
     const sz = (this._scene && this._scene.scale) ? this._scene.scale.gameSize : { width: GAME_W, height: GAME_H };
     const W = sz.width, H = sz.height, m = TOUCH_MARGIN, gap = TOUCH_BTN_GAP;
-    const cy = H * 0.78;                                   // bottom-third band (PLACEHOLDER)
     const rC = TOUCH_CIRCLE_R_CANNON, rS = TOUCH_CIRCLE_R_CHASER;
+    // MB3-5: layout anchors BOTTOM-UP from the live screen edge, so the full
+    // three-row stack (chaser / cannon / sails) is guaranteed on-screen in ANY
+    // orientation. The old cy = H*0.78 midpoint clipped the sails button off the
+    // bottom on landscape phones (stack bottom landed past H). Rows:
+    //   sails row (left only)  → bottom edge at H - m
+    //   cannon row             → above sails
+    //   chaser row             → above cannons
+    const sy = H - m - rS;                 // sails center
+    const cy = sy - rS - gap - rC;         // cannon centers
+    const hy = cy - rC - gap - rS;         // chaser centers
     const pos = {
       cannonL:   [m + rC,      cy],
       cannonR:   [W - m - rC,  cy],
-      fireBow:   [m + rS,      cy - rC - rS - gap],
-      fireStern: [W - m - rS,  cy - rC - rS - gap],
-      sailCycle: [m + rS,      cy + rC + rS + gap],
-      dockPort:  [W / 2,        cy],                       // MB3-3: bottom-center (FLAG-7 PLACEHOLDER)
+      fireBow:   [m + rS,      hy],
+      fireStern: [W - m - rS,  hy],
+      sailCycle: [m + rS,      sy],
+      dockPort:  [W / 2,       cy],        // MB3-3: bottom-center (FLAG-7 PLACEHOLDER)
     };
     for (const b of this._btns){ const p = pos[b._touchName]; if (p) b.setPosition(p[0], p[1]); }
     if (this._pauseBtn) this._pauseBtn.setPosition(m, m);
