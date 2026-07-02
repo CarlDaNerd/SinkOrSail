@@ -388,6 +388,11 @@ const TABLET_MIN_DIM   = 600;          // PLACEHOLDER — auto-detect: min(W,H) 
 const MERCHANT_DOCK_MIN_S = 3;
 const MERCHANT_DOCK_MAX_S = 7;
 
+// ── EMPIRE-1b: finite port stock, replenished by docking merchants (PLACEHOLDER — feel-tune) ──
+const PORT_STOCK_CAP = 40;             // max units of any one commodity a port can hold
+const PORT_STOCK_START_FRAC = 0.5;     // ports seed at this fraction of cap
+const MERCHANT_DELIVERY_QTY = 6;       // units a docking merchant hands off to port.stock
+
 // ── CQ batch (doc V mechanical fixes) — ALL PLACEHOLDER unless RULED ──
 const RETURN_FIRE_DELAY_S = 1.0;   // grace before a freshly-provoked ship returns fire
 const DOCK_MAX_VEL = 1.2;          // must be at/below this speed to dock ('require slow speed to dock!')

@@ -17,6 +17,7 @@ const BoardingSystem = {
   init(scene){
     scene.boarding = { active: false, target: null, elapsed: 0 };
     scene.tows = scene.tows || [];
+    scene.berthedPrizes = scene.berthedPrizes || [];   // EMPIRE-1a: docked, awaiting repair+crew before commissioning
   },
 
   isPinned(scene){ return scene.boarding && scene.boarding.active; },
@@ -118,7 +119,7 @@ const BoardingSystem = {
   // towed prizes trail the player at reduced speed; delivered when near an owned port
   _updateTows(scene, dt){
     if (!scene.tows || !scene.tows.length) return;
-    const pl = scene.player;
+    const pl = scene.player, t = scene.time.now/1000;
     for (let i = scene.tows.length - 1; i >= 0; i--){
       const s = scene.tows[i];
       // follow a point behind the player, capped to tow speed
@@ -126,16 +127,40 @@ const BoardingSystem = {
       const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy);
       const towCap = (P.maxSpeed || 2) * CAPTURE_TOW_SPEED_FRAC;
       if (d > 1){ const step = Math.min(d, towCap * dt); s.x += (dx/d)*step; s.y += (dy/d)*step; s.heading = pl.heading; }
-      // delivered? near one of the player's ports
+      // EMPIRE-1a: near one of the player's ports with a free berth? dock it —
+      // it does NOT become a runner yet. Stays a tow (unchanged) if the port is full.
       let delivered = null;
       for (const port of (scene.ownedPorts || [])){ if (Math.hypot(s.x - port.x, s.y - port.y) < PRIZE_DELIVER_RANGE){ delivered = port; break; } }
-      if (delivered){
-        s.beingTowed = false; s.alive = false;          // leaves the towed/world set
-        scene.tows.splice(i, 1);
-        scene.flashPopup(delivered.x, delivered.y - 30, 'PRIZE DELIVERED', 0x6ED0E0);
-        scene.events.emit(EV.PRIZE_DELIVERED, { ship: s, port: delivered });   // runners hook here
+      if (delivered && typeof Docks !== 'undefined'){
+        const slot = Docks.occupy(scene, delivered, s);
+        if (slot){
+          const p = Docks.slotPos(delivered, slot); s.x = p.x; s.y = p.y; s.vel = 0;   // snap onto the pad
+          s.beingTowed = false; s.state = 'berthed';
+          scene.tows.splice(i, 1);
+          scene.berthedPrizes.push(s);
+          scene.flashPopup(delivered.x, delivered.y - 30, 'PRIZE BERTHED — REPAIR + CREW TO COMMISSION', 0x6ED0E0);
+        } else if (!s._berthFullWarned || t - s._berthFullWarned > 6){
+          s._berthFullWarned = t;
+          scene.flashPopup(delivered.x, delivered.y - 30, 'PORT FULL — WAITING FOR A BERTH', 0xE0A040);
+        }
       }
     }
+  },
+
+  // EMPIRE-1a: call after repairing/crewing a berthed prize. Commissions it as a
+  // runner (fires the same EV.PRIZE_DELIVERED that RunnerSystem already listens
+  // for) once fully repaired AND crewed to its tier's minimum.
+  tryCommission(scene, prize){
+    if (!prize || prize.hull < prize.maxHull) return false;
+    const need = (typeof ShipTiers !== 'undefined') ? ShipTiers.minCrew(prize) : 0;
+    if ((prize.crew || 0) < need) return false;
+    const port = (scene.ownedPorts || []).find(p => p.id === prize.dockedAt);
+    if (port && typeof Docks !== 'undefined') Docks.release(scene, port, prize);
+    const idx = scene.berthedPrizes.indexOf(prize);
+    if (idx !== -1) scene.berthedPrizes.splice(idx, 1);
+    scene.flashPopup(prize.x, prize.y - 30, 'PRIZE DELIVERED', 0x6ED0E0);
+    scene.events.emit(EV.PRIZE_DELIVERED, { ship: prize, port: port || { x: prize.x, y: prize.y } });   // runners hook here
+    return true;
   },
 
   // progress bar + tow lines (world space)

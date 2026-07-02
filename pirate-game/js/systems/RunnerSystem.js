@@ -32,7 +32,11 @@ const RunnerSystem = {
     };
     if (typeof ShipTiers !== 'undefined') ShipTiers.apply(scene, r, true);
     else { r.maxHull = 130; r.hull = 130; }
-    r.hull = Math.max(1, Math.round(r.maxHull * 0.4));   // a battered prize repairs up from low hull
+    // EMPIRE-1a: a prize commissioned via the repair+crew gate arrives already at full
+    // hull — don't knock it back down. Legacy/dev-forced commissions (below 40%) still
+    // float up to a floor so the repair-phase visual isn't starting from near-zero.
+    const incomingHull = (ship && typeof ship.hull === 'number') ? ship.hull : Math.round(r.maxHull * 0.4);
+    r.hull = Math.min(r.maxHull, Math.max(incomingHull, Math.round(r.maxHull * 0.4)));
     scene.runners.push(r);
     scene.flashPopup(port.x, port.y - 44, 'RUNNER COMMISSIONED', 0x6ED0E0);
   },

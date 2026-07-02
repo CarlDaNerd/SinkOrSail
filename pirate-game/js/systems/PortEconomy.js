@@ -43,6 +43,11 @@ const PortEconomy = {
       const dTier = 1 + Math.floor(prng() * 3);                    // T1-T3 PLACEHOLDER
       port.derelict = { tier: dTier, price: (typeof SHIP_TIERS !== 'undefined' && ShipTiers.get(dTier).buy) ? Math.round(ShipTiers.get(dTier).buy * 0.55) : dTier * 300 };
     }
+    // EMPIRE-1b: finite stock per commodity, seeded at a starting fraction of cap;
+    // depleted by player purchases, replenished by docking merchants (AI.tradeRoute)
+    // and by player sales. PLACEHOLDER cap/seed — feel-tune.
+    port.stock = {};
+    for (const c of COMMODITIES) port.stock[c] = Math.round(PORT_STOCK_CAP * PORT_STOCK_START_FRAC);
     // navy/privateer presence
     port.navy = spec.navy === 'always' ? true : (spec.navy === 'maybe' ? prng() < 0.5 : false);
     port.privateer = (!port.navy && type === 'IronMine') ? prng() < 0.8 : false;
@@ -70,14 +75,26 @@ const PortEconomy = {
 
   priceFor(port, commodity, side){ return side === 'buy' ? this.buyPrice(port, commodity) : this.sellPrice(port, commodity); },
 
+  // EMPIRE-1b: add stock to a port (capped), used by merchant deliveries (AI.tradeRoute)
+  // and player sales. Returns the amount actually added.
+  deliver(port, commodity, qty){
+    if (!port.stock) port.stock = {};
+    const have = port.stock[commodity] || 0, room = Math.max(0, PORT_STOCK_CAP - have);
+    const add = Math.max(0, Math.min(qty, room));
+    port.stock[commodity] = have + add;
+    return add;
+  },
+
   // player buys `qty` of a commodity from the port (gold from bank -> hold)
   buy(scene, port, commodity, qty){
     const pl = scene.player, unit = this.sellPrice(port, commodity);
     const room = Cargo.free(pl.hold);
     const canAfford = Math.floor((pl.bank || 0) / unit);
-    const take = Math.max(0, Math.min(qty, room, canAfford));
+    const inStock = (port.stock ? port.stock[commodity] : null) || 0;   // EMPIRE-1b: finite stock caps purchase
+    const take = Math.max(0, Math.min(qty, room, canAfford, inStock));
     if (take <= 0) return 0;
     BankSystem.spend(scene, take * unit); Cargo.add(pl.hold, commodity, take);
+    if (port.stock) port.stock[commodity] = Math.max(0, inStock - take);
     scene.events.emit(EV.TRADE, { port, commodity, side:'sell', qty:take, gold:take * unit });
     return take;
   },
@@ -89,6 +106,7 @@ const PortEconomy = {
     const give = Math.max(0, Math.min(qty, have));
     if (give <= 0) return 0;
     Cargo.remove(pl.hold, commodity, give); BankSystem.credit(scene, give * unit);
+    this.deliver(port, commodity, give);   // EMPIRE-1b: sold goods join the port's physical stock
     scene.events.emit(EV.TRADE, { port, commodity, side:'buy', qty:give, gold:give * unit });
     return give;
   },
