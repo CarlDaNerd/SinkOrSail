@@ -201,7 +201,8 @@ class HUD {
   drawDevLog(){
     const gs = this.gs, dl = gs.devlog, on = !!(dl && dl.on);
     const baseY = (typeof TouchInput !== 'undefined') ? TouchInput.safeBottomY(GAME_H) - 6 : GAME_H - 30;
-    const vis = (typeof TouchInput !== 'undefined' && TouchInput.active) ? Math.min(DEVLOG_VISIBLE, DEVLOG_VISIBLE_TOUCH) : DEVLOG_VISIBLE;
+    // MB3-6: the reduced feed only applies in PHONE mode — tablets have the room
+    const vis = (typeof TouchInput !== 'undefined' && TouchInput.active && TouchInput.uiMode === 'phone') ? Math.min(DEVLOG_VISIBLE, DEVLOG_VISIBLE_TOUCH) : DEVLOG_VISIBLE;
     if (on){
       let hdr = 'DEV LOG  [L hide]';
       if (typeof AchievementSystem !== 'undefined' && gs.achievements){ const c = AchievementSystem.count(gs); hdr += '   ·   ACH ' + c.done + '/' + c.total + ' [J]'; }

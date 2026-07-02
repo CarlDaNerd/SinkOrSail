@@ -374,7 +374,11 @@ class GameScene extends Phaser.Scene {
     if (pl.hull > 0){
       let best = DOCK_RADIUS;
       for (const p of this.navyPorts){ const dd = Math.hypot(pl.x - p.x, pl.y - p.y); if (dd < best){ best = dd; this.nearPort = p; } }
-      if (this.nearPort && Phaser.Input.Keyboard.JustDown(this.keys.F)){
+      // MB3-3: the touch ACCESS-PORT button (shown only in dock range) fires the
+      // exact same path as F — same WANTED / in-combat guards, same save sweep.
+      const dockPressed = Phaser.Input.Keyboard.JustDown(this.keys.F) ||
+        (typeof TouchInput !== 'undefined' && TouchInput.active && TouchInput.justDown('dockPort'));
+      if (this.nearPort && dockPressed){
         if (this.navyHostile()) this.flashPopup(pl.x, pl.y, 'PORT CLOSED — WANTED', 0xE0503A);
         else if (this.inCombat()) this.flashPopup(pl.x, pl.y, "CAN'T DOCK IN COMBAT", 0xE0503A);
         else { this.docked = true; this.dockPort = this.nearPort; pl.vel = 0; this.events.emit(EV.DOCK_ENTERED, { port: this.nearPort }); Systems.onDock(this, this.nearPort); if (Save.write(this)) this.flashPopup(pl.x, pl.y - 40, 'GAME SAVED', 0x8AAAC8); }   // sweep gold->bank, then auto-save
@@ -416,9 +420,15 @@ class GameScene extends Phaser.Scene {
         if (!(a >= 0 && a < 1)) continue;                       // also skips old-format entries safely
         const grow = 4 + a*11, alpha = 0.34 * (1 - a);
         const px = Math.cos(r.heading*RAD), py = Math.sin(r.heading*RAD);   // perpendicular to travel
+        // MB3-4: the arc sweep must ROTATE with the ripple's heading — it was a
+        // fixed 0..π / π..2π (screen axes), so the half-circles only faced the
+        // right way for east/west travel and flipped inside-out elsewhere. φ is
+        // the travel direction in canvas-arc angle terms; each arc now bulges
+        // AWAY from the travel line (surf spreading outward) at every heading.
+        const phi = r.heading*RAD - Math.PI/2;
         gw.lineStyle(1.5, col, alpha);
-        gw.beginPath(); gw.arc(r.x - px*grow*0.7, r.y - py*grow*0.7, grow, 0, Math.PI); gw.strokePath();
-        gw.beginPath(); gw.arc(r.x + px*grow*0.7, r.y + py*grow*0.7, grow, Math.PI, TAU); gw.strokePath();
+        gw.beginPath(); gw.arc(r.x + px*grow*0.7, r.y + py*grow*0.7, grow, phi, phi + Math.PI); gw.strokePath();
+        gw.beginPath(); gw.arc(r.x - px*grow*0.7, r.y - py*grow*0.7, grow, phi + Math.PI, phi + TAU); gw.strokePath();
       }
     };
     drawWake(this.player, 0xCFE8F5);

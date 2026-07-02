@@ -39,26 +39,15 @@ const TouchInput = {
   init(uiScene, gameScene){
     this._scene = gameScene;
     this.active = this.isTouchDevice();
+    // MB3-6: phone/tablet optimization mode — user setting (pause menu) wins,
+    // else auto-detect by the device's smaller dimension. Persisted separately
+    // from Carl's SaveSystem (pure UI preference, not game state).
+    this.uiMode = this._detectUIMode();
     if (!this.active) return;                     // desktop: no overlay, no reads
 
     this._buildButtons(uiScene);
+    this._applyModeScale();                                   // MB3-6
     this._buildPauseButton(uiScene);
-    // MB2-9: flag the DOM as a touch device — index.html shows the portrait
-    // "ROTATE YOUR DEVICE" overlay only for body.touchdev.
-    document.body.classList.add('touchdev');
-    // FLAG-5 ruling (Noah): AUTO-PAUSE when rotated to portrait. Opens the pause
-    // menu (resume stays manual — no surprise unpause on rotate-back). Checks the
-    // current orientation once at init too, in case the game loads in portrait.
-    try {
-      const mq = window.matchMedia('(orientation: portrait)');
-      const onFlip = () => {
-        const gs = this._scene;
-        if (mq.matches && gs && !gs.menuOpen && gs.toggleMenu) gs.toggleMenu();
-      };
-      if (mq.addEventListener) mq.addEventListener('change', onFlip);
-      else if (mq.addListener) mq.addListener(onFlip);               // older Safari
-      onFlip();
-    } catch (e) { /* matchMedia unavailable — overlay alone still blocks input */ }
     // resize: re-fit the canvas is handled by Phaser.Scale.RESIZE (main.js);
     // we just reposition our buttons when the game size changes.
     uiScene.scale.on('resize', () => this._layout());
@@ -111,6 +100,18 @@ const TouchInput = {
     g.fillStyle(color, 1);
     g.fillTriangle(1*s, -13*s, 12*s, 9*s, 1*s, 9*s);            // sail
   },
+  // MB3-3: anchor — ring, shank, stock, curved arms with fluke tips.
+  _iconAnchor(g, color, r){
+    const s = r / TOUCH_CIRCLE_R_CHASER;
+    g.lineStyle(2.5*s, color, 1);
+    g.strokeCircle(0, -12*s, 3.5*s);                            // ring
+    g.lineBetween(0, -8.5*s, 0, 12*s);                          // shank
+    g.lineBetween(-7*s, -4*s, 7*s, -4*s);                       // stock
+    g.beginPath(); g.arc(0, 4*s, 10*s, Math.PI*0.15, Math.PI*0.85); g.strokePath();   // arms
+    g.fillStyle(color, 1);
+    g.fillTriangle(-13*s, 8*s, -7*s, 6*s, -9*s, 13*s);          // port fluke
+    g.fillTriangle(13*s, 8*s, 7*s, 6*s, 9*s, 13*s);             // starboard fluke
+  },
 
   _buildButtons(scene){
     // MB2 layout: LEFT bottom-third = PORT broadside; RIGHT = STARBOARD. Chasers
@@ -125,6 +126,9 @@ const TouchInput = {
     this._mkCircleButton(scene, 'fireBow',   TOUCH_CIRCLE_R_CHASER, C,  0);
     this._mkCircleButton(scene, 'fireStern', TOUCH_CIRCLE_R_CHASER, C,  Math.PI);
     this._mkCircleButton(scene, 'sailCycle', TOUCH_CIRCLE_R_CHASER, (g, c, r) => this._iconSail(g, c, r), 0);
+    // MB3-3: ACCESS PORT — appears only while in dock range (gated in
+    // setControlsVisible); fires the same guarded dock path as the F key.
+    this._mkCircleButton(scene, 'dockPort', TOUCH_CIRCLE_R_CANNON, (g, c, r) => this._iconAnchor(g, c, r), 0);
     this._layout();
   },
 
@@ -179,36 +183,55 @@ const TouchInput = {
         if (scene.scale.fullscreen && scene.scale.fullscreen.available) scene.scale.startFullscreen();
         else if (el.requestFullscreen) el.requestFullscreen();
         else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        this._lockLandscape();                                   // MB2-9
       }
     } catch (e) { /* fullscreen refusal is non-fatal */ }
-  },
-  // MB2-9: orientation lock only works in fullscreen, Android Chrome; a rejected
-  // promise elsewhere is expected and swallowed. The portrait CSS overlay
-  // (index.html #rotateOverlay) is the universal fallback.
-  _lockLandscape(){
-    try {
-      if (screen.orientation && screen.orientation.lock)
-        screen.orientation.lock('landscape').catch(() => {});
-    } catch (e) { /* not supported */ }
   },
 
   _layout(){
     if (!this.active) return;
     const sz = (this._scene && this._scene.scale) ? this._scene.scale.gameSize : { width: GAME_W, height: GAME_H };
     const W = sz.width, H = sz.height, m = TOUCH_MARGIN, gap = TOUCH_BTN_GAP;
-    const cy = H * 0.78;                                   // bottom-third band (PLACEHOLDER)
-    const rC = TOUCH_CIRCLE_R_CANNON, rS = TOUCH_CIRCLE_R_CHASER;
+    const k = this._modeScale();                              // MB3-6: tablet scales the whole cluster
+    const rC = TOUCH_CIRCLE_R_CANNON*k, rS = TOUCH_CIRCLE_R_CHASER*k;
+    // MB3-5: layout anchors BOTTOM-UP from the live screen edge, so the full
+    // three-row stack (chaser / cannon / sails) is guaranteed on-screen in ANY
+    // orientation. The old cy = H*0.78 midpoint clipped the sails button off the
+    // bottom on landscape phones (stack bottom landed past H). Rows:
+    //   sails row (left only)  → bottom edge at H - m
+    //   cannon row             → above sails
+    //   chaser row             → above cannons
+    const sy = H - m - rS;                 // sails center
+    const cy = sy - rS - gap - rC;         // cannon centers
+    const hy = cy - rC - gap - rS;         // chaser centers
     const pos = {
       cannonL:   [m + rC,      cy],
       cannonR:   [W - m - rC,  cy],
-      fireBow:   [m + rS,      cy - rC - rS - gap],
-      fireStern: [W - m - rS,  cy - rC - rS - gap],
-      sailCycle: [m + rS,      cy + rC + rS + gap],
+      fireBow:   [m + rS,      hy],
+      fireStern: [W - m - rS,  hy],
+      sailCycle: [m + rS,      sy],
+      dockPort:  [W / 2,       cy],        // MB3-3: bottom-center (FLAG-7 PLACEHOLDER)
     };
     for (const b of this._btns){ const p = pos[b._touchName]; if (p) b.setPosition(p[0], p[1]); }
     if (this._pauseBtn) this._pauseBtn.setPosition(m, m);
     if (this._fsBtn) this._fsBtn.setPosition(m + 56, m);
+  },
+
+  // ── MB3-6 phone/tablet mode ──────────────────────────────────────────────
+  uiMode: 'phone',
+  _detectUIMode(){
+    try { const s = localStorage.getItem('sos_uiMode'); if (s === 'phone' || s === 'tablet') return s; } catch (e) {}
+    return Math.min(window.innerWidth, window.innerHeight) >= TABLET_MIN_DIM ? 'tablet' : 'phone';
+  },
+  setUIMode(mode){
+    this.uiMode = (mode === 'tablet') ? 'tablet' : 'phone';
+    try { localStorage.setItem('sos_uiMode', this.uiMode); } catch (e) {}
+    if (!this.active) return;
+    this._applyModeScale(); this._layout();
+  },
+  _modeScale(){ return this.uiMode === 'tablet' ? TABLET_BTN_SCALE : 1; },
+  _applyModeScale(){
+    const k = this._modeScale();
+    for (const b of this._btns){ b.bg.setScale(k); b.icon.setScale(k); }
   },
 
   // ── read API (consumed by GameScene) ────────────────────────────────────────
@@ -220,8 +243,17 @@ const TouchInput = {
     return false;
   },
 
-  // y-coordinate of the top of the reserved control band (MW-12). Desktop: near screen bottom.
-  safeBottomY(H){ return this.active ? H * (1 - TOUCH_SAFE_BOTTOM_FRAC) : H - 30; },
+  // y-coordinate of the top of the reserved control band (MW-12). Desktop: near
+  // screen bottom. MB3-6: the band is the ACTUAL button-stack height in BOTH
+  // modes, mirroring _layout's row math — the old flat 30% both over-reserved on
+  // tall portrait screens (wasted HUD space) and UNDER-reserved in phone
+  // landscape (30% of 390px = 117px vs a 232px stack → HUD overlapped buttons).
+  safeBottomY(H){
+    if (!this.active) return H - 30;
+    const k = this._modeScale(), rC = TOUCH_CIRCLE_R_CANNON*k, rS = TOUCH_CIRCLE_R_CHASER*k;
+    const stack = 2*rS + TOUCH_BTN_GAP + 2*rC + TOUCH_BTN_GAP + 2*rS;   // chaser+cannon+sails rows
+    return H - TOUCH_MARGIN - stack - 8;
+  },
 
   // ── MB2-4 tap-to-steer (replaces MW-7 slide-to-steer) ── press-and-HOLD the
   // LEFT half of the open screen to turn left, RIGHT half to turn right; release
@@ -264,31 +296,25 @@ const TouchInput = {
         if (b._touchName === 'fireBow')   show = ShipTiers.has(pl, 'bow');
         if (b._touchName === 'fireStern') show = ShipTiers.has(pl, 'stern');
       }
+      // MB3-3: ACCESS PORT only inside dock range
+      if (show && b._touchName === 'dockPort') show = !!(this._scene && this._scene.nearPort);
       b.setVisible(show);
     }
   },
 
-  // ── world-tap: dock or capture ───────────────────────────────────────────────
+  // ── world-tap: capture only (MB3-3) ─────────────────────────────────────────
   // Wired from GameScene: a pointerdown on the world (not on a button/overlay).
-  // Noah's rule: in combat → capture; not in combat → dock. Capture fns already
-  // self-check range + threshold and return truthy when they consume.
+  // In combat → capture (port-capture wins over boarding, matches B). Outside
+  // combat a tap does NOTHING now — docking moved to the dedicated ACCESS-PORT
+  // button (MB3-3), because "tap anywhere = open port menu" fired constantly
+  // while maneuvering near a port.
   handleWorldTap(scene){
     if (!this.active) return;
     if (scene.menuOpen || scene.mapOpen || scene.docked) return;
     const pl = scene.player; if (!pl || pl.hull <= 0) return;
     if (scene.inCombat()){
-      // capture: port-capture wins over boarding if both are eligible (matches B key)
       let consumed = (typeof PortCaptureSystem !== 'undefined') && PortCaptureSystem.tryCapture(scene);
       if (!consumed && typeof BoardingSystem !== 'undefined') BoardingSystem.tryBoard(scene);
-    } else {
-      // dock: reuse the exact near-port dock branch conditions
-      if (scene.nearPort){
-        if (scene.navyHostile()) scene.flashPopup(pl.x, pl.y, 'PORT CLOSED — WANTED', 0xE0503A);
-        else { scene.docked = true; scene.dockPort = scene.nearPort; pl.vel = 0;
-          scene.events.emit(EV.DOCK_ENTERED, { port: scene.nearPort });
-          Systems.onDock(scene, scene.nearPort);
-          if (Save.write(scene)) scene.flashPopup(pl.x, pl.y - 40, 'GAME SAVED', 0x8AAAC8); }
-      }
     }
   },
 };
