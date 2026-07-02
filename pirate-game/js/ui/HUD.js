@@ -268,7 +268,8 @@ class HUD {
       const l0 = (typeof BountySystem !== 'undefined') ? '[0] Accept bounty (hunt a pirate)' : '';
       // SW1 (RULED e): swap is offered in the dock menu whenever a prize is in tow
       const lV = (gs.tows && gs.tows.length) ? '[V] Make towed prize your flagship' : '';
-      const extra = [l6, l7, l8, l9, l0, lV].filter(Boolean).join('\n');
+      const lB = (port.derelict && typeof ShipTiers !== 'undefined') ? '[B] Buy docked ' + ShipTiers.get(port.derelict.tier).name + '  —  ' + port.derelict.price + 'g' : '';   // PF1
+      const extra = [l6, l7, l8, l9, l0, lV, lB].filter(Boolean).join('\n');
       this.tDockMenu.setText('⚓  ' + port.name + '   (' + (port.type || 'Port') + ')\n\nGOLD  ' + (pl.bank || 0) + '     HOLD  ' + cargo + '     CREW  ' + (pl.crew || 0) + '/' + crewCap + '\n\n' + l1 + '\n' + l2 + '\n[3] Sell all cargo\n' + l4 + '\n' + l5 + (extra ? '\n' + extra : '') + '\n\n[F] Depart').setVisible(true);
       this.tDockPrompt.setVisible(false);
     } else if (gs.nearPort){
