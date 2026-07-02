@@ -88,12 +88,28 @@ class GameScene extends Phaser.Scene {
   // for regions that haven't streamed in yet. (One-time ±PORT_REGION_RADIUS scan.)
   placeStartPorts(){
     const R = PORT_REGION_RADIUS;
-    const NAMES = ['Port Royal','Tortuga','Nassau','Havana','Cartagena','Kingston','Bridgetown','San Juan','Maracaibo','Campeche','Porto Bello','Willemstad','Santiago','Bonaire','Eleuthera','Petit Goave','Panama','Veracruz','Trinidad','Barbados','Curacao','Aruba','Antigua','Martinique'];
+    // PF1: culturally-themed unique names (doc II) — culture is deterministic per
+    // port index and stored on the port as the M9 regional-ship-type hook.
+    const CULTURE_NAMES = {
+      caribbean: ['Port Royal','Tortuga','Nassau','Havana','Cartagena','Kingston','Maracaibo','Porto Bello','Petit Goave','Veracruz','Campeche','Willemstad'],
+      norse:     ['Skjoldhavn','Ravnfjord','Ulvvik','Jarnstrand','Hvalness','Stormskjer','Bjornoy','Frosthamn','Seidrvik','Drakkarsund'],
+      eastern:   ['Jinlong Bay','Xiapu Harbor','Nagakura','Tanjong Mas','Ryujin Port','Haimen Roads','Kotohira','Zhenhai Gate','Amoy Reach','Penglai Quay'],
+      colonial:  ['New Aldermoor','Kingsreach','Fort Weatherby','Graves End','Blackwharf','Harrowgate','St. Ives Landing','Windmere','Copperfield Port','Ashmouth'],
+    };
+    const CULTURES = Object.keys(CULTURE_NAMES), cIdx = { caribbean:0, norse:0, eastern:0, colonial:0 };
+    const portName = (i) => {
+      const culture = CULTURES[i % CULTURES.length];               // deterministic rotation
+      const pool = CULTURE_NAMES[culture], n = cIdx[culture]++;
+      const name = pool[n % pool.length] + (n >= pool.length ? ' ' + ('II III IV V'.split(' ')[Math.floor(n / pool.length) - 1] || (1 + Math.floor(n / pool.length))) : '');
+      return { name, culture };
+    };
     let ni = 0;
     const ports = [];
     const mk = (x, y, type, prng) => {
       const sr = PORT_TYPES[type].slots, slots = sr[0] + Math.floor(prng() * (sr[1] - sr[0] + 1));
-      const p = new Port(x, y, NAMES[ni++ % NAMES.length], slots);
+      const pn = portName(ni++);                                   // PF1
+      const p = new Port(x, y, pn.name, slots);
+      p.culture = pn.culture;                                      // M9 hook: regional ship types read this later
       PortEconomy.assignType(p, type, prng);
       return p;
     };
@@ -313,6 +329,7 @@ class GameScene extends Phaser.Scene {
     if (this.docked){
       if (Phaser.Input.Keyboard.JustDown(this.keys.F)){ this.docked = false; this.dockPort = null; }
       if (Phaser.Input.Keyboard.JustDown(this.keys.V)) this.swapToPrize();   // AUD-3: dock-menu [V] swap (RULED a: docked too)
+      if (Phaser.Input.Keyboard.JustDown(this.keys.B)) this.buyDerelict();   // PF1: buy the quay hull
       else if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) this.repairAtPort();
       else if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) this.restockAtPort();
       else if (Phaser.Input.Keyboard.JustDown(this.keys.THREE)) this.sellAllAtPort();
@@ -457,6 +474,25 @@ class GameScene extends Phaser.Scene {
     ShipTiers.apply(this, tow, false); tow.crew = 0;                 // tows stay crewless
     this.flashPopup(pl.x, pl.y - 30, '⚓ FLAGSHIP: ' + spec.name.toUpperCase(), 0x6ED0E0);
     this.events.emit('ship-tier-changed', { ship: pl, tier: pl.tier });
+  }
+
+  // PF1: buy the derelict hull at this port's quay → joins your tow line
+  buyDerelict(){
+    const port = this.dockPort, pl = this.player;
+    if (!port || !port.derelict){ this.flashPopup(pl.x, pl.y - 30, 'NO HULL FOR SALE HERE', 0xE0503A); return; }
+    const d = port.derelict;
+    if (typeof BankSystem === 'undefined' || !BankSystem.spend(this, d.price)){
+      this.flashPopup(pl.x, pl.y - 30, 'NEED ' + d.price + 'g IN THE BANK', 0xE0503A); return;
+    }
+    const tow = { id: 'buy_' + Math.random().toString(36).slice(2, 8), x: pl.x + 30, y: pl.y + 30, heading: pl.heading,
+      tier: d.tier, hull: 1, crew: 0, vel: 0, faction: 'prize', state: 'towed', beingTowed: true,
+      alive: true, wake: [], fire: { port:0, star:0, bow:0, stern:0 } };
+    if (typeof ShipTiers !== 'undefined'){ ShipTiers.apply(this, tow, true); tow.hull = Math.round(tow.maxHull * 0.5); }   // sold 'as-is' at half hull (PLACEHOLDER)
+    if (!this.tows) this.tows = [];
+    this.tows.push(tow);
+    port.derelict = null;
+    if (typeof Island !== 'undefined' && Island.drawPortMarkers) Island.drawPortMarkers(this);
+    this.flashPopup(pl.x, pl.y - 30, '⚓ HULL PURCHASED — IN TOW', 0x6ED0E0);
   }
 
   draw(){

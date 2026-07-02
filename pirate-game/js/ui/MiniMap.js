@@ -21,7 +21,10 @@ function drawMiniMap(g, gs, pl){
     g.fillStyle((is.mainland || is.big) ? 0x3D6E25 : 0x4C8A30, 0.95);
     for (const e of is.ells) if (within(e.cx, e.cy, e.rx)) g.fillCircle(w2x(e.cx), w2y(e.cy), Math.max(1, e.rx*scale));
   }
-  for (const p of gs.navyPorts) if (within(p.x, p.y)){ g.fillStyle((PORT_TYPES[p.type] && PORT_TYPES[p.type].color) || 0x8AC8E0, 1); g.fillCircle(w2x(p.x), w2y(p.y), 2.8); }
+  for (const p of gs.navyPorts) if (within(p.x, p.y)){
+    g.fillStyle((PORT_TYPES[p.type] && PORT_TYPES[p.type].color) || 0x8AC8E0, 1); g.fillCircle(w2x(p.x), w2y(p.y), 2.8);
+    if (p.owner === 'player'){ g.lineStyle(1.2, 0xF0C840, 0.95); g.strokeCircle(w2x(p.x), w2y(p.y), 4.6); }   // PF1: yours = gold ring
+  }
   // ships: ALL within the sight range (the whole minimap), faction-coloured
   for (const s of gs.ships){ if (!s.alive || !within(s.x, s.y)) continue; const c = { merchant:0xD0AA70, pirate:0xE0503A, navy:0x6AB0D8, privateer:0x6AC060 }[s.faction]; g.fillStyle(c, 1); g.fillCircle(w2x(s.x), w2y(s.y), 1.8); }
   // DOC-V: highlight marker for hunted bounty targets — red double ring over any

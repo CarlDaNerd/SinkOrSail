@@ -92,6 +92,13 @@ const Island = {
           pg.lineStyle(1, 0x0E1820, 0.6); pg.strokeRect(bx - 5, by - 5, 10, 10);
           pg.lineStyle(2, 0x4A3018, 0.9);
         }
+        // PF1: a derelict hull for sale sits at the end of the quay — grey hull + mast stub
+        if (np.derelict){
+          const q2 = q[q.length - 1], hx = np.x + q2.dx + 16, hy = np.y + q2.dy;
+          pg.fillStyle(0x707A84, 0.95);
+          pg.fillTriangle(hx - 7, hy - 3, hx + 9, hy, hx - 7, hy + 3);
+          pg.lineStyle(1.5, 0x9AA4AE, 0.9); pg.lineBetween(hx, hy, hx, hy - 7);
+        }
       }
     }
   },

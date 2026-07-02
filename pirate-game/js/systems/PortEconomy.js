@@ -30,6 +30,16 @@ const PortEconomy = {
       const n = 1 + Math.floor(prng() * 2);                 // 1-2 towers
       for (let i = 0; i < n; i++){ const a = prng() * Math.PI * 2; port.towers.push({ x: port.x + Math.cos(a) * 70, y: port.y + Math.sin(a) * 70, cd: 0 }); }
     }
+    // PF1: some ports hold an unmanned derelict hull for sale at the quay
+    // (doc II: 'unmanned docked ships you can buy'). Deterministic per run;
+    // bought hulls join your tow line (feeds the swap/runner/delivery pipes).
+    // NOTE: purchase is SESSION-ONLY — port state isn't saved, so a bought
+    // derelict reappears next boot (flagged for SaveSystem).
+    port.derelict = null;
+    if (prng() < 0.25){
+      const dTier = 1 + Math.floor(prng() * 3);                    // T1-T3 PLACEHOLDER
+      port.derelict = { tier: dTier, price: (typeof SHIP_TIERS !== 'undefined' && ShipTiers.get(dTier).buy) ? Math.round(ShipTiers.get(dTier).buy * 0.55) : dTier * 300 };
+    }
     // navy/privateer presence
     port.navy = spec.navy === 'always' ? true : (spec.navy === 'maybe' ? prng() < 0.5 : false);
     port.privateer = (!port.navy && type === 'IronMine') ? prng() < 0.8 : false;

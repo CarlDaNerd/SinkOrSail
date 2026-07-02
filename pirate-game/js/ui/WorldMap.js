@@ -43,8 +43,47 @@ function drawWorldMap(g, landG, maskG, gs){
   for (const p of gs.navyPorts){
     if (!inExplored(p.x, p.y)) continue;
     const col = (PORT_TYPES[p.type] && PORT_TYPES[p.type].color) || 0x8AC8E0;
-    landG.fillStyle(col, 1); landG.fillCircle(w2x(p.x), w2y(p.y), 4);
-    landG.lineStyle(1.5, 0x2A9EAE, 0.6); landG.strokeCircle(w2x(p.x), w2y(p.y), 8);
+    const px = w2x(p.x), py = w2y(p.y);
+    landG.fillStyle(col, 1); landG.fillCircle(px, py, 4);
+    // PF1: YOUR ports read at a glance — gold ring + pennant tick (doc VI)
+    if (p.owner === 'player'){
+      landG.lineStyle(2, 0xF0C840, 0.95); landG.strokeCircle(px, py, 8);
+      landG.fillStyle(0xF0C840, 0.95); landG.fillTriangle(px, py - 14, px, py - 8, px + 6, py - 11);
+      landG.lineStyle(1.5, 0xF0C840, 0.8); landG.lineBetween(px, py - 14, px, py - 8);
+    } else { landG.lineStyle(1.5, 0x2A9EAE, 0.6); landG.strokeCircle(px, py, 8); }
+    // PF1: what the port SELLS — a diamond beside the dot in the commodity's color
+    const src = p.sourceCommodity;
+    if (src && typeof COMMODITY_INFO !== 'undefined' && COMMODITY_INFO[src]){
+      const cc = COMMODITY_INFO[src].color, dx = px + 9, dy = py + 6;
+      landG.fillStyle(cc, 1); landG.fillTriangle(dx, dy - 4, dx + 4, dy, dx, dy + 4);
+      landG.fillTriangle(dx, dy - 4, dx - 4, dy, dx, dy + 4);
+    }
+  }
+  // PF1: live weather on the chart (doc VI) — drawn even outside revealed cells
+  // (weather is radar, not cartography). Icons by type at the event's center.
+  const wx = gs.weather;
+  if (wx && wx.active && wx.data){
+    const d = wx.data;
+    if (wx.active === 'cyclone' && d.cx != null){
+      const cx = w2x(d.cx), cy = w2y(d.cy);
+      g.lineStyle(2, 0xE0503A, 0.9);
+      for (let k = 0; k < 3; k++){ g.beginPath(); g.arc(cx, cy, 4 + k*3, k*2.1, k*2.1 + 4.2); g.strokePath(); }
+    } else if (wx.active === 'storm' && d.cx != null){
+      g.fillStyle(0x3A4A5C, 0.85); g.fillCircle(w2x(d.cx), w2y(d.cy), 7);
+      g.lineStyle(2, 0xF0E060, 0.95); const sx = w2x(d.cx), sy = w2y(d.cy);
+      g.lineBetween(sx - 2, sy - 3, sx + 1, sy); g.lineBetween(sx + 1, sy, sx - 1, sy + 4);
+    } else if (wx.active === 'tsunami' && d.cx != null){
+      g.lineStyle(1.5, 0x6ED0E0, 0.9);
+      g.strokeCircle(w2x(d.cx), w2y(d.cy), 5); g.strokeCircle(w2x(d.cx), w2y(d.cy), 9);
+    } else if (wx.active === 'snow' && d.bergs && d.bergs.length){
+      g.fillStyle(0xEAF4FA, 0.9);
+      for (let k = 0; k < Math.min(5, d.bergs.length); k++){ const b = d.bergs[k]; g.fillCircle(w2x(b.x), w2y(b.y), 1.6); }
+    } else if (wx.active === 'rain'){
+      // ambient rain: streak glyph pinned by the player (no fixed center)
+      const rx = w2x(gs.player.x) + 14, ry = w2y(gs.player.y) - 14;
+      g.lineStyle(1.5, 0x9FC0D8, 0.9);
+      for (let k = 0; k < 3; k++) g.lineBetween(rx + k*4, ry, rx + k*4 - 3, ry + 6);
+    }
   }
   // player marker — the SAME heading-arrow icon the minimap uses (masked layer; the
   // player is always within revealed cells)
