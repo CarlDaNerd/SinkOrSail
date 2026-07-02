@@ -46,13 +46,12 @@ const PortCaptureSystem = {
   // called from the shared B handler; returns true if it consumed the press
   // I18-3: side-effect-free peek for the HUD hint box
   isReady(scene){
-    return !!this.nearestCapturable(scene) && scene.ownedPorts.length < MAX_OWNED_PORTS;
+    return !!this.nearestCapturable(scene);                 // doc VI: ownership cap removed
   },
 
   tryCapture(scene){
     const port = this.nearestCapturable(scene);
     if (!port) return false;
-    if (scene.ownedPorts.length >= MAX_OWNED_PORTS){ scene.flashPopup(scene.player.x, scene.player.y, 'TOO MANY PORTS', 0xE0503A); return true; }
     port.owner = 'player';
     port.hull = port.maxHull;                 // garrison repairs it on takeover
     port.towers = port.towers || [];          // its towers are now yours (they won't target you while owned)
