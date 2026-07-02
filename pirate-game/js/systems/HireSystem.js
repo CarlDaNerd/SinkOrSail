@@ -113,7 +113,7 @@ const HireSystem = {
     const wa = windOff(e.heading, WindSystem.dirAt(scene, e.x, e.y));
     const cruise = desiredSpeed / (P.maxSpeed || 2);
     const wxMult = (typeof WeatherSystem !== 'undefined') ? WeatherSystem.speedMult(scene) : 1;   // rain following-breeze boost
-    const tspd = calcTargetSpeed(wa) * SAIL_MULTIPLIERS[e.sailState] * cruise * wxMult;
+    const tspd = calcTargetSpeed(wa) * SAIL_MULTIPLIERS[e.sailState] * cruise * wxMult * (WindSystem.speedFactor ? WindSystem.speedFactor(scene) : 1);
     e.vel += (tspd - e.vel) * Math.min(0.012 * dt, 1);
     Collision.moveShip(scene, e, dt);
     scene.pushWake(e);

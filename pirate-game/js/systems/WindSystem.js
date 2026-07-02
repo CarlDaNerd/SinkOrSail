@@ -30,6 +30,8 @@ const WindSystem = {
       phase: WIND_OSC_PERIODS.map(() => this._prng() * TAU),   // fixed oscillation phases (per launch)
       dir: prevailing,                                    // current AMBIENT wind bearing (base + oscillation)
       gust: 1,                                            // oscillation-amplitude multiplier (weather cranks this)
+      strPhase: WIND_STR_PERIODS.map(() => this._prng() * TAU),   // WD1: strength-wave phases (per launch)
+      strength: 1,                                        // WD1: current speed factor (≈ 1 ± WIND_STR_AMP)
     };
   },
 
@@ -43,6 +45,9 @@ const WindSystem = {
     return (typeof WeatherSystem !== 'undefined' && WeatherSystem.cycloneDirAt)
       ? WeatherSystem.cycloneDirAt(scene, x, y, ambient) : ambient;
   },
+
+  // WD1: global sailing-speed factor from the wind's current strength
+  speedFactor(scene){ return (scene.wind && scene.wind.strength) ? scene.wind.strength : 1; },
 
   // seconds until the next front — mean ≈ windShiftEvery (rolled 0.5×–1.5×)
   _shiftGap(){ return P.windShiftEvery * (0.5 + this._prng()); },
@@ -91,6 +96,12 @@ const WindSystem = {
     // ease the prevailing base along the active front (smoothstep), else hold at target
     if (t < w.shiftEnd) w.base = this._angLerp(w.from, w.to, this._smooth((t - w.shiftStart) / (w.shiftEnd - w.shiftStart)));
     else                w.base = w.to;
+
+    // WD1 (doc VI): the wind's STRENGTH breathes too — two slow incommensurate
+    // sines swing every hull's sailing speed ≈ ±WIND_STR_AMP. Pure function of
+    // time (like the direction oscillation), so it needs no saved state.
+    w.strength = 1 + WIND_STR_AMP * (0.65 * Math.sin(TAU * t / WIND_STR_PERIODS[0] + w.strPhase[0])
+                                   + 0.35 * Math.sin(TAU * t / WIND_STR_PERIODS[1] + w.strPhase[1]));
 
     w.dir = (w.base + this._osc(scene, t) + 360) % 360;              // prevailing + oscillation → ambient wind
     P.windFrom = w.dir;                                              // keep the global in sync (ambient; dirAt adds local swirl)
