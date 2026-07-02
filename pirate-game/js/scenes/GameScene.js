@@ -477,8 +477,21 @@ class GameScene extends Phaser.Scene {
         // AWAY from the travel line (surf spreading outward) at every heading.
         const phi = r.heading*RAD - Math.PI/2;
         gw.lineStyle(1.5, col, alpha);
-        gw.beginPath(); gw.arc(r.x + px*grow*0.7, r.y + py*grow*0.7, grow, phi, phi + Math.PI); gw.strokePath();
-        gw.beginPath(); gw.arc(r.x - px*grow*0.7, r.y - py*grow*0.7, grow, phi + Math.PI, phi + TAU); gw.strokePath();
+        // MB3-4b: Phaser's Graphics.arc WRAPS angles, so sweeps crossing 2π
+        // (which φ+π..φ+2π does at most headings) render flipped — only
+        // west-ish headings stayed in range, hence 'only correct sailing west'.
+        // Draw the half-circles as explicit polylines instead: renderer-proof.
+        const half = (cx, cy, rr, a0) => {
+          gw.beginPath();
+          for (let k = 0; k <= 8; k++){
+            const th = a0 + k * (Math.PI / 8);
+            const X = cx + Math.cos(th) * rr, Y = cy + Math.sin(th) * rr;
+            if (k === 0) gw.moveTo(X, Y); else gw.lineTo(X, Y);
+          }
+          gw.strokePath();
+        };
+        half(r.x + px*grow*0.7, r.y + py*grow*0.7, grow, phi);              // starboard arc, bulges out
+        half(r.x - px*grow*0.7, r.y - py*grow*0.7, grow, phi + Math.PI);    // port arc, bulges out
       }
     };
     drawWake(this.player, 0xCFE8F5);
