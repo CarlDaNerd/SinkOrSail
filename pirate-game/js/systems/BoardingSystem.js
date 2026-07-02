@@ -28,6 +28,14 @@ const BoardingSystem = {
     const pl = scene.player;
     if (typeof ShipTiers === 'undefined') return true;
     const myT = pl.tier || 1, tgtT = target.tier || 1;          // enemies are untiered → tier 1
+    // LV1: the Leviathan uses the doc's DUAL condition instead of the tier
+    // ladder — hull gate already applied by eligibleTarget; here the boarding
+    // party (your crew + nearby hired privateers) must reach tier-6 board (200)
+    if (target.isLeviathan){
+      if (typeof LeviathanSystem === 'undefined') return false;
+      const need = ShipTiers.get(6).board || 200;
+      return LeviathanSystem.effectiveBoarders(scene) >= need;
+    }
     if (tgtT > myT + 1) return false;                           // too big to solo (needs a fleet)
     // CQ: the boarders needed are the target's BOARD crew (doc: operate vs board
     // split), not its full minCrew — the old formula made even T1->T2 fail
@@ -42,7 +50,8 @@ const BoardingSystem = {
     const pl = scene.player; let best = null, bd = CAPTURE_RANGE;
     for (const s of scene.ships){
       if (!s.alive || s.beingTowed) continue;
-      if (s.hull > s.maxHull * CAPTURE_HULL_THRESHOLD_PCT / 100) continue;
+      const thr = s.isLeviathan ? LEV_CAPTURE_HULL_PCT : CAPTURE_HULL_THRESHOLD_PCT;   // LV1: doc-locked 10% for the Leviathan
+      if (s.hull > s.maxHull * thr / 100) continue;
       const d = Math.hypot(s.x - pl.x, s.y - pl.y);
       if (d < bd){ bd = d; best = s; }
     }
@@ -57,6 +66,10 @@ const BoardingSystem = {
     const t = this.eligibleTarget(scene);
     if (!t) return false;
     if (!this.canCapture(scene, t)){
+      if (t.isLeviathan && typeof LeviathanSystem !== 'undefined'){
+        const need = ShipTiers.get(6).board || 200;
+        scene.flashPopup(pl.x, pl.y, 'THE LEVIATHAN NEEDS ' + need + ' BOARDERS — YOU MUSTER ' + LeviathanSystem.effectiveBoarders(scene) + ' (BRING PRIVATEERS CLOSE)', 0xE0503A); return true;
+      }
       const tooBig = (t.tier || 1) > (pl.tier || 1) + 1;
       scene.flashPopup(pl.x, pl.y, "CAN'T CAPTURE — " + (tooBig ? 'NEEDS A FLEET' : 'NOT ENOUGH CREW CAPACITY'), 0xE0503A); return true;
     }

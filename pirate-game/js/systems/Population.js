@@ -30,6 +30,7 @@ const Population = {
       // BUGFIX: every despawn path must surrender any claimed berth, or the
       // occupantId points at a gone ship and that dock is blocked forever
       if (!s.alive){ if (typeof Docks !== 'undefined') Docks.releaseAnywhere(scene, s); ships.splice(i, 1); continue; }
+      if (s.persistent) continue;                                   // LV1: the Leviathan never despawns by distance
       if (Math.hypot(s.x - pl.x, s.y - pl.y) > POP_DESPAWN_RADIUS){ if (typeof Docks !== 'undefined') Docks.releaseAnywhere(scene, s); ships.splice(i, 1); }
     }
     // 2) ports inside the spawn window drive the local density
