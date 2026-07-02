@@ -92,6 +92,12 @@ const HireSystem = {
   },
 
   _anchor(scene, e){
+    // FM1: an escort assigned to a runner patrols THAT runner (fleet screen [E])
+    if (e.assigned && scene.runners){
+      const r = scene.runners.find(x => x.id === e.assigned && x.alive);
+      if (r) return r;
+      e.assigned = null;                                   // runner gone → back to normal duty
+    }
     let best = null, bd = Infinity;
     for (const p of (scene.ownedPorts || [])){ const d = dist(e, p); if (d < bd){ bd = d; best = p; } }
     return best || scene.player;
