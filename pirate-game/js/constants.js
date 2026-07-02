@@ -414,3 +414,12 @@ const STORM_BOLT_S = 0.22;           // PLACEHOLDER — seconds the lightning bo
 
 // ── MW-15 ── dull-red flash on a ship that just took a hit
 const HIT_FLASH_S = 0.35;   // PLACEHOLDER — flash duration (s)
+
+// ── OPT-B1 ── the static port layer draws only ports NEAR the player. The world
+// holds ~900+ ports and a Graphics command buffer is re-processed every frame, so
+// drawing them all cost ~84% of per-frame graphics work (see optimize.md). Full
+// zoom-out (ZOOM_MIN) shows a half-diagonal of MINIMAP_RANGE px, so the draw
+// radius keeps every reachable view covered with slack; the layer re-culls after
+// PORT_REDRAW_DIST of player travel — long before that slack is spent.
+const PORT_DRAW_RADIUS = 2600;   // PLACEHOLDER — draw ports within this of the player
+const PORT_REDRAW_DIST = 400;    // PLACEHOLDER — px of travel between re-culls

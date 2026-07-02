@@ -81,7 +81,15 @@ const Island = {
   drawPortMarkers(scene){
     if (!scene._portGfx) scene._portGfx = scene.add.graphics().setDepth(2);
     const pg = scene._portGfx; pg.clear();
+    // OPT-B1: cull to ports near the player. GameScene re-calls this after
+    // PORT_REDRAW_DIST of travel (plus the existing dock/undock/sink events),
+    // so distant ports stream into the layer well before they can be seen.
+    const pl = scene.player;
+    scene._portGfxAt = pl ? { x: pl.x, y: pl.y } : { x: 0, y: 0 };
+    const r2 = PORT_DRAW_RADIUS * PORT_DRAW_RADIUS;
     for (const np of scene.navyPorts){
+      const pdx = np.x - scene._portGfxAt.x, pdy = np.y - scene._portGfxAt.y;
+      if (pdx*pdx + pdy*pdy > r2) continue;
       const col = (PORT_TYPES[np.type] && PORT_TYPES[np.type].color) || 0x8AC8E0;
       const r = (np.type === 'TradingHub') ? 11 : 8;
       pg.lineStyle(1, 0x2A9EAE, 0.16); pg.strokeCircle(np.x, np.y, DOCK_RADIUS);
