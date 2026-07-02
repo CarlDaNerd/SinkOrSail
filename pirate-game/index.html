@@ -20,7 +20,7 @@
   #game { width:100vw; height:100vh; }
   /* MB2-9: landscape-only on touch devices. body.touchdev is set by TouchInput.init;
      in portrait a blocking overlay asks for a rotate. Desktop is untouched (no class).
-     FLAG-5: the game keeps running (unpaused) behind this overlay. */
+     FLAG-5 RULED: auto-pauses on portrait (TouchInput matchMedia hook); resume is manual. */
   #rotateOverlay { display:none; }
   body.touchdev #rotateOverlay { position:fixed; inset:0; z-index:9000; background:#0b1622;
     align-items:center; justify-content:center; text-align:center; color:#D4C890; }

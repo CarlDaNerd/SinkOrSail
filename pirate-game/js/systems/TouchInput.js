@@ -46,6 +46,19 @@ const TouchInput = {
     // MB2-9: flag the DOM as a touch device — index.html shows the portrait
     // "ROTATE YOUR DEVICE" overlay only for body.touchdev.
     document.body.classList.add('touchdev');
+    // FLAG-5 ruling (Noah): AUTO-PAUSE when rotated to portrait. Opens the pause
+    // menu (resume stays manual — no surprise unpause on rotate-back). Checks the
+    // current orientation once at init too, in case the game loads in portrait.
+    try {
+      const mq = window.matchMedia('(orientation: portrait)');
+      const onFlip = () => {
+        const gs = this._scene;
+        if (mq.matches && gs && !gs.menuOpen && gs.toggleMenu) gs.toggleMenu();
+      };
+      if (mq.addEventListener) mq.addEventListener('change', onFlip);
+      else if (mq.addListener) mq.addListener(onFlip);               // older Safari
+      onFlip();
+    } catch (e) { /* matchMedia unavailable — overlay alone still blocks input */ }
     // resize: re-fit the canvas is handled by Phaser.Scale.RESIZE (main.js);
     // we just reposition our buttons when the game size changes.
     uiScene.scale.on('resize', () => this._layout());
