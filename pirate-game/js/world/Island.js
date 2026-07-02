@@ -69,6 +69,15 @@ const Island = {
   // port markers: type-coloured dot + ring + faint dock-radius ring (above land).
   // Each port type has its own colour (PORT_TYPES[type].color); Trading Hubs read
   // a touch bigger since they're the regional anchor.
+  // I18-4: point-in-land test over the currently loaded islands
+  landAt(scene, x, y){
+    for (const is of (scene.islands || [])) for (const e of (is.ells || [])){
+      const nx = (x - e.cx) / e.rx, ny = (y - e.cy) / e.ry;
+      if (nx*nx + ny*ny < 1) return true;
+    }
+    return false;
+  },
+
   drawPortMarkers(scene){
     if (!scene._portGfx) scene._portGfx = scene.add.graphics().setDepth(2);
     const pg = scene._portGfx; pg.clear();

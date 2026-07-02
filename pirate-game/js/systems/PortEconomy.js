@@ -28,7 +28,10 @@ const PortEconomy = {
     port.towers = [];
     if (port.hasTowers){
       const n = 1 + Math.floor(prng() * 2);                 // 1-2 towers
-      for (let i = 0; i < n; i++){ const a = prng() * Math.PI * 2; port.towers.push({ x: port.x + Math.cos(a) * 70, y: port.y + Math.sin(a) * 70, cd: 0 }); }
+      // I18-4: towers must stand on LAND, but island chunks may not be loaded
+      // at gen time — store a deterministic jitter and place lazily on the
+      // first DefenseSystem tick that can see this port's island.
+      for (let i = 0; i < n; i++) port.towers.push({ x: null, y: null, j: prng(), cd: 0 });
     }
     // PF1: some ports hold an unmanned derelict hull for sale at the quay
     // (doc II: 'unmanned docked ships you can buy'). Deterministic per run;

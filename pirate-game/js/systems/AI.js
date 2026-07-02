@@ -183,8 +183,8 @@ const AI = {
     targetHeading = Steering.avoidLand(scene, s, targetHeading);
     targetHeading = Steering.avoidIrons(scene, s, targetHeading);
 
-    // CQ: a ship being boarded is pinned — no drift, no move, no fire
-    if (scene.boarding && scene.boarding.active && scene.boarding.target === s){ s.vel = 0; return; }
+    // I18-2 supersedes CQ's attempt-pin: a ship being boarded keeps sailing
+    // (chase-boarding); only a COMPLETED capture stops it (BoardingSystem._capture).
     // turn toward the (clamped) target heading
     const diff = angleDiff(s.heading, targetHeading);
     const tr = calcTurnDegS(s.vel)*0.7*dts;
