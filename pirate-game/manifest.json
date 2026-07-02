@@ -1,0 +1,14 @@
+{
+  "name": "SinkOrSail",
+  "short_name": "SinkOrSail",
+  "description": "Top-down Age-of-Sail pirate sandbox",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b1622",
+  "theme_color": "#15263C",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
