@@ -48,8 +48,9 @@ const WeatherSystem = {
     }
     else if (type === 'snow'){
       // DOC-VI snow: seed 5-20 stationary bobbing icebergs around the player;
-      // they melt (fade) when the snow clears. Dev spawns use eprng too — berg
-      // placement is cosmetic-deterministic per weather roll.
+      // they melt when the snow clears. Placement uses the gameplay PRNG (bergs
+      // deal damage, so positions must be deterministic); NOTE: dev-forcing snow
+      // therefore advances the gameplay PRNG, unlike dev ship spawns.
       w.endsAt = t + SNOW_DURATION_S;
       w.data.bergs = [];
       const n = SNOW_BERG_MIN + Math.floor(scene.eprng() * (SNOW_BERG_MAX - SNOW_BERG_MIN + 1));

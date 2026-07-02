@@ -35,9 +35,15 @@ const AI = {
     if (s.dockedAt){                                                  // sitting on a berth
       const port = scene.navyPorts.find(p => p.id === s.dockedAt);
       const slot = port && port.docks.find(d => d.id === s.dockSlot);
-      if (port && slot && t < (s.dockUntil || 0)){
-        const wp = Docks.slotPos(port, slot);
-        s.x += (wp.x - s.x)*0.15; s.y += (wp.y - s.y)*0.15; s.vel = 0;   // ease onto the pad, hold
+      const wp = (port && slot) ? Docks.slotPos(port, slot) : null;
+      // AUD-2: a ship dragged off its berth (fled combat, pushed by weather)
+      // must surrender the slot instead of teleport-easing back from afar
+      const dragged = wp && Math.hypot(s.x - wp.x, s.y - wp.y) > 400;
+      if (wp && !dragged && t < (s.dockUntil || 0)){
+        // AUD-1: dt-scaled ease (the old 0.15/frame factor was frame-rate dependent)
+        const dtl = (scene.game && scene.game.loop) ? Math.min(scene.game.loop.delta / 1000, 0.1) : 0.016;
+        const k = Math.min(1, 6 * dtl);
+        s.x += (wp.x - s.x)*k; s.y += (wp.y - s.y)*k; s.vel = 0;      // ease onto the pad, hold
         return { targetHeading: s.heading, desiredSail: 0 };
       }
       if (port) Docks.release(scene, port, s); else { s.dockedAt = null; s.dockSlot = null; }
