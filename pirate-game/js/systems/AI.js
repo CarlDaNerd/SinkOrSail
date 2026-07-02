@@ -64,7 +64,9 @@ const AI = {
   },
 
   cruise(scene, s){
-    if (dist(s, s.waypoint) < 100){ s.waypoint = { x:s.x + (scene.eprng() - 0.5)*3000, y:s.y + (scene.eprng() - 0.5)*3000 }; }
+    // guard like patrolHome: hand-rolled ship literals (Leviathan, save rebuilds)
+    // may lack a waypoint — without this, their first idle tick kills the game loop
+    if (!s.waypoint || dist(s, s.waypoint) < 100){ s.waypoint = { x:s.x + (scene.eprng() - 0.5)*3000, y:s.y + (scene.eprng() - 0.5)*3000 }; }
     return { targetHeading:angleTo(s, s.waypoint), desiredSail: s.faction === 'merchant' ? 2 : 1 };
   },
 
