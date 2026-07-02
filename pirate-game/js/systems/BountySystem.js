@@ -88,6 +88,8 @@ const BountySystem = {
       if (b.issuer !== port || b.killsDone < b.killsNeeded) continue;
       BankSystem.credit(scene, b.reward);
       scene.flashPopup(port.x, port.y - 30, 'BOUNTY PAID: +' + b.reward + 'g', 0xF0C840);
+      // CQ (doc): a proper reward banner, not just a floating world popup
+      scene.rewardToast = { text: '☠ BOUNTY COLLECTED ☠\n+' + b.reward + ' GOLD  →  BANK', until: scene.time.now/1000 + 4 };
       scene.bounties.splice(i, 1);
       scene.events.emit('bounty:completed', { bounty: b });
     }

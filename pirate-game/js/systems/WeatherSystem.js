@@ -326,6 +326,10 @@ const WeatherSystem = {
       const b = w.data.bolt;
       if (b && (scene.time.now/1000 - b.t) < STORM_BOLT_S){
         const a = 1 - (scene.time.now/1000 - b.t)/STORM_BOLT_S;
+        // CQ (doc): lightning always reads WITH rain — a streak burst around the
+        // bolt itself, so a spectator outside the cell still sees rain on strikes
+        g.lineStyle(1, 0xBFD4E4, 0.5 * a);
+        for (let i = 0; i < 26; i++){ const rx = b.x + (Math.random() - 0.5)*300, ry = b.y + (Math.random() - 0.5)*260; g.lineBetween(rx, ry, rx - 8, ry + 15); }
         const jx = () => (Math.random() - 0.5) * 26;
         g.lineStyle(3, 0xFFF6C8, a);
         g.beginPath(); g.moveTo(b.x + jx(), b.y - 260);

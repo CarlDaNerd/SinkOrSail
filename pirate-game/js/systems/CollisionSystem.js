@@ -120,8 +120,15 @@ const Collision = {
         const over = closing - P.collMin;
         if (over > 0){
           const base = over*P.collScale, ta = a.tier || 1, tb = b.tier || 1;
-          this._collisionDamage(scene, a, base*Math.pow(P.collTier, tb - ta), b);
-          this._collisionDamage(scene, b, base*Math.pow(P.collTier, ta - tb), a);
+          // CQ (doc): fault goes to the INITIATOR — the hull with the larger
+          // velocity component along the contact axis. A merchant plowing into
+          // the player must not flag the PLAYER wanted (doc V bug); crime is
+          // attributed inside _collisionDamage only when `by` is the rammer.
+          const va = (a.vel || 0) * Math.cos(((a.heading || 0) - 90) * RAD) * ux + (a.vel || 0) * Math.sin(((a.heading || 0) - 90) * RAD) * uy;
+          const vb = -((b.vel || 0) * Math.cos(((b.heading || 0) - 90) * RAD) * ux + (b.vel || 0) * Math.sin(((b.heading || 0) - 90) * RAD) * uy);
+          const rammer = (va >= vb) ? a : b;
+          this._collisionDamage(scene, a, base*Math.pow(P.collTier, tb - ta), rammer === a ? null : b, rammer);
+          this._collisionDamage(scene, b, base*Math.pow(P.collTier, ta - tb), rammer === b ? null : a, rammer);
         }
       }
     }
@@ -130,7 +137,7 @@ const Collision = {
   // apply collision/ram damage to a hull, with an anti-grind cooldown. `by` is the
   // other ship (or null for land). Ramming a non-pirate as the player is a crime
   // (→ WANTED) when DEBUG.ramWanted; a kill is credited to the rammer.
-  _collisionDamage(scene, ship, dmg, by){
+  _collisionDamage(scene, ship, dmg, by, rammer){
     if (dmg <= 0 || ship.hull <= 0) return;
     const now = scene.time.now/1000;
     if (ship._ramAt && now - ship._ramAt < COLLISION_DMG_COOLDOWN) return;
@@ -138,7 +145,8 @@ const Collision = {
     ship.hull -= dmg; ship.lastHitAt = now;
     scene.flashPopup(ship.x, ship.y, '-' + Math.round(dmg), 0xE0A040);
     const byTag = (by === scene.player) ? 'player' : (by ? (by.faction || 'ship') : 'collision');
-    if (DEBUG.ramWanted && by === scene.player && ship.faction && ship.faction !== 'pirate' && typeof FactionSystem !== 'undefined'){
+    // CQ: crime requires the PLAYER to be the ram INITIATOR — being rammed is not a crime
+    if (DEBUG.ramWanted && rammer === scene.player && by === scene.player && ship.faction && ship.faction !== 'pirate' && typeof FactionSystem !== 'undefined'){
       FactionSystem.reportCrime(scene, ship.x, ship.y);
     }
     if (typeof EV !== 'undefined') scene.events.emit(EV.SHIP_HIT, { ship, by: byTag, amount: dmg });

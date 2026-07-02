@@ -23,12 +23,12 @@
 // of that single entry point — this module is just the data + the hook. (A dev
 // key 'T' in GameScene cycles tiers for now so the system is testable.)
 const SHIP_TIERS = {
-  1: { name:'Dinghy',    hull:60,  scale:1.00, sails:1, broadsideBalls:1, bow:false, stern:false, minCrew:2,   maxCrew:6,   crewBonus:0.015, storage:12,  ammo:24,  buy:0      },
-  2: { name:'Sloop',     hull:100, scale:1.15, sails:1, broadsideBalls:2, bow:false, stern:false, minCrew:5,   maxCrew:14,  crewBonus:0.012, storage:20,  ammo:48,  buy:2800   },
-  3: { name:'Brig',      hull:160, scale:1.30, sails:2, broadsideBalls:3, bow:true,  stern:false, minCrew:12,  maxCrew:30,  crewBonus:0.009, storage:40,  ammo:110, buy:9000   },
-  4: { name:'Frigate',   hull:230, scale:1.50, sails:2, broadsideBalls:3, bow:true,  stern:false, minCrew:28,  maxCrew:60,  crewBonus:0.007, storage:80,  ammo:200, buy:28000  },
-  5: { name:'Galleon',   hull:320, scale:1.75, sails:3, broadsideBalls:4, bow:true,  stern:true,  minCrew:60,  maxCrew:120, crewBonus:0.005, storage:140, ammo:360, buy:90000  },
-  6: { name:'Leviathan', hull:450, scale:2.10, sails:3, broadsideBalls:5, bow:true,  stern:true,  minCrew:200, maxCrew:340, crewBonus:0.004, storage:260, ammo:640, buy:300000 },
+  1: { name:'Dinghy',    board:1, hull:60,  scale:1.00, sails:1, broadsideBalls:1, bow:false, stern:false, minCrew:2,   maxCrew:6,   crewBonus:0.015, storage:12,  ammo:24,  buy:0      },
+  2: { name:'Sloop',     board:2, hull:100, scale:1.15, sails:1, broadsideBalls:2, bow:false, stern:false, minCrew:5,   maxCrew:14,  crewBonus:0.012, storage:20,  ammo:48,  buy:2800   },
+  3: { name:'Brig',      board:5, hull:160, scale:1.30, sails:2, broadsideBalls:3, bow:true,  stern:false, minCrew:12,  maxCrew:30,  crewBonus:0.009, storage:40,  ammo:110, buy:9000   },
+  4: { name:'Frigate',   board:12, hull:230, scale:1.50, sails:2, broadsideBalls:3, bow:true,  stern:false, minCrew:28,  maxCrew:60,  crewBonus:0.007, storage:80,  ammo:200, buy:28000  },
+  5: { name:'Galleon',   board:25, hull:320, scale:1.75, sails:3, broadsideBalls:4, bow:true,  stern:true,  minCrew:60,  maxCrew:120, crewBonus:0.005, storage:140, ammo:360, buy:90000  },
+  6: { name:'Leviathan', board:200, hull:450, scale:2.10, sails:3, broadsideBalls:5, bow:true,  stern:true,  minCrew:200, maxCrew:340, crewBonus:0.004, storage:260, ammo:640, buy:300000 },
 };
 
 const TIER_MIN = 1, TIER_MAX = 6;
