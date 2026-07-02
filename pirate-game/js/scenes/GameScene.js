@@ -310,6 +310,7 @@ class GameScene extends Phaser.Scene {
     // ── docked: world is frozen; F departs, 1/2 buy ──
     if (this.docked){
       if (Phaser.Input.Keyboard.JustDown(this.keys.F)){ this.docked = false; this.dockPort = null; }
+      if (Phaser.Input.Keyboard.JustDown(this.keys.V)) this.swapToPrize();   // AUD-3: dock-menu [V] swap (RULED a: docked too)
       else if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) this.repairAtPort();
       else if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) this.restockAtPort();
       else if (Phaser.Input.Keyboard.JustDown(this.keys.THREE)) this.sellAllAtPort();
