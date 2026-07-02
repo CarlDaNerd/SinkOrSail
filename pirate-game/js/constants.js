@@ -251,13 +251,14 @@ const WIND_SEED_SALT = 0x57494E44;             // 'WIND' — its own PRNG stream
 // ALL ships. Wind DIRECTION is owned by WindSystem; weather layers gusts + cells on top.
 // Live-tunable feel knobs (rainBoost/stormChance/cyc*, etc.) live in DEFAULTS/P above.
 const WEATHER_INTERVAL_MIN_S = 120, WEATHER_INTERVAL_MAX_S = 300;   // 2–5 min between effects
-const WEATHER_TYPES = ['rain', 'storm', 'cyclone'];
+const WEATHER_TYPES = ['rain', 'storm', 'cyclone', 'snow', 'tsunami'];   // DOC-VI: snow + tsunami re-added
 // rain — a following breeze: SPEEDS ships up (P.rainBoost) + gusts the wind (P.rainGust);
 // commoner far from land. Ends on distance OR time.
 const RAIN_DURATION_S = 45, RAIN_DURATION_PX = 10000;
 const RAIN_FAR_FULL_PX = 2600;          // distance-from-land at which rain reaches its full spawn weight
 const WX_WEIGHT_RAIN_NEAR = 0.6, WX_WEIGHT_RAIN_FAR = 2.4;   // rain roll weight interpolates this range by distance-from-land
 const WX_WEIGHT_STORM = 1.0, WX_WEIGHT_CYCLONE = 0.7;        // storm/cyclone are location-agnostic
+const WX_WEIGHT_SNOW = 0.6, WX_WEIGHT_TSUNAMI = 0.5;         // DOC-VI: PLACEHOLDER weights (tsunami only enters the roll near land)
 // storm — a MOVING squall cell riding a front: drifts downwind, lightning strikes any ship
 // inside (P.stormChance to break the player's sail / hit a bot), gusty wind (P.stormGust).
 const STORM_DURATION_S = 26, STORM_STRIKE_INTERVAL_S = 2.2, STORM_BROKEN_SAIL_MAX_STATE = 1;
@@ -274,6 +275,25 @@ const CYCLONE_EYE_COOLDOWN = 4;         // s between eye hits on one ship (so a 
 const CYCLONE_SPAWN_MARGIN = 380;       // px beyond minimap range the eye first appears (upwind of you)
 const CYCLONE_DESPAWN_DIST = 3200;      // eye drifts this far from you → the cyclone is gone
 const CYCLONE_TELEGRAPH_SHIFT = 70;     // deg — the drastic wind front its arrival rides in on
+
+// ── DOC-VI: snow (icebergs) — Noah spec: 5-20 bergs, 5% max-hull damage per hit,
+// no drift but a bob, melt when the snow ends. ALL PLACEHOLDER except the ruled ones.
+const SNOW_DURATION_S = 40;
+const SNOW_BERG_MIN = 5, SNOW_BERG_MAX = 20;      // RULED
+const SNOW_BERG_DMG_PCT = 0.05;                   // RULED — 5% of max hull per collision
+const SNOW_BERG_R_MIN = 18, SNOW_BERG_R_MAX = 46; // berg radius range
+const SNOW_FIELD_R = 1600;                        // bergs spawn within this of the player
+const SNOW_BERG_HIT_COOLDOWN = 1.2;               // s between damage ticks on one ship vs one berg
+const SNOW_BOB_AMP = 2.5, SNOW_BOB_SPEED = 1.6;   // visual bob only — bergs never drift (RULED)
+
+// ── DOC-VI: tsunami — Noah spec: pushes ships TOWARD the nearest island, never
+// beaches them (stop at the coast), no damage; AI ships inside the visible wave
+// are pushed too. Only rolls within TSUNAMI_NEAR_LAND_PX of an island (doc).
+const TSUNAMI_DURATION_S = 14;
+const TSUNAMI_NEAR_LAND_PX = 1000;                // doc — only near an island
+const TSUNAMI_PUSH = 260;                         // px/s push toward the island at full strength
+const TSUNAMI_WAVE_R = 1500;                      // visible wave radius = push radius (RULED: pushed if inside the art)
+const TSUNAMI_COAST_STOP = 40;                    // stop the push this far off the island surface (never beach — RULED)
 
 // ── DEV LOG ── real-time world-event feed (bottom-left; toggle with L) ──
 const DEVLOG_DEFAULT_ON = true;   // PLACEHOLDER: show the dev log by default (it's a dev/QC build)

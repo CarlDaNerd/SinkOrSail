@@ -46,6 +46,27 @@ const WeatherSystem = {
       if (typeof WindSystem !== 'undefined' && WindSystem.forceFront) WindSystem.forceFront(scene, CYCLONE_TELEGRAPH_SHIFT);   // the warning
       scene.flashPopup(pl.x, pl.y - 40, '⚠ CYCLONE FORMING', 0xB0A0E0);
     }
+    else if (type === 'snow'){
+      // DOC-VI snow: seed 5-20 stationary bobbing icebergs around the player;
+      // they melt (fade) when the snow clears. Dev spawns use eprng too — berg
+      // placement is cosmetic-deterministic per weather roll.
+      w.endsAt = t + SNOW_DURATION_S;
+      w.data.bergs = [];
+      const n = SNOW_BERG_MIN + Math.floor(scene.eprng() * (SNOW_BERG_MAX - SNOW_BERG_MIN + 1));
+      for (let i = 0; i < n; i++){
+        const a = scene.eprng() * TAU, rr = 260 + scene.eprng() * (SNOW_FIELD_R - 260);
+        w.data.bergs.push({ x: pl.x + Math.cos(a)*rr, y: pl.y + Math.sin(a)*rr,
+                            r: SNOW_BERG_R_MIN + scene.eprng()*(SNOW_BERG_R_MAX - SNOW_BERG_R_MIN),
+                            ph: scene.eprng() * TAU, hits: {} });   // hits: per-ship damage cooldown
+      }
+      scene.flashPopup(pl.x, pl.y - 40, '❄ SNOW — ICEBERGS', 0xCFE8F5);
+    } else if (type === 'tsunami'){
+      // DOC-VI tsunami: a wave that pushes every ship inside it TOWARD the nearest
+      // island — never beaching (push stops at the coast), never damaging (RULED).
+      w.endsAt = t + TSUNAMI_DURATION_S;
+      w.data.cx = pl.x; w.data.cy = pl.y;                          // wave centered where it caught you
+      scene.flashPopup(pl.x, pl.y - 40, '🌊 TSUNAMI', 0x6ED0E0);
+    }
     if (w.active) scene.events.emit(EV.WEATHER_CHANGED, { type: w.active });
   },
 
@@ -69,6 +90,28 @@ const WeatherSystem = {
       w.data.distance += pl.vel * dt;                              // travelled this front
       if (t >= w.endsAt || w.data.distance >= RAIN_DURATION_PX) this.clear(scene);
 
+    } else if (w.active === 'snow'){
+      const t = scene.time.now/1000;
+      // snowfall flecks around the player (cheap, like the rain streaks)
+      g.fillStyle(0xEAF4FA, 0.5);
+      for (let i = 0; i < 50; i++){ const rx = pl.x + (Math.random() - 0.5)*1400, ry = pl.y + (Math.random() - 0.5)*900; g.fillCircle(rx, ry, 1.3); }
+      // bergs: white cap over pale base, bobbing (visual only — RULED no drift)
+      for (const b of (w.data.bergs || [])){
+        const bob = Math.sin(t * SNOW_BOB_SPEED + b.ph) * SNOW_BOB_AMP;
+        g.fillStyle(0xBFD8E8, 0.9);  g.fillCircle(b.x, b.y + bob, b.r);
+        g.fillStyle(0xF2FAFF, 0.95); g.fillCircle(b.x - b.r*0.18, b.y + bob - b.r*0.18, b.r*0.62);
+        g.lineStyle(1.5, 0x8FB4CC, 0.6); g.strokeCircle(b.x, b.y + bob, b.r);
+      }
+    } else if (w.active === 'tsunami'){
+      // expanding concentric wave rings from the wave center — this ring set IS the
+      // "visible tsunami art"; anything inside TSUNAMI_WAVE_R is being pushed
+      const t = scene.time.now/1000, ph = (t * 0.5) % 1;
+      for (let k = 0; k < 3; k++){
+        const f = (ph + k/3) % 1, r = 200 + f * (TSUNAMI_WAVE_R - 200);
+        g.lineStyle(4 * (1 - f) + 1, 0x6ED0E0, 0.5 * (1 - f) + 0.1);
+        g.strokeCircle(w.data.cx, w.data.cy, r);
+      }
+      g.lineStyle(2, 0x6ED0E0, 0.25); g.strokeCircle(w.data.cx, w.data.cy, TSUNAMI_WAVE_R);
     } else if (w.active === 'storm'){
       this._updateStorm(scene, w.data, dt, dts, t);
       if (t >= w.endsAt) this.clear(scene);
@@ -76,6 +119,14 @@ const WeatherSystem = {
     } else if (w.active === 'cyclone'){
       this._updateCyclone(scene, w.data, dt, t);
       if (t >= w.endsAt || Math.hypot(w.data.cx - pl.x, w.data.cy - pl.y) > CYCLONE_DESPAWN_DIST) this.clear(scene);
+
+    } else if (w.active === 'snow'){
+      this._updateSnow(scene, w.data, dt, t);
+      if (t >= w.endsAt) this.clear(scene);                        // melt: bergs go with the weather slice
+
+    } else if (w.active === 'tsunami'){
+      this._updateTsunami(scene, w.data, dt, t);
+      if (t >= w.endsAt) this.clear(scene);
     }
 
     // a broken sail keeps the player capped at half sail until a port repair
@@ -86,7 +137,9 @@ const WeatherSystem = {
   _rollType(scene){
     const far = Math.max(0, Math.min(1, this._distToLand(scene) / RAIN_FAR_FULL_PX));
     const wRain = WX_WEIGHT_RAIN_NEAR + (WX_WEIGHT_RAIN_FAR - WX_WEIGHT_RAIN_NEAR) * far;
-    const entries = [['rain', wRain], ['storm', WX_WEIGHT_STORM], ['cyclone', WX_WEIGHT_CYCLONE]];
+    const entries = [['rain', wRain], ['storm', WX_WEIGHT_STORM], ['cyclone', WX_WEIGHT_CYCLONE], ['snow', WX_WEIGHT_SNOW]];
+    // DOC-VI: tsunami only rolls within TSUNAMI_NEAR_LAND_PX of an island (doc rule)
+    if (this._distToLand(scene) <= TSUNAMI_NEAR_LAND_PX) entries.push(['tsunami', WX_WEIGHT_TSUNAMI]);
     let total = 0; for (const e of entries) total += e[1];
     let r = scene.eprng() * total;
     for (const e of entries){ if ((r -= e[1]) <= 0) return e[0]; }
@@ -197,6 +250,51 @@ const WeatherSystem = {
 
   // overlay rendering (world graphics layer). Cosmetic per-frame marks use Math.random (not the
   // gameplay PRNG) so rendering never perturbs the sim.
+  // ── DOC-VI snow: berg collisions — 5% max-hull per hit (RULED), per-berg
+  // per-ship cooldown so a hull resting on a berg isn't shredded every frame.
+  _updateSnow(scene, d, dt, t){
+    if (!d.bergs) return;
+    const hitShip = (s) => {
+      for (const b of d.bergs){
+        if (Math.hypot(s.x - b.x, s.y - b.y) > b.r + 14) continue;
+        const key = s.id || 'player';
+        if (t - (b.hits[key] || -1e9) < SNOW_BERG_HIT_COOLDOWN) continue;
+        b.hits[key] = t;
+        const dmg = Math.max(1, Math.round((s.maxHull || 100) * SNOW_BERG_DMG_PCT));
+        s.hull -= dmg; s.lastHitAt = t;
+        if (s === scene.player) scene.flashPopup(s.x, s.y - 30, '❄ BERG −' + dmg, 0xCFE8F5);
+        if (s.hull <= 0 && s !== scene.player){ s.alive = false;
+          if (typeof Docks !== 'undefined') Docks.releaseAnywhere(scene, s);
+          if (typeof Combat !== 'undefined' && Combat.spawnLoot) Combat.spawnLoot(scene, s);
+          scene.events.emit(EV.SHIP_SUNK, { ship: s, by: 'weather' }); }
+        // nudge off the berg so contact doesn't lock the hull in place
+        const a = Math.atan2(s.y - b.y, s.x - b.x); s.x += Math.cos(a)*6; s.y += Math.sin(a)*6;
+      }
+    };
+    if (scene.player.hull > 0) hitShip(scene.player);
+    for (const s of scene.ships) if (s.alive) hitShip(s);
+  },
+
+  // ── DOC-VI tsunami: push every ship inside the wave toward its NEAREST island,
+  // easing to zero at the coast (never beached — RULED). No damage (RULED).
+  _updateTsunami(scene, d, dt, t){
+    const push = (s) => {
+      if (Math.hypot(s.x - d.cx, s.y - d.cy) > TSUNAMI_WAVE_R) return;   // outside the visible wave
+      let bx = null, by = null, bd = Infinity;
+      for (const is of (scene.islands || [])) for (const e of (is.ells || [])){
+        const dd = Math.hypot(e.cx - s.x, e.cy - s.y) - (e.rx || 0);
+        if (dd < bd){ bd = dd; bx = e.cx; by = e.cy; }
+      }
+      if (bx === null || bd <= TSUNAMI_COAST_STOP) return;            // no land loaded / at the coast: stop
+      const ease = Math.min(1, (bd - TSUNAMI_COAST_STOP) / 300);      // soften as the coast nears
+      const a = Math.atan2(by - s.y, bx - s.x);
+      s.x += Math.cos(a) * TSUNAMI_PUSH * ease * dt;
+      s.y += Math.sin(a) * TSUNAMI_PUSH * ease * dt;
+    };
+    if (scene.player.hull > 0) push(scene.player);
+    for (const s of scene.ships) if (s.alive) push(s);               // AI in the wave is pushed too (RULED)
+  },
+
   draw(scene, g){
     const w = scene.weather; if (!w || !w.active) return;
     const pl = scene.player;
