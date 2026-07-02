@@ -414,6 +414,10 @@ class GameScene extends Phaser.Scene {
 
     Chunks.update(this);                           // stream terrain in/out around the player
     this._revealFog();                             // fog-of-war: reveal a MINIMAP_RANGE circle around the ship
+    // OPT-B1: re-cull the near-player port layer once we've traveled far enough
+    // that newly-in-range ports could approach the view edge (covers teleports too)
+    { const pa = this._portGfxAt;
+      if (!pa || Math.hypot(pl.x - pa.x, pl.y - pa.y) > PORT_REDRAW_DIST) Island.drawPortMarkers(this); }
 
     // dock proximity + enter (F). Ports are navy-controlled: no docking while
     // WANTED or mid-combat — recover standing / break off first.
