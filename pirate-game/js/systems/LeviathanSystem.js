@@ -40,7 +40,7 @@ const LeviathanSystem = {
     // sloop hopeless. Regen pauses once stripped into capture range so a real
     // fleet's damage actually sticks long enough to board.
     const t = scene.time.now / 1000;
-    const inCombat = (t - (lev.lastHitAt || -999)) < LEV_REGEN_WINDOW_S;
+    const inCombat = (t - (lev.lastHitAt != null ? lev.lastHitAt : -999)) < LEV_REGEN_WINDOW_S;   // != null: a hit at t=0 is still a hit
     const capFloor = lev.maxHull * (LEV_CAPTURE_HULL_PCT / 100);
     if (inCombat && lev.hull > capFloor && lev.hull < lev.maxHull){
       lev.hull = Math.min(lev.maxHull, lev.hull + lev.maxHull * LEV_COMBAT_REGEN_PCT * dts);
