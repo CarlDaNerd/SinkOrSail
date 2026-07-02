@@ -510,7 +510,7 @@ class GameScene extends Phaser.Scene {
     if (typeof ShipTiers !== 'undefined'){ ShipTiers.apply(this, tow, true); tow.hull = Math.round(tow.maxHull * 0.5); }   // sold 'as-is' at half hull (PLACEHOLDER)
     if (!this.tows) this.tows = [];
     this.tows.push(tow);
-    port.derelict = null;
+    port.derelict = null; port._derelictSold = true;   // SC1: persisted so it stays bought across loads
     if (typeof Island !== 'undefined' && Island.drawPortMarkers) Island.drawPortMarkers(this);
     this.flashPopup(pl.x, pl.y - 30, '⚓ HULL PURCHASED — IN TOW', 0x6ED0E0);
   }
