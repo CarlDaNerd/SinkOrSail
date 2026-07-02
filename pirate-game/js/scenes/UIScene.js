@@ -28,7 +28,10 @@ class UIScene extends Phaser.Scene {
     this.btnImport   = this._btn(GAME_W/2, GAME_H/2 +  68, 'Import Save File', () => { this.gs.importGame(); });
     this.btnTuning   = this._btn(GAME_W/2, GAME_H/2 + 110, 'Tuning Panel',     () => { if (globalThis.SOS_toggleTuning) globalThis.SOS_toggleTuning(); });
     this.btnExtras   = this._btn(GAME_W/2, GAME_H/2 + 152, 'Weather',          () => { this.gs.extrasOn = !this.gs.extrasOn; });   // toggles M11 weather only (zoom is always on)
-    this._menuObjs = [this.menuBg, this.menuTitle, this.btnResume, this.btnNew, this.btnLoad, this.btnDownload, this.btnImport, this.btnTuning, this.btnExtras];
+    // MB3-6: phone/tablet control-layout setting — cycles + persists via TouchInput
+    this.btnUIMode   = this._btn(GAME_W/2, GAME_H/2 + 194, 'Controls', () => {
+      if (typeof TouchInput !== 'undefined') TouchInput.setUIMode(TouchInput.uiMode === 'phone' ? 'tablet' : 'phone'); });
+    this._menuObjs = [this.menuBg, this.menuTitle, this.btnResume, this.btnNew, this.btnLoad, this.btnDownload, this.btnImport, this.btnTuning, this.btnExtras, this.btnUIMode];
     for (const o of this._menuObjs) o.setVisible(false);
     // R-1: reflow the HUD (and touch controls) whenever the canvas re-fits
     this.scale.on('resize', () => { if (this.hud) this.hud.relayout(); });
@@ -142,7 +145,7 @@ class UIScene extends Phaser.Scene {
     const open = gs.menuOpen;
     for (const o of this._menuObjs) o.setVisible(open);
     if (open){
-      const bw = 340, bh = 410, bx = GAME_W/2 - bw/2, by = GAME_H/2 - bh/2;
+      const bw = 340, bh = 452, bx = GAME_W/2 - bw/2, by = GAME_H/2 - bh/2;   // MB3-6: +1 menu row
       this.menuBg.clear();
       this.menuBg.fillStyle(0x0A1119, 0.72); this.menuBg.fillRect(0, 0, GAME_W, GAME_H);
       this.menuBg.fillStyle(0x0E1820, 0.97); this.menuBg.fillRect(bx, by, bw, bh);
@@ -152,6 +155,8 @@ class UIScene extends Phaser.Scene {
       const panelOn = !!(document.getElementById('panel') && document.getElementById('panel').classList.contains('open'));
       this.btnTuning.setText('Tuning Panel: ' + (panelOn ? 'ON' : 'OFF'));
       this.btnExtras.setText('Weather: ' + (gs.extrasOn ? 'ON' : 'OFF')).setColor(gs.extrasOn ? '#D4C890' : '#7a8a98');
+      if (this.btnUIMode && typeof TouchInput !== 'undefined')
+        this.btnUIMode.setText('Controls: ' + (TouchInput.uiMode === 'tablet' ? 'TABLET' : 'PHONE'));
     }
 
     // HUD always updates (it renders above the map so instruments stay visible)

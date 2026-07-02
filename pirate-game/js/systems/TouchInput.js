@@ -39,9 +39,14 @@ const TouchInput = {
   init(uiScene, gameScene){
     this._scene = gameScene;
     this.active = this.isTouchDevice();
+    // MB3-6: phone/tablet optimization mode — user setting (pause menu) wins,
+    // else auto-detect by the device's smaller dimension. Persisted separately
+    // from Carl's SaveSystem (pure UI preference, not game state).
+    this.uiMode = this._detectUIMode();
     if (!this.active) return;                     // desktop: no overlay, no reads
 
     this._buildButtons(uiScene);
+    this._applyModeScale();                                   // MB3-6
     this._buildPauseButton(uiScene);
     // resize: re-fit the canvas is handled by Phaser.Scale.RESIZE (main.js);
     // we just reposition our buttons when the game size changes.
@@ -186,7 +191,8 @@ const TouchInput = {
     if (!this.active) return;
     const sz = (this._scene && this._scene.scale) ? this._scene.scale.gameSize : { width: GAME_W, height: GAME_H };
     const W = sz.width, H = sz.height, m = TOUCH_MARGIN, gap = TOUCH_BTN_GAP;
-    const rC = TOUCH_CIRCLE_R_CANNON, rS = TOUCH_CIRCLE_R_CHASER;
+    const k = this._modeScale();                              // MB3-6: tablet scales the whole cluster
+    const rC = TOUCH_CIRCLE_R_CANNON*k, rS = TOUCH_CIRCLE_R_CHASER*k;
     // MB3-5: layout anchors BOTTOM-UP from the live screen edge, so the full
     // three-row stack (chaser / cannon / sails) is guaranteed on-screen in ANY
     // orientation. The old cy = H*0.78 midpoint clipped the sails button off the
@@ -210,6 +216,24 @@ const TouchInput = {
     if (this._fsBtn) this._fsBtn.setPosition(m + 56, m);
   },
 
+  // ── MB3-6 phone/tablet mode ──────────────────────────────────────────────
+  uiMode: 'phone',
+  _detectUIMode(){
+    try { const s = localStorage.getItem('sos_uiMode'); if (s === 'phone' || s === 'tablet') return s; } catch (e) {}
+    return Math.min(window.innerWidth, window.innerHeight) >= TABLET_MIN_DIM ? 'tablet' : 'phone';
+  },
+  setUIMode(mode){
+    this.uiMode = (mode === 'tablet') ? 'tablet' : 'phone';
+    try { localStorage.setItem('sos_uiMode', this.uiMode); } catch (e) {}
+    if (!this.active) return;
+    this._applyModeScale(); this._layout();
+  },
+  _modeScale(){ return this.uiMode === 'tablet' ? TABLET_BTN_SCALE : 1; },
+  _applyModeScale(){
+    const k = this._modeScale();
+    for (const b of this._btns){ b.bg.setScale(k); b.icon.setScale(k); }
+  },
+
   // ── read API (consumed by GameScene) ────────────────────────────────────────
   held(name){ return this.active && !!this._held[name]; },
   // Edge read: true once per press, then cleared (matches Keyboard.JustDown feel).
@@ -219,8 +243,17 @@ const TouchInput = {
     return false;
   },
 
-  // y-coordinate of the top of the reserved control band (MW-12). Desktop: near screen bottom.
-  safeBottomY(H){ return this.active ? H * (1 - TOUCH_SAFE_BOTTOM_FRAC) : H - 30; },
+  // y-coordinate of the top of the reserved control band (MW-12). Desktop: near
+  // screen bottom. MB3-6: the band is the ACTUAL button-stack height in BOTH
+  // modes, mirroring _layout's row math — the old flat 30% both over-reserved on
+  // tall portrait screens (wasted HUD space) and UNDER-reserved in phone
+  // landscape (30% of 390px = 117px vs a 232px stack → HUD overlapped buttons).
+  safeBottomY(H){
+    if (!this.active) return H - 30;
+    const k = this._modeScale(), rC = TOUCH_CIRCLE_R_CANNON*k, rS = TOUCH_CIRCLE_R_CHASER*k;
+    const stack = 2*rS + TOUCH_BTN_GAP + 2*rC + TOUCH_BTN_GAP + 2*rS;   // chaser+cannon+sails rows
+    return H - TOUCH_MARGIN - stack - 8;
+  },
 
   // ── MB2-4 tap-to-steer (replaces MW-7 slide-to-steer) ── press-and-HOLD the
   // LEFT half of the open screen to turn left, RIGHT half to turn right; release
