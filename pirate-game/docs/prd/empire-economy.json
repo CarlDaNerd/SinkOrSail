@@ -1,0 +1,50 @@
+{ "prd": "EMPIRE 2-4: player-independent, player-influenceable economy (doc: Empire/Economy Layer)",
+  "status": "PRD only — no code in this PR",
+  "stacksOn": "PR #28 (EMPIRE-1: berthed prizes gated on repair+crew, finite port.stock, merchant deliveries). Merge #28 first; these phases rebase onto it.",
+  "rulings": [
+    "Merchant cargo = Option A: bound at spawn to a real ledger transfer {res, qty, from, to}",
+    "Off-screen economy = global abstract ledger tick; visible merchants are the rendering of transfers near the player",
+    "Prices shift with stock (linear fill% multiplier), stacked under existing demand wobble / source discount / SELL_SPREAD",
+    "Full stock of X: port stops buying X; ships still visually dock and 'check' — cosmetic only, zero ledger effect",
+    "Runner purchases spend player bank gold (no gold faucet)",
+    "Runner knowledge = explored ports only; assignable resources = resources whose source ports the player has explored; knowledge grows with exploration",
+    "Runner can't sell at profit: haul cargo home into player-port storage, retry as map knowledge/prices change",
+    "Fleet menu stays a SEPARATE menu (not a port-menu page) and absorbs resource assignment + auto-sell controls",
+    "All numeric values below are PLACEHOLDER — feel-tune live (locked practice)"
+  ],
+  "phases": {
+    "EMPIRE-2 world trade ledger + merchant cargo + regen + stock pricing": [
+      "Ledger: scene.tradeLedger = [{id, res, qty, from, to, etaS}] — created on a LEDGER_TICK_S global tick; source ports export their own commodity toward ports low on it; qty deducted from source stock at creation; PortEconomy.deliver(to) at eta",
+      "Ticks run regardless of player position/chunk state — economy is player-independent",
+      "Population merchants spawning near a port with a pending outbound transfer bind to it: ship.cargo = {res, qty, ledgerId}",
+      "Merchant sunk: transfer canceled (goods lost in transit — doc: 'if killed, those lands no longer have the good'), cargo drops as lootable flotsam",
+      "Merchant captured: cargo sits in the prize's hold",
+      "Merchant despawn/chunk-unload: ledger resolves silently at eta (no dupe, no loss)",
+      "Regen: each port regenerates ONLY its own source commodity toward PORT_STOCK_CAP at PORT_REGEN_FRAC_PER_MIN (placeholder 0.08/min ≈ 12min empty→full); avg merchant drain < regen so only players/piracy can zero a port",
+      "Stock pricing: mult = lerp(STOCK_PRICE_EMPTY 1.5x → STOCK_PRICE_FULL 0.7x) on fill%; buy price re-quotes per 10-unit chunk so draining a port gets progressively costlier (Patrician pattern)",
+      "Merchants skip pickup at ports below a stock floor — a player buyout blocks merchant trade there until regen/deliveries recover it"
+    ],
+    "EMPIRE-3 runner trade logic (replaces flat gold)": [
+      "Delete RUNNER_GOLD_PER_STOP faucet",
+      "Runner cycle: BUY nearest explored source port of assigned resource (bank gold out, port stock down, qty ≤ tier hold) → SELL nearest explored port where unit quote > unit cost → RETURN home → deposit proceeds via BankSystem.credit at home only",
+      "Profit check uses live stock-priced quotes at decision time; if no explored port profits, haul home → deposit cargo to player-port storage",
+      "Runner buys/sells hit port.stock exactly like player trades (your own fleet moves the market)",
+      "Escorts/convoys unchanged and guard the loaded return leg",
+      "Prereq: EMPIRE-1 commissioning gate (gold repair + crew hire at berth) is the entry point"
+    ],
+    "EMPIRE-4 player-port storage + fleet menu v2": [
+      "Owned ports gain storage {commodity: qty}, cap PLAYER_PORT_STORAGE_CAP (placeholder flat 200)",
+      "Deposit/withdraw commodities at the port menu when docked at an owned port",
+      "Fleet menu v2 (separate menu, same style family as port menu): per-runner resource assignment from the explored-gated list; AUTO-SELL toggle — runner draws its assigned resource from home storage to sell instead of buying, while storage has stock; haul/status readout; touch bindings (mobile parity)",
+      "At 0 runners the menu opens to a locked/empty state prompting the capture pipeline",
+      "Save coverage: tradeLedger, port.stock deltas, player-port storage, runner trade state, berthed prizes (SaveSystem PR — allowed per July ruling)"
+    ]
+  },
+  "flags": [
+    "FLAG-E1: player-port storage cap — flat vs scale by port type/upgrades (placeholder flat)",
+    "FLAG-E2: ledger tick rate / max concurrent transfers — perf budget, tune",
+    "FLAG-E3: does port gold stay infinite, or should ports also have finite gold (assumed infinite for now)",
+    "FLAG-E4: fleet menu v2 keeps the [G] hotkey or gets its own binding"
+  ],
+  "depends": ["EMPIRE-1 (PR #28)", "PortEconomy/CommoditySystem", "RunnerSystem + FleetSystem (FM1)", "BankSystem (Carl)", "SaveSystem (Carl)", "Population/AI merchant routing"]
+}
