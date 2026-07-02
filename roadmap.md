@@ -80,21 +80,24 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ---
 
-## Bugs — still open or unverified
+## Bugs — resolved on deeper inspection (correction to the previous pass)
 
-*(Not found fixed in a code search; needs either a fix or a playtest pass to confirm. Marked "Unclear" rather than guessed.)*
+A closer code read found most of these already fixed — several carry inline comments explicitly tagged `DOC-V` / `MW-10` / `CQ (doc)`, meaning they were deliberately closed against this same bug list at some point after the doc was last updated:
 
-- Islands spilling off the mini-map border — **Unclear**, not directly checked
-- Small islands generating inside/on top of mainlands — **Unclear**
-- Reef generation — **Unclear**
-- Blue-circle suicide crash — **Unclear**, sounds like a specific repro Noah/Carl/Zap would need to re-confirm
-- Cyclone escape (should require going around like an island once below half health) — **Unclear**, cyclone drag-to-center exists but the "go around it" collision behavior wasn't found
-- Lightning has no rain visual paired with it — **Unclear**
-- Bounty direction arrow disappearing too early (at minimap range instead of main-screen range) — **Unclear**
-- No highlight marker for the hunted pirate on the minimap — **Unclear**
-- Towed ships not visible — partially built (tow state exists, HUD references the towed prize) but on-screen rendering wasn't directly confirmed — **Unclear**
-- Owned/captured ports blocking docking during combat — **Unclear**
-- Captured ships showing as dinghies when they become runners — **Unclear**
+- **Islands spilling off the mini-map border** — Fixed. `MiniMap.js` draws into a circle-masked graphics object ("so nothing spills past the rim").
+- **Small islands generating inside/on top of mainlands** — Fixed. `WorldGen.js` seeds every already-placed feature into `placed[]` per region so "a sub-cluster never overlaps the mainland or its neighbours."
+- **Lightning has no rain visual paired with it** — Fixed, explicitly tagged: "lightning always reads WITH rain — a streak burst around the bolt itself."
+- **Bounty arrow disappearing too early** — Fixed. `BOUNTY_ARROW_RANGE` (4500px) is far past minimap range (1350px); comment confirms "it hides only once ON the actual screen."
+- **No highlight marker for the hunted pirate on the minimap** — Fixed, tagged `DOC-V`: red double-ring over live targets in range, rim dot pointing at the nearest one beyond it.
+- **Towed ships not visible** — Fixed. `GameScene.js` draws every ship in `this.tows` as a real hull each frame, comment: "captured prizes trailing the player (drawn as real hulls, not a blob)."
+- **Owned/captured ports blocking docking during combat** — Fixed. The in-combat dock block explicitly excludes `owner === 'player'` ports.
+- **Captured ships showing as dinghies when they become runners** — Fixed. `RunnerSystem.js` stamps the runner with the source ship's actual `tier`, not a hardcoded Dinghy.
+- **Cyclone escape (doc: should require going around like an island, immediate death below half health)** — Partially resolved, design evolved differently: pull force ramps from gentle at the rim to severe at the eye (escapable if you react early), with hull damage on a per-ship cooldown while inside the eye radius. Not literally "instant death below 50% hull," but addresses the same complaint (can't be trapped inescapably). Flagging as a design decision to confirm rather than a bug.
+
+## Bugs — still open, need input to proceed
+
+- **Reef generation issue** — code exists (`Island.js` reef bands/rocks, `WorldGen.js` reef placement) but the doc doesn't say what's specifically wrong with it. Need a description of the actual problem (visual, placement, collision?) before this can be scoped.
+- **Blue-circle suicide crash** — no matching code, comment, or event found anywhere in the repo. Need repro steps (what were you doing, what's the blue circle) to even locate the right system.
 
 ## Future Features (from doc, not yet built)
 
