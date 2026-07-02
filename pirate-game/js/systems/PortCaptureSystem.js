@@ -44,6 +44,11 @@ const PortCaptureSystem = {
   },
 
   // called from the shared B handler; returns true if it consumed the press
+  // I18-3: side-effect-free peek for the HUD hint box
+  isReady(scene){
+    return !!this.nearestCapturable(scene) && scene.ownedPorts.length < MAX_OWNED_PORTS;
+  },
+
   tryCapture(scene){
     const port = this.nearestCapturable(scene);
     if (!port) return false;

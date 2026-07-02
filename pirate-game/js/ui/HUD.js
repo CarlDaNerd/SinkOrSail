@@ -86,6 +86,32 @@ class HUD {
     this.tAchList.setPosition(GAME_W/2, GAME_H/2);
   }
 
+  // I18-3: capture-ready hint box — bottom-centre pulse when a port or ship is
+  // strip-ready and boardable RIGHT NOW ([B] / tap). Port wins the wording when
+  // both are eligible, matching the B-key priority.
+  drawCaptureHint(){
+    const gs = this.gs;
+    if (!this.tCapHint){
+      this.tCapHint = this.s.add.text(0, 0, '', {
+        fontFamily:'ui-monospace,monospace', fontSize:'13px', fontStyle:'bold', color:'#F0C840',
+        backgroundColor:'#16283a', padding:{ x:12, y:6 },
+      }).setScrollFactor(0).setDepth(150).setOrigin(0.5);
+    }
+    const t = this.tCapHint;
+    let msg = null;
+    if (!gs.docked && !gs.menuOpen && !gs.mapOpen && gs.player.hull > 0){
+      if (typeof PortCaptureSystem !== 'undefined' && PortCaptureSystem.isReady(gs)) msg = '⚑ PORT READY TO CAPTURE — [B] / TAP';
+      else if (typeof BoardingSystem !== 'undefined'){
+        const tgt = BoardingSystem.eligibleTarget(gs);
+        if (tgt && BoardingSystem.canCapture(gs, tgt)) msg = '⚔ SHIP READY TO BOARD — [B] / TAP';
+      }
+    }
+    if (msg){
+      const pulse = 0.7 + 0.3 * Math.sin(gs.time.now / 240);
+      t.setText(msg).setAlpha(pulse).setPosition(GAME_W/2, (typeof TouchInput !== 'undefined' ? TouchInput.safeBottomY(GAME_H) : GAME_H - 30) - 26).setVisible(true);
+    } else t.setVisible(false);
+  }
+
   drawPopups(popups){
     const cam = this.gs.cameras.main;
     for (let i = 0; i < this.popupPool.length; i++){
@@ -170,6 +196,7 @@ class HUD {
     this.drawDock(g);
     this.drawDevLog();
     this.drawAchToast();
+    this.drawCaptureHint();                          // I18-3
     this.drawAchOverlay(g);
     this.drawBountyArrow();
   }

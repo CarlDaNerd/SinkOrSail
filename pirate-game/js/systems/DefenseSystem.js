@@ -8,8 +8,36 @@
 const DefenseSystem = {
   init(scene){ /* nothing to set up; towers live on ports */ },
 
+  // I18-4: lazy tower placement — walk from the port toward the nearest island
+  // ell's centre and take the first sampled point that tests as land (the old
+  // random 70px ring dropped towers in the water on coastal ports). Jitter j
+  // (deterministic, from the gen PRNG) fans multiple towers apart.
+  _placeTowers(scene, port){
+    let e0 = null, bd = Infinity;
+    for (const is of (scene.islands || [])) for (const e of (is.ells || [])){
+      const dd = Math.hypot(e.cx - port.x, e.cy - port.y);
+      if (dd < bd){ bd = dd; e0 = e; }
+    }
+    if (!e0 || bd > 1200) return false;                       // island not loaded yet — retry later
+    const base = Math.atan2(e0.cy - port.y, e0.cx - port.x);
+    for (const tw of port.towers){
+      if (tw.x !== null) continue;
+      const a = base + (tw.j - 0.5) * 1.6;                    // fan ±0.8 rad around the landward line
+      tw.x = port.x + Math.cos(a) * 70; tw.y = port.y + Math.sin(a) * 70;   // fallback: landward 70px
+      for (const dist of [50, 70, 95, 120, 150]){
+        const x = port.x + Math.cos(a) * dist, y = port.y + Math.sin(a) * dist;
+        if (typeof Island !== 'undefined' && Island.landAt(scene, x, y)){ tw.x = x; tw.y = y; break; }
+      }
+    }
+    if (typeof Island !== 'undefined' && Island.drawPortMarkers) Island.drawPortMarkers(scene);
+    return true;
+  },
+
   update(scene, dt, dts){
     const pl = scene.player; if (pl.hull <= 0) return;
+    for (const port of scene.navyPorts){                      // I18-4: place pending towers
+      if (port.towers && port.towers.some(tw => tw.x === null)) this._placeTowers(scene, port);
+    }
     const wanted = scene.navyHostile();
     const pirate = scene.flag === 'pirate';
     const t = scene.time.now / 1000;
@@ -25,6 +53,7 @@ const DefenseSystem = {
       if (pd > TOWER_RANGE + 120) continue;       // player not near this port
       let fired = false;
       for (const t of port.towers){
+        if (t.x === null) continue;                           // I18-4: not placed yet
         if (t.cd > 0){ t.cd -= dts; continue; }
         const d = Math.hypot(pl.x - t.x, pl.y - t.y);
         if (d > TOWER_RANGE || d < 1) continue;
@@ -44,7 +73,7 @@ const DefenseSystem = {
       const raided = port.lastHitAt != null && (now - port.lastHitAt) < TOWER_DEFEND_WINDOW_S;
       if (!(hostile || raided)) continue;
       if (Math.hypot(pl.x - port.x, pl.y - port.y) > TOWER_RANGE + 120) continue;
-      for (const t of port.towers){ g.lineStyle(2, 0xE0503A, 0.6); g.strokeCircle(t.x, t.y, 7); g.lineStyle(1, 0xE0503A, 0.12); g.strokeCircle(t.x, t.y, TOWER_RANGE); }
+      for (const t of port.towers){ if (t.x === null) continue; g.lineStyle(2, 0xE0503A, 0.6); g.strokeCircle(t.x, t.y, 7); g.lineStyle(1, 0xE0503A, 0.12); g.strokeCircle(t.x, t.y, TOWER_RANGE); }   // I18-4
     }
   },
 };

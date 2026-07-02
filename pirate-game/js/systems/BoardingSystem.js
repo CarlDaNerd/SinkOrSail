@@ -73,7 +73,7 @@ const BoardingSystem = {
       const tooBig = (t.tier || 1) > (pl.tier || 1) + 1;
       scene.flashPopup(pl.x, pl.y, "CAN'T CAPTURE — " + (tooBig ? 'NEEDS A FLEET' : 'NOT ENOUGH CREW CAPACITY'), 0xE0503A); return true;
     }
-    b.active = true; b.target = t; b.elapsed = 0; pl.vel = 0;
+    b.active = true; b.target = t; b.elapsed = 0;   // I18-2: no pin — you board on the move now
     scene.flashPopup(pl.x, pl.y - 24, 'BOARDING…', 0xF0C840);
     return true;
   },
@@ -83,7 +83,8 @@ const BoardingSystem = {
     if (pl.hull <= 0){ if (b.active){ b.active = false; b.target = null; } this._updateTows(scene, dt); return; }
 
     if (b.active){
-      pl.vel = 0;                                   // pinned during boarding
+      // I18-2 (Noah ruling): boarding does NOT stop you — chase-board. Drifting
+      // out of range still aborts; only SUCCESS halts both ships (see _capture).
       if (!b.target || !b.target.alive || Math.hypot(b.target.x - pl.x, b.target.y - pl.y) > CAPTURE_RANGE * 1.6){
         b.active = false; b.target = null; this._updateTows(scene, dt); return;
       }
@@ -96,6 +97,7 @@ const BoardingSystem = {
   // success: take any cargo, pull the prize out of the active fleet into the tow set
   _capture(scene, target){
     const pl = scene.player;
+    pl.vel = 0; target.vel = 0;                     // I18-2: success stops you AND the prize
     // any cargo aboard transfers to you (enemies don't carry cargo yet → usually a no-op)
     if (target.cargo && typeof Cargo !== 'undefined' && pl.hold){
       const took = Cargo.add(pl.hold, target.cargo.commodity, target.cargo.qty);
