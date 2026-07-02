@@ -65,6 +65,15 @@ const Combat = {
   onHit(scene, ball, target){
     target.hull -= P.damage;
     target.lastHitAt = scene.time.now/1000;                 // MW-15: damage-flash timestamp
+    // CQ: stamp first provocation — AI holds fire for RETURN_FIRE_DELAY_S after it
+    if (ball.ownerFaction === 'player' && !target.hostileToPlayer) target.provokedAt = scene.time.now/1000;
+    // CD1: crew can die in combat (gameplay PRNG → deterministic battles). Player
+    // included — losses bite via the existing understaffed reload/speed math.
+    if ((target.crew || 0) > 0 && scene.eprng() < CREW_DEATH_CHANCE){
+      const lost = Math.min(CREW_DEATH_MAX_PER_HIT, target.crew);
+      target.crew -= lost;
+      if (target === scene.player) scene.flashPopup(target.x, target.y - 44, '☠ ' + lost + ' CREW LOST', 0xE0503A);
+    }
     scene.events.emit(EV.SHIP_HIT, { ship: target, by: ball.ownerFaction, amount: P.damage });
     if (ball.ownerFaction === 'player'){
       target.hostileToPlayer = true;

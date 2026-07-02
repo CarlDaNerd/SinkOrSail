@@ -42,7 +42,7 @@ class GameScene extends Phaser.Scene {
     this.follow = this.add.rectangle(this.player.x, this.player.y, 1, 1, 0, 0);
     this.cameras.main.startFollow(this.follow, true, 0.08, 0.08);
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,ZERO,M,Z,X,T,J,L,B,C,V');   // V: make prize flagship (SW1)
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,ZERO,M,Z,X,T,J,L,B,C,V,SPACE');   // V: flagship swap (SW1); SPACE: double broadside (CQ)
     this.input.on('wheel', (p, over, dx, dy) => {
       if (this.mapOpen){ this.mapAnim = null; this.mapScale = Phaser.Math.Clamp(this.mapScale * (dy < 0 ? 1.12 : 0.892), MAP_SCALE_MIN, MAP_SCALE_MAX); this.mapDirty = true; }
       else if (!this.docked && !this.menuOpen){ this.viewZoom = Phaser.Math.Clamp(this.viewZoom * (dy < 0 ? 1.08 : 0.926), ZOOM_MIN, ZOOM_DEFAULT); }   // in-game: scroll to zoom OUT (down to the sight-circle limit)
@@ -343,6 +343,8 @@ class GameScene extends Phaser.Scene {
         let consumed = (typeof PortCaptureSystem !== 'undefined') && PortCaptureSystem.tryCapture(this);
         if (!consumed && typeof BoardingSystem !== 'undefined') BoardingSystem.tryBoard(this);
       }
+      // CQ (doc): SPACE fires BOTH broadsides — each side still honors its own cooldown/ammo
+      if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)){ Combat.fire(this, pl, 'port'); Combat.fire(this, pl, 'star'); }
       // SW1: V (or the touch swap button) — make the towed prize your flagship
       if (Phaser.Input.Keyboard.JustDown(this.keys.V) ||
           (typeof TouchInput !== 'undefined' && TouchInput.active && TouchInput.justDown('swapPrize'))) this.swapToPrize();
@@ -361,7 +363,7 @@ class GameScene extends Phaser.Scene {
       const wMult = (typeof WeatherSystem !== 'undefined') ? WeatherSystem.speedMult(this) : 1;   // rain slow (1 otherwise)
       const cMult = (typeof crewSpeedMult !== 'undefined') ? crewSpeedMult(pl) : 1;               // crew bonus / understaffed penalty
       const uMult = (typeof UpgradeSystem !== 'undefined') ? UpgradeSystem.speedMult(this) : 1;   // sail-material upgrade
-      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState]*wMult*cMult*uMult;
+      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState]*wMult*cMult*uMult*hullSpeedMult(pl);   // CQ: battered hull slows, then stops (regen recovers you)
       pl.vel += (tgt - pl.vel)*Math.min((tgt > pl.vel ? P.accel : P.decel)*dt, 1);
       Collision.moveShip(this, pl, dt);
       // reefs: drag + periodic hull damage while grounded (they don't block, they hurt)
@@ -391,7 +393,9 @@ class GameScene extends Phaser.Scene {
         (typeof TouchInput !== 'undefined' && TouchInput.active && TouchInput.justDown('dockPort'));
       if (this.nearPort && dockPressed){
         if (this.navyHostile()) this.flashPopup(pl.x, pl.y, 'PORT CLOSED — WANTED', 0xE0503A);
-        else if (this.inCombat()) this.flashPopup(pl.x, pl.y, "CAN'T DOCK IN COMBAT", 0xE0503A);
+        // CQ (doc): YOUR OWN port never turns you away mid-fight — safe harbor
+        else if (this.inCombat() && this.nearPort.owner !== 'player') this.flashPopup(pl.x, pl.y, "CAN'T DOCK IN COMBAT", 0xE0503A);
+        else if (pl.vel > DOCK_MAX_VEL) this.flashPopup(pl.x, pl.y, 'TOO FAST TO DOCK — SLOW DOWN', 0xE0A040);   // CQ: require slow speed
         else { this.docked = true; this.dockPort = this.nearPort; pl.vel = 0; this.events.emit(EV.DOCK_ENTERED, { port: this.nearPort }); Systems.onDock(this, this.nearPort); if (Save.write(this)) this.flashPopup(pl.x, pl.y - 40, 'GAME SAVED', 0x8AAAC8); }   // sweep gold->bank, then auto-save
       }
     }

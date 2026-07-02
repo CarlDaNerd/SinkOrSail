@@ -384,6 +384,21 @@ const TABLET_MIN_DIM   = 600;          // PLACEHOLDER — auto-detect: min(W,H) 
 const MERCHANT_DOCK_MIN_S = 3;
 const MERCHANT_DOCK_MAX_S = 7;
 
+// ── CQ batch (doc V mechanical fixes) — ALL PLACEHOLDER unless RULED ──
+const RETURN_FIRE_DELAY_S = 1.0;   // grace before a freshly-provoked ship returns fire
+const DOCK_MAX_VEL = 1.2;          // must be at/below this speed to dock ('require slow speed to dock!')
+const HULL_SLOW_PCT = 0.30;        // below this hull fraction a ship starts slowing...
+const HULL_STOP_PCT = 0.08;        // ...and below this it stops dead
+function hullSpeedMult(s){
+  const f = (s.maxHull ? s.hull / s.maxHull : 1);
+  if (f >= HULL_SLOW_PCT) return 1;
+  if (f <= HULL_STOP_PCT) return 0;
+  return (f - HULL_STOP_PCT) / (HULL_SLOW_PCT - HULL_STOP_PCT);
+}
+// CD1: crew combat deaths (doc Crew System — 'can die in combat')
+const CREW_DEATH_CHANCE = 0.15;    // chance per cannonball hit that crew dies
+const CREW_DEATH_MAX_PER_HIT = 1;  // cap per ball
+
 // ── MB2-5 ── muzzle flash on every cannon shot (player + AI, unified fire path)
 const MUZZLE_FLASH_LIFE = 0.14;   // PLACEHOLDER — seconds the flash lives
 const MUZZLE_FLASH_R    = 7;      // PLACEHOLDER — core radius px (tiny, proportionate to cannon)

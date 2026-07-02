@@ -221,9 +221,11 @@ class HUD {
 
   // ── achievement unlock toast (auto, top-centre) ──
   drawAchToast(){
-    const a = this.gs.achievements;
-    if (a && a.toast && this.gs.time.now/1000 < a.toast.until){
+    const a = this.gs.achievements, rt = this.gs.rewardToast, t = this.gs.time.now/1000;
+    if (a && a.toast && t < a.toast.until){
       this.tAchToast.setText('★ ACHIEVEMENT UNLOCKED ★\n' + a.toast.name + '\n' + a.toast.desc).setVisible(true);
+    } else if (rt && t < rt.until){
+      this.tAchToast.setText(rt.text).setVisible(true);        // CQ: bounty banner rides the same top-centre slot
     } else this.tAchToast.setVisible(false);
   }
 

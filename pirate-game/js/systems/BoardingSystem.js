@@ -29,7 +29,12 @@ const BoardingSystem = {
     if (typeof ShipTiers === 'undefined') return true;
     const myT = pl.tier || 1, tgtT = target.tier || 1;          // enemies are untiered → tier 1
     if (tgtT > myT + 1) return false;                           // too big to solo (needs a fleet)
-    return (ShipTiers.get(myT).minCrew + ShipTiers.get(tgtT).minCrew) <= ShipTiers.get(myT).maxCrew;
+    // CQ: the boarders needed are the target's BOARD crew (doc: operate vs board
+    // split), not its full minCrew — the old formula made even T1->T2 fail
+    // (2 + 5 > 6) which was the reported 'insufficient crew' bug. board values
+    // keep T3+ solo grabs tight and the Leviathan at its LOCKED 200 boarders.
+    const board = (ShipTiers.get(tgtT).board != null) ? ShipTiers.get(tgtT).board : ShipTiers.get(tgtT).minCrew;
+    return (ShipTiers.get(myT).minCrew + board) <= ShipTiers.get(myT).maxCrew;
   },
 
   // nearest target that is alive, stripped, in range

@@ -183,6 +183,8 @@ const AI = {
     targetHeading = Steering.avoidLand(scene, s, targetHeading);
     targetHeading = Steering.avoidIrons(scene, s, targetHeading);
 
+    // CQ: a ship being boarded is pinned — no drift, no move, no fire
+    if (scene.boarding && scene.boarding.active && scene.boarding.target === s){ s.vel = 0; return; }
     // turn toward the (clamped) target heading
     const diff = angleDiff(s.heading, targetHeading);
     const tr = calcTurnDegS(s.vel)*0.7*dts;
@@ -192,11 +194,13 @@ const AI = {
     const wa = windOff(s.heading, WindSystem.dirAt(scene, s.x, s.y));
     const sf = s.faction === 'merchant' ? 0.8 : s.faction === 'navy' ? 0.92 : 1.0;
     const wxMult = (typeof WeatherSystem !== 'undefined') ? WeatherSystem.speedMult(scene) : 1;   // rain following-breeze boost
-    const tspd = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[s.sailState]*sf*wxMult;
+    const tspd = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[s.sailState]*sf*wxMult*hullSpeedMult(s);   // CQ: battered hulls slow, then stop
     s.vel += (tspd - s.vel)*Math.min(0.012*dt, 1);
     Collision.moveShip(scene, s, dt);
     scene.pushWake(s);
     if (s.fire > 0) s.fire -= dts;
-    if (wantFire !== null) Combat.fireEnemy(scene, s, wantFire);
+    // CQ: grace window after first being provoked before returning fire
+    const provokedRecently = s.provokedAt != null && (scene.time.now/1000 - s.provokedAt) < RETURN_FIRE_DELAY_S;
+    if (wantFire !== null && !provokedRecently) Combat.fireEnemy(scene, s, wantFire);
   },
 };
