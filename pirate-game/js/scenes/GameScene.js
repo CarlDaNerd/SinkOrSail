@@ -29,6 +29,11 @@ class GameScene extends Phaser.Scene {
     Chunks.init(this);                                 // stream terrain around the player
     this.navyPorts = this.placeStartPorts();
     Island.drawPortMarkers(this);
+    // MD2: berth pads change color with occupancy — redraw the static port layer
+    // when any ship docks/undocks/sinks (cheap: only fires on those events)
+    this.events.on(EV.SHIP_DOCKED,   () => Island.drawPortMarkers(this));
+    this.events.on(EV.SHIP_UNDOCKED, () => Island.drawPortMarkers(this));
+    this.events.on(EV.SHIP_SUNK,     () => Island.drawPortMarkers(this));
     this.ships = []; Enemy.spawnFleet(this);
 
     this.gfxWorld = this.add.graphics().setDepth(4);   // wakes, loot

@@ -78,9 +78,20 @@ const Island = {
       pg.lineStyle(1, 0x2A9EAE, 0.16); pg.strokeCircle(np.x, np.y, DOCK_RADIUS);
       pg.fillStyle(col, 0.95); pg.fillCircle(np.x, np.y, r);
       pg.lineStyle(2, col, 0.55); pg.strokeCircle(np.x, np.y, r + 7);
-      if (np.docks) for (const d of np.docks){          // MD berths along the quay
-        const bx = np.x + d.dx, by = np.y + d.dy;
-        pg.fillStyle(d.occupantId ? 0xE0A040 : 0x2A9EAE, 0.85); pg.fillRect(bx - 3, by - 3, 6, 6);
+      // MD2: visible quay — a pier plank spanning the berths, plus a pad per slot
+      // (teal = open, amber = occupied). PLACEHOLDER art, flat-fill V2 style.
+      if (np.docks && np.docks.length){
+        const q = np.docks, qy = np.y + q[0].dy;
+        const x0 = np.x + q[0].dx - 14, x1 = np.x + q[q.length - 1].dx + 14;
+        pg.lineStyle(5, 0x6B4A2A, 0.9);  pg.lineBetween(x0, qy - 10, x1, qy - 10);   // pier plank
+        pg.lineStyle(2, 0x4A3018, 0.9);
+        for (const d of q){                                          // pilings under each pad
+          const bx = np.x + d.dx, by = np.y + d.dy;
+          pg.lineBetween(bx, qy - 10, bx, by - 5);
+          pg.fillStyle(d.occupantId ? 0xE0A040 : 0x2A9EAE, 0.9); pg.fillRect(bx - 5, by - 5, 10, 10);
+          pg.lineStyle(1, 0x0E1820, 0.6); pg.strokeRect(bx - 5, by - 5, 10, 10);
+          pg.lineStyle(2, 0x4A3018, 0.9);
+        }
       }
     }
   },

@@ -27,9 +27,32 @@ const AI = {
     return best;
   },
 
-  // head to the current destination port; on arrival pick the next one
+  // head to the current destination port; on arrival PHYSICALLY DOCK (MD2):
+  // claim a free berth, ease onto it and hold for a few seconds, then release
+  // and sail for the next port. Port full → skip to the next destination.
   tradeRoute(scene, s){
-    if (!s.dest || dist(s, s.dest) < PORT_ARRIVE_RANGE) s.dest = this.pickPort(scene, s, s.dest);
+    const t = scene.time.now/1000;
+    if (s.dockedAt){                                                  // sitting on a berth
+      const port = scene.navyPorts.find(p => p.id === s.dockedAt);
+      const slot = port && port.docks.find(d => d.id === s.dockSlot);
+      if (port && slot && t < (s.dockUntil || 0)){
+        const wp = Docks.slotPos(port, slot);
+        s.x += (wp.x - s.x)*0.15; s.y += (wp.y - s.y)*0.15; s.vel = 0;   // ease onto the pad, hold
+        return { targetHeading: s.heading, desiredSail: 0 };
+      }
+      if (port) Docks.release(scene, port, s); else { s.dockedAt = null; s.dockSlot = null; }
+      s.dest = this.pickPort(scene, s, s.dest);                       // depart for the next stop
+    }
+    if (!s.dest || dist(s, s.dest) < PORT_ARRIVE_RANGE){
+      if (s.dest && typeof Docks !== 'undefined'){
+        const slot = Docks.occupy(scene, s.dest, s);                  // try to take a berth
+        if (slot){
+          s.dockUntil = t + MERCHANT_DOCK_MIN_S + scene.eprng()*(MERCHANT_DOCK_MAX_S - MERCHANT_DOCK_MIN_S);
+          return { targetHeading: s.heading, desiredSail: 0 };
+        }
+      }
+      s.dest = this.pickPort(scene, s, s.dest);                       // full (or arrived) → next port
+    }
     if (!s.dest) return this.cruise(scene, s);                        // no ports anywhere → wander
     return { targetHeading: angleTo(s, s.dest), desiredSail: 2 };
   },

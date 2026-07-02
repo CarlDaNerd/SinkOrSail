@@ -360,6 +360,10 @@ const TOUCH_ICON_HOT        = 0xF0C840;   // pressed icon tint
 const TABLET_BTN_SCALE = 1.3;          // PLACEHOLDER — touch-button scale-up in tablet mode
 const TABLET_MIN_DIM   = 600;          // PLACEHOLDER — auto-detect: min(W,H) >= this => tablet
 
+// ── MD2 ── merchants physically dock: berth hold time (PLACEHOLDER, live-tune)
+const MERCHANT_DOCK_MIN_S = 3;
+const MERCHANT_DOCK_MAX_S = 7;
+
 // ── MB2-5 ── muzzle flash on every cannon shot (player + AI, unified fire path)
 const MUZZLE_FLASH_LIFE = 0.14;   // PLACEHOLDER — seconds the flash lives
 const MUZZLE_FLASH_R    = 7;      // PLACEHOLDER — core radius px (tiny, proportionate to cannon)
