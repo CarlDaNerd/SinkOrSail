@@ -39,6 +39,9 @@ const RunnerSystem = {
 
   // pick 2-4 destination ports (prefer ports other than home; fall back to home)
   _pickRoute(scene, home){
+    // FM1 (doc): routes visit EXPLORED ports only and favor reaching winds —
+    // FleetSystem owns those rules; legacy any-port pick is the fallback.
+    if (typeof FleetSystem !== 'undefined') return FleetSystem.pickRoute(scene, home);
     const pool = scene.navyPorts.filter(p => p !== home);
     if (!pool.length) return [home];
     const n = RUNNER_STOPS_MIN + Math.floor(scene.eprng() * (RUNNER_STOPS_MAX - RUNNER_STOPS_MIN + 1));
@@ -63,10 +66,12 @@ const RunnerSystem = {
       if (r.phase === 'dwell'){
         r.timer -= dts;
         if (r.timer <= 0){
-          if (typeof BankSystem !== 'undefined') BankSystem.credit(scene, RUNNER_GOLD_PER_STOP);
-          else scene.player.bank = (scene.player.bank || 0) + RUNNER_GOLD_PER_STOP;
-          r.earned += RUNNER_GOLD_PER_STOP;
-          scene.flashPopup(r.x, r.y - 24, '+' + RUNNER_GOLD_PER_STOP + 'g RUNNER', 0xF0C840);
+          // FM1: convoy cargo gathers at CONVOY_GATHER_MULT per stop (doc, FLAG-10)
+          const pay = Math.round(RUNNER_GOLD_PER_STOP * (r.convoy && typeof CONVOY_GATHER_MULT !== 'undefined' ? CONVOY_GATHER_MULT : 1));
+          if (typeof BankSystem !== 'undefined') BankSystem.credit(scene, pay);
+          else scene.player.bank = (scene.player.bank || 0) + pay;
+          r.earned += pay;
+          scene.flashPopup(r.x, r.y - 24, '+' + pay + 'g ' + (r.convoy ? 'CONVOY' : 'RUNNER'), 0xF0C840);
           r.leg++;
           r.phase = (r.leg < r.route.length) ? 'run' : 'return';
         }
@@ -74,6 +79,16 @@ const RunnerSystem = {
       }
 
       // 'run' (heading to the next route port) or 'return' (heading home)
+      // FM1: convoy followers keep the pack — if the leader is alive and the
+      // follower has drifted, sail to a point astern of the leader instead of
+      // the leg target (route/legs stay synced via toggleConvoy on join)
+      if (r.convoy && typeof FleetSystem !== 'undefined'){
+        const lead = FleetSystem.convoyLeader(scene);
+        if (lead && lead !== r && lead.alive && Math.hypot(lead.x - r.x, lead.y - r.y) > 160){
+          this._sail(scene, r, { x: lead.x - Math.sin(lead.heading*RAD)*60, y: lead.y + Math.cos(lead.heading*RAD)*60 }, dt, dts);
+          continue;
+        }
+      }
       const target = (r.phase === 'return') ? r.home : r.route[r.leg];
       if (!target){ r.phase = 'return'; continue; }
       if (Math.hypot(target.x - r.x, target.y - r.y) < RUNNER_ARRIVE_RANGE){

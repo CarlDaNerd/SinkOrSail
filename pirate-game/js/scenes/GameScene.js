@@ -42,7 +42,7 @@ class GameScene extends Phaser.Scene {
     this.follow = this.add.rectangle(this.player.x, this.player.y, 1, 1, 0, 0);
     this.cameras.main.startFollow(this.follow, true, 0.08, 0.08);
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,ZERO,M,Z,X,T,J,L,B,C,V,SPACE');   // V: flagship swap (SW1); SPACE: double broadside (CQ)
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,ZERO,M,Z,X,T,J,L,B,C,V,G,R,SPACE');   // V: flagship swap (SW1); SPACE: double broadside (CQ); G: fleet screen, R: reroll route (FM1)
     this.input.on('wheel', (p, over, dx, dy) => {
       if (this.mapOpen){ this.mapAnim = null; this.mapScale = Phaser.Math.Clamp(this.mapScale * (dy < 0 ? 1.12 : 0.892), MAP_SCALE_MIN, MAP_SCALE_MAX); this.mapDirty = true; }
       else if (!this.docked && !this.menuOpen){ this.viewZoom = Phaser.Math.Clamp(this.viewZoom * (dy < 0 ? 1.08 : 0.926), ZOOM_MIN, ZOOM_DEFAULT); }   // in-game: scroll to zoom OUT (down to the sight-circle limit)
@@ -317,12 +317,20 @@ class GameScene extends Phaser.Scene {
 
     // ── overlay toggles (M = map, Esc = pause menu); not while docked ──
     if (!this.docked){
+      // FM1: [G] fleet screen (closes with G or Esc)
+      if (typeof FleetSystem !== 'undefined' && Phaser.Input.Keyboard.JustDown(this.keys.G) && !this.menuOpen && !this.mapOpen) FleetSystem.toggle(this);
       if (!this.menuOpen && Phaser.Input.Keyboard.JustDown(this.keys.M)) this.toggleMap();
       if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)){ if (this.mapOpen) this.mapOpen = false; else this.toggleMenu(); }
     }
 
     // ── pause menu: world frozen; buttons handled in UIScene ──
     if (this.menuOpen){ this.draw(); return; }
+    // FM1: fleet screen freezes the world like the pause menu; 1-9/R/E/C manage
+    if (this.fleetOpen && typeof FleetSystem !== 'undefined'){
+      FleetSystem.handleKeys(this);
+      if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) this.fleetOpen = false;
+      this.draw(); return;
+    }
     // (the big map does NOT pause — sailing continues; it's handled after the sim)
 
     // ── docked: world is frozen; F departs, 1/2 buy ──
@@ -574,6 +582,7 @@ class GameScene extends Phaser.Scene {
     }
 
     Systems.draw(this, gw);                          // feature overlays draw on the world layer
+    if (typeof FleetSystem !== 'undefined') FleetSystem.draw(this);   // FM1: fleet overlay (self-hides)
   }
 
   drawShip(g, s){

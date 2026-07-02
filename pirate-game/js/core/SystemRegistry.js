@@ -58,6 +58,7 @@ function registerSystems(){
     typeof HireSystem    !== 'undefined' ? HireSystem    : null,   // hired privateer escorts
     typeof BountySystem  !== 'undefined' ? BountySystem  : null,   // port pirate-hunt contracts
     typeof LeviathanSystem !== 'undefined' ? LeviathanSystem : null, // LV1: the roaming endgame target
+    typeof FleetSystem   !== 'undefined' ? FleetSystem   : null,   // FM1: fleet screen + convoy/escort rules
     typeof WindSystem    !== 'undefined' ? WindSystem    : null,   // dynamic wind direction (drives P.windFrom)
     typeof WeatherSystem !== 'undefined' ? WeatherSystem : null,   // M11
     typeof ZoomSystem    !== 'undefined' ? ZoomSystem    : null,   // M7
