@@ -311,7 +311,15 @@ class GameScene extends Phaser.Scene {
 
     // ── docked: world is frozen; F departs, 1/2 buy ──
     if (this.docked){
-      if (Phaser.Input.Keyboard.JustDown(this.keys.F)){ this.docked = false; this.dockPort = null; }
+      if (Phaser.Input.Keyboard.JustDown(this.keys.F)){ this.docked = false; this.dockPort = null; this.tavernOpen = false; }
+      // TM1: [T] flips between the port menu and the tavern board; while the
+      // board is open, 1/2 accept its offers instead of the port actions
+      if (Phaser.Input.Keyboard.JustDown(this.keys.T) && typeof TavernSystem !== 'undefined') TavernSystem.toggle(this);
+      if (this.tavernOpen && typeof TavernSystem !== 'undefined'){
+        if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) TavernSystem.accept(this, 0);
+        else if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) TavernSystem.accept(this, 1);
+        this.draw(); return;
+      }
       if (Phaser.Input.Keyboard.JustDown(this.keys.V)) this.swapToPrize();   // AUD-3: dock-menu [V] swap (RULED a: docked too)
       else if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) this.repairAtPort();
       else if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) this.restockAtPort();

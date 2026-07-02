@@ -242,6 +242,15 @@ class HUD {
 
   drawDock(g){
     const gs = this.gs, pl = gs.player;
+    // TM1: the tavern board takes over the dock panel while open
+    if (gs.docked && gs.dockPort && gs.tavernOpen && typeof TavernSystem !== 'undefined'){
+      const w = 440, h = 400, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
+      g.fillStyle(0x140E08, 0.94); g.fillRect(x, y, w, h);          // warmer wood tone than the port menu
+      g.lineStyle(2, 0xB08040, 0.6); g.strokeRect(x, y, w, h);
+      this.tDockMenu.setText(TavernSystem.boardText(gs)).setVisible(true);
+      this.tDockPrompt.setVisible(false);
+      return;
+    }
     if (gs.docked && gs.dockPort){
       const w = 440, h = 400, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
       g.fillStyle(0x0E1820, 0.94); g.fillRect(x, y, w, h);
@@ -266,7 +275,8 @@ class HUD {
       const l0 = (typeof BountySystem !== 'undefined') ? '[0] Accept bounty (hunt a pirate)' : '';
       // SW1 (RULED e): swap is offered in the dock menu whenever a prize is in tow
       const lV = (gs.tows && gs.tows.length) ? '[V] Make towed prize your flagship' : '';
-      const extra = [l6, l7, l8, l9, l0, lV].filter(Boolean).join('\n');
+      const lT = (typeof TavernSystem !== 'undefined') ? '[T] Enter the tavern (missions)' : '';   // TM1
+      const extra = [l6, l7, l8, l9, l0, lV, lT].filter(Boolean).join('\n');
       this.tDockMenu.setText('⚓  ' + port.name + '   (' + (port.type || 'Port') + ')\n\nGOLD  ' + (pl.bank || 0) + '     HOLD  ' + cargo + '     CREW  ' + (pl.crew || 0) + '/' + crewCap + '\n\n' + l1 + '\n' + l2 + '\n[3] Sell all cargo\n' + l4 + '\n' + l5 + (extra ? '\n' + extra : '') + '\n\n[F] Depart').setVisible(true);
       this.tDockPrompt.setVisible(false);
     } else if (gs.nearPort){
