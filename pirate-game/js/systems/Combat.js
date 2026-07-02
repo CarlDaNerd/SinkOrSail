@@ -27,6 +27,7 @@ const Combat = {
       ship.fire[side] = cd;
       scene.player.lastFiredAt = scene.time.now/1000;          // for the flag combat-lock window
     } else ship.fire = cd;
+    this._flash(scene, ship, fa);                              // MB2-5: one flash per volley per side
   },
 
   // AI passes a side sign; map it to 'port'/'star' through the unified path
@@ -49,6 +50,16 @@ const Combat = {
     if (!DEBUG.infAmmo) ship.ammo = Math.max(0, ship.ammo - 1);
     ship.fire[which] = ShipTiers.cooldown(which);                 // distinct bow vs stern cooldown
     scene.player.lastFiredAt = scene.time.now/1000;               // flag combat-lock window
+    this._flash(scene, ship, fa);                                 // MB2-5
+  },
+
+  // ── MB2-5 muzzle flash ── every cannon shot (player + AI — this file is the
+  // unified fire path) records a short-lived flash. The record keeps the SHIP
+  // reference + fire angle; GameScene.draw() computes the muzzle point from the
+  // ship's CURRENT position each frame so the flash stays glued to a moving hull.
+  _flash(scene, ship, fa){
+    if (!scene.muzzleFlashes) scene.muzzleFlashes = [];
+    scene.muzzleFlashes.push({ ship, fa, t0: scene.time.now/1000 });
   },
 
   onHit(scene, ball, target){

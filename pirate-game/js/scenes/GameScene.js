@@ -440,6 +440,26 @@ class GameScene extends Phaser.Scene {
     const gf = this.gfxFx; gf.clear(); gf.fillStyle(0x201810, 1);
     for (const b of this.cannonballs){ gf.fillCircle(b.x, b.y, 3); }
 
+    // MB2-5: muzzle flashes — tiny burst at the firing cannon's mouth, computed
+    // from the ship's CURRENT pos/heading so it rides a moving hull. Core disc +
+    // 3 short spikes fanned around the fire angle; shrinks + fades over
+    // MUZZLE_FLASH_LIFE. Expired entries are pruned in the same pass.
+    if (this.muzzleFlashes && this.muzzleFlashes.length){
+      for (let i = this.muzzleFlashes.length - 1; i >= 0; i--){
+        const f = this.muzzleFlashes[i], a = (nowS - f.t0) / MUZZLE_FLASH_LIFE;
+        if (a >= 1 || !f.ship){ this.muzzleFlashes.splice(i, 1); continue; }
+        const mx = f.ship.x + Math.sin(f.fa*RAD) * MUZZLE_OFFSET;
+        const my = f.ship.y - Math.cos(f.fa*RAD) * MUZZLE_OFFSET;
+        const k = 1 - a, r = MUZZLE_FLASH_R * (0.6 + 0.4*k);       // slight shrink over life
+        gf.fillStyle(0xFFE9A0, 0.9*k); gf.fillCircle(mx, my, r*0.55);          // hot core
+        gf.lineStyle(2, 0xF0A030, 0.8*k);                                      // orange spikes
+        for (const off of [-28, 0, 28]){
+          const th = (f.fa + off) * RAD;
+          gf.lineBetween(mx, my, mx + Math.sin(th)*r*1.7, my - Math.cos(th)*r*1.7);
+        }
+      }
+    }
+
     Systems.draw(this, gw);                          // feature overlays draw on the world layer
   }
 

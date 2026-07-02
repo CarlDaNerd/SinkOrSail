@@ -347,12 +347,19 @@ const TOUCH_BTN_ALPHA = 0.85;  // resting opacity so buttons don't fully hide th
 const TOUCH_SAFE_BOTTOM_FRAC = 0.30;   // PLACEHOLDER
 const DEVLOG_VISIBLE_TOUCH = 5;        // PLACEHOLDER — fewer feed lines on a phone (MW-12)
 
-// ── MW-7 ── slide-to-steer + bottom-third cannon buttons; ALL PLACEHOLDER
-const TOUCH_STEER_RANGE = 120;   // px of finger travel from touch point for full-rate turn
+// ── MW-7 → MB2-4 ── tap-to-steer (hold halves) + circle fire buttons; ALL PLACEHOLDER
 const TOUCH_TAP_MAX_PX  = 12;    // a press that moves less than this...
 const TOUCH_TAP_MAX_S   = 0.30;  // ...and lasts less than this = a TAP (dock/capture), not a steer
-const TOUCH_CANNON_W    = 110, TOUCH_CANNON_H = 74;   // big broadside buttons
-const TOUCH_CHASER_W    = 84,  TOUCH_CHASER_H = 44;   // smaller bow/stern buttons (ASSUMPTION: chasers kept)
+// MB2-1/2/3: rect+text buttons replaced with circle+icon buttons
+const TOUCH_CIRCLE_R_CANNON = 40;   // broadside button radius
+const TOUCH_CIRCLE_R_CHASER = 26;   // bow/stern chaser + sails button radius
+const TOUCH_ICON_COLOR      = 0xD4C890;   // resting icon tint (matches old label color)
+const TOUCH_ICON_HOT        = 0xF0C840;   // pressed icon tint
+
+// ── MB2-5 ── muzzle flash on every cannon shot (player + AI, unified fire path)
+const MUZZLE_FLASH_LIFE = 0.14;   // PLACEHOLDER — seconds the flash lives
+const MUZZLE_FLASH_R    = 7;      // PLACEHOLDER — core radius px (tiny, proportionate to cannon)
+const MUZZLE_OFFSET     = 20;     // px from ship center to muzzle (matches ball spawn offset in Combat)
 
 // ── T-6 / MW-10 ── storm feel guards + lightning visual
 const STORM_PLAYER_STRIKE_CAP = 2;   // PLACEHOLDER — max sail strikes on the player per storm

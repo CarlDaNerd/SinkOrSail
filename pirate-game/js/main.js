@@ -16,6 +16,10 @@ const config = {
   // are read at boot for initial layout; the resize handler keeps globals fresh
   // so touch-button layout and HUD anchors reposition correctly.
   scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
+  // MB2-A1: multitouch. Phaser's default is mouse + ONE touch pointer, which
+  // makes steer-while-firing impossible (second finger is dead). 4 covers
+  // steer + two fire buttons + a stray palm. (Pattern: diep.io / florr.io.)
+  input: { activePointers: 4 },
 };
 const game = new Phaser.Game(config);
 // keep the size globals live so per-frame draws (minimap, devlog, prompts) self-correct on rotate/resize

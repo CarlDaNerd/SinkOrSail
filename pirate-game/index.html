@@ -2,13 +2,42 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- MB2-8/9: viewport-fit=cover → edge-to-edge in landscape Safari (notch safe);
+     PWA meta + manifest → Add-to-Home-Screen gives TRUE fullscreen on iPhone
+     (Apple ships no element-fullscreen API there). -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SinkOrSail">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Pirate — Combat + Factions V1 (modular)</title>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 <style>
-  html, body { margin:0; padding:0; background:#0b1622; overflow:hidden; font-family:ui-monospace,"SF Mono",Menlo,monospace; }
-  #wrap { width:100vw; height:100vh; }
-  #game { width:100vw; height:100vh; }
+  html, body { margin:0; padding:0; background:#0b1622; overflow:hidden; font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    /* MB2-A3: mobile-web armor (pattern: slither.io / diep.io / agar.io) —
+       kill pull-to-refresh + the grey tap flash at the page level. */
+    overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  /* MB2-A3: dvh = the iOS-Safari-safe viewport unit (100vh overflows behind the
+     URL bar); vh line kept first as the fallback for older browsers.
+     Gesture suppression scoped to the CANVAS so the dev tuning panel keeps
+     native scrolling / text selection. */
+  #wrap { width:100vw; height:100vh; height:100dvh; }
+  #game { width:100vw; height:100vh; height:100dvh;
+    touch-action: none; -webkit-touch-callout: none;
+    -webkit-user-select: none; user-select: none; }
+  /* MB2-9: landscape-only on touch devices. body.touchdev is set by TouchInput.init;
+     in portrait a blocking overlay asks for a rotate. Desktop is untouched (no class).
+     FLAG-5 RULED: auto-pauses on portrait (TouchInput matchMedia hook); resume is manual. */
+  #rotateOverlay { display:none; }
+  body.touchdev #rotateOverlay { position:fixed; inset:0; z-index:9000; background:#0b1622;
+    align-items:center; justify-content:center; text-align:center; color:#D4C890; }
+  @media (orientation: portrait){ body.touchdev #rotateOverlay { display:flex; } }
+  #rotateOverlay .rotIco { font-size:56px; display:block; margin-bottom:14px;
+    animation: rotHint 1.6s ease-in-out infinite; }
+  @keyframes rotHint { 0%,100% { transform:rotate(0deg); } 50% { transform:rotate(-90deg); } }
+  #rotateOverlay .rotSub { font-size:11px; color:#6a8298; margin-top:8px; letter-spacing:1px; }
   /* slide-in drawer overlay (toggle with the edge tab or the backtick key) */
   #panel { position:fixed; top:0; right:0; width:300px; height:100vh; box-sizing:border-box;
     background:#0E1820; color:#D4C890; border-left:1px solid #2a3a4a; z-index:20;
@@ -54,6 +83,12 @@
 <body>
 <div id="wrap">
   <div id="game"></div>
+  <!-- MB2-9: shown only on touch devices in portrait (see CSS) -->
+  <div id="rotateOverlay"><div>
+    <span class="rotIco">⟳</span>
+    ROTATE YOUR DEVICE
+    <div class="rotSub">SINKORSAIL PLAYS IN LANDSCAPE</div>
+  </div></div>
   <div id="panel">
     <div id="panelTab" title="Toggle tuning panel ( ` )">⚙ TUNE</div>
     <div id="panelInner">
