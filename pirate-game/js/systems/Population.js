@@ -27,8 +27,10 @@ const Population = {
     // 1) cull dead ships and anything that has drifted beyond the despawn radius
     for (let i = ships.length - 1; i >= 0; i--){
       const s = ships[i];
-      if (!s.alive){ ships.splice(i, 1); continue; }
-      if (Math.hypot(s.x - pl.x, s.y - pl.y) > POP_DESPAWN_RADIUS) ships.splice(i, 1);
+      // BUGFIX: every despawn path must surrender any claimed berth, or the
+      // occupantId points at a gone ship and that dock is blocked forever
+      if (!s.alive){ if (typeof Docks !== 'undefined') Docks.releaseAnywhere(scene, s); ships.splice(i, 1); continue; }
+      if (Math.hypot(s.x - pl.x, s.y - pl.y) > POP_DESPAWN_RADIUS){ if (typeof Docks !== 'undefined') Docks.releaseAnywhere(scene, s); ships.splice(i, 1); }
     }
     // 2) ports inside the spawn window drive the local density
     const nearPorts = scene.navyPorts.filter(p => Math.hypot(p.x - pl.x, p.y - pl.y) < POP_SPAWN_RADIUS);
