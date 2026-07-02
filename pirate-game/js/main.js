@@ -18,3 +18,5 @@ const config = {
   scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
 };
 const game = new Phaser.Game(config);
+// keep the size globals live so per-frame draws (minimap, devlog, prompts) self-correct on rotate/resize
+game.scale.on('resize', (sz) => { GAME_W = sz.width; GAME_H = sz.height; });

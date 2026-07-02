@@ -35,7 +35,7 @@ const DEFAULTS = {
   windOscAmp:12, windOscSpeed:1, windShiftEvery:75, windShiftSize:40, windShiftDur:14,
   // ── WEATHER (live-tunable; structural timings/sizes are consts further down) ──
   rainBoost:1.2, rainGust:1.8,          // rain: ship-speed × / wind-gust amplitude ×
-  stormChance:45, stormGust:1.5,        // storm: per-strike hit chance %, wind-gust amplitude ×
+  stormChance:30, stormGust:1.5,        // storm: per-strike hit chance % (T-6: was 45 → ~3 expected hits/storm), gust ×  PLACEHOLDER
   cycPull:1.6, cycReach:1000, cycDrift:0.55, cycDmg:50,   // cyclone: core current, radius, drift, eye-hit % max hull
 };
 const P = { ...DEFAULTS };
@@ -160,8 +160,12 @@ const MEGA_LONE_GAP = 220;                              // edge-to-edge spacing 
 const MEGA_SUB_SPARSE_CHANCE = 0.20;                    // a sub-group is occasionally a bigger 'sparse' scatter for variety
 // full-window canvas; the dev panel is a slide-in overlay drawer (not a layout
 // sibling), so it no longer steals canvas width — toggle it from the edge tab.
-const GAME_W = window.innerWidth, GAME_H = window.innerHeight;
-const SHIP_RADIUS = 22, WAKE_LENGTH = 28, WAKE_MIN_SPEED = 0.2, WAKE_SLOPE = 0.42;   // WAKE_SLOPE = V divergence per px back from the stern (constant angle at any speed; × ship scale)
+let GAME_W = window.innerWidth, GAME_H = window.innerHeight;   // LIVE: updated on resize (R-1)
+const SHIP_RADIUS = 22, WAKE_LENGTH = 26, WAKE_MIN_SPEED = 0.2;
+// ── MW-14 ── Pokémon-surf-style ripples: short arcs emitted at the stern that
+// widen + fade over their life (replaces the constant-angle V trail). ALL PLACEHOLDER.
+const WAKE_RIPPLE_LIFE_S = 1.1;   // seconds a ripple lives
+const WAKE_EMIT_DIST = 14;        // px of travel between emitted ripples
 // ── COLLISION PUSH ── each ship carries a decaying drift vector (s.push); land
 // collisions slide along it, ship-ship collisions shove via it (mass = maxHull, so
 // bigger ships push harder). Head-on into a cliff still kills all speed.
@@ -336,3 +340,23 @@ const TOUCH_BTN_FONT  = 18;    // button label font size (px)
 const TOUCH_BTN_PAD_X = 20;    // button text padding x
 const TOUCH_BTN_PAD_Y = 14;    // button text padding y
 const TOUCH_BTN_ALPHA = 0.85;  // resting opacity so buttons don't fully hide the sea
+
+// ── MW-12 ── bottom fraction of the screen reserved for touch controls; HUD text,
+// prompts and the dev log must stay ABOVE this band on touch devices. Used by
+// TouchInput.safeBottomY() (consumed by the HUD relayout + steer/tap split).
+const TOUCH_SAFE_BOTTOM_FRAC = 0.30;   // PLACEHOLDER
+const DEVLOG_VISIBLE_TOUCH = 5;        // PLACEHOLDER — fewer feed lines on a phone (MW-12)
+
+// ── MW-7 ── slide-to-steer + bottom-third cannon buttons; ALL PLACEHOLDER
+const TOUCH_STEER_RANGE = 120;   // px of finger travel from touch point for full-rate turn
+const TOUCH_TAP_MAX_PX  = 12;    // a press that moves less than this...
+const TOUCH_TAP_MAX_S   = 0.30;  // ...and lasts less than this = a TAP (dock/capture), not a steer
+const TOUCH_CANNON_W    = 110, TOUCH_CANNON_H = 74;   // big broadside buttons
+const TOUCH_CHASER_W    = 84,  TOUCH_CHASER_H = 44;   // smaller bow/stern buttons (ASSUMPTION: chasers kept)
+
+// ── T-6 / MW-10 ── storm feel guards + lightning visual
+const STORM_PLAYER_STRIKE_CAP = 2;   // PLACEHOLDER — max sail strikes on the player per storm
+const STORM_BOLT_S = 0.22;           // PLACEHOLDER — seconds the lightning bolt stays visible
+
+// ── MW-15 ── dull-red flash on a ship that just took a hit
+const HIT_FLASH_S = 0.35;   // PLACEHOLDER — flash duration (s)

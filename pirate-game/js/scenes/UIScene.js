@@ -30,6 +30,8 @@ class UIScene extends Phaser.Scene {
     this.btnExtras   = this._btn(GAME_W/2, GAME_H/2 + 152, 'Weather',          () => { this.gs.extrasOn = !this.gs.extrasOn; });   // toggles M11 weather only (zoom is always on)
     this._menuObjs = [this.menuBg, this.menuTitle, this.btnResume, this.btnNew, this.btnLoad, this.btnDownload, this.btnImport, this.btnTuning, this.btnExtras];
     for (const o of this._menuObjs) o.setVisible(false);
+    // R-1: reflow the HUD (and touch controls) whenever the canvas re-fits
+    this.scale.on('resize', () => { if (this.hud) this.hud.relayout(); });
 
     // ── touch add-on: build on-screen controls (no-op on desktop) ──
     if (typeof TouchInput !== 'undefined'){
@@ -43,6 +45,18 @@ class UIScene extends Phaser.Scene {
         this._miniZone.on('pointerdown', () => { if (!this.gs.menuOpen && !this.gs.docked && !this.gs.mapOpen) this.gs.toggleMap(); });
         // invisible tappable rows over the docked shop menu (mirror 1-9,0 + F)
         this._buildDockZones();
+        // MW-11: visible CLOSE for the big map (map has no touch exit otherwise)
+        this._mapClose = this.add.text(TOUCH_MARGIN, TOUCH_MARGIN, '✕ CLOSE MAP', {
+          fontFamily:'ui-monospace,monospace', fontSize:'16px', color:'#EAD9A6',
+          backgroundColor:'#16283a', padding:{ x:14, y:10 },
+        }).setScrollFactor(0).setDepth(142).setInteractive({ useHandCursor:true }).setVisible(false);
+        this._mapClose.on('pointerdown', () => { if (this.gs.mapOpen) this.gs.toggleMap(); });
+        // MW-17: visible DEPART while docked (menu otherwise exits only via the F key)
+        this._btnDepart = this.add.text(0, 0, '⚓ DEPART', {
+          fontFamily:'ui-monospace,monospace', fontSize:'16px', color:'#F0C840',
+          backgroundColor:'#16283a', padding:{ x:16, y:10 },
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(142).setInteractive({ useHandCursor:true }).setVisible(false);
+        this._btnDepart.on('pointerdown', () => { if (this.gs.docked){ this.gs.docked = false; this.gs.dockPort = null; } });
       }
     }
   }
@@ -135,7 +149,10 @@ class UIScene extends Phaser.Scene {
       TouchInput.setControlsVisible(!gs.menuOpen && !gs.docked && !gs.mapOpen && gs.player.hull > 0);
       if (this._pauseVis === undefined) this._pauseVis = true;
       if (TouchInput._pauseBtn) TouchInput._pauseBtn.setVisible(!gs.docked && !gs.mapOpen);
+      if (TouchInput._fsBtn) TouchInput._fsBtn.setVisible(!gs.docked && !gs.mapOpen);
       if (this._miniZone) this._miniZone.setVisible(!gs.menuOpen && !gs.docked && !gs.mapOpen);
+      if (this._mapClose) this._mapClose.setVisible(gs.mapOpen);
+      if (this._btnDepart) this._btnDepart.setPosition(GAME_W/2, GAME_H - 70).setVisible(!!gs.docked);
       this._layoutDockZones();
     }
   }
