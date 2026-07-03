@@ -7,7 +7,7 @@
 // drawn separately, unmasked, by the HUD.
 function drawMiniMap(g, gs, pl){
   g.clear();
-  const mr = MINIMAP_H/2, full = mr + COMPASS_RING_W + COMPASS_LABEL_PAD;   // map + ring + cardinal-letter pad
+  const mr = miniMapH()/2, full = mr + compassRingW() + compassLabelPad();   // map + ring + cardinal-letter pad (halved on mobile)
   const cxp = GAME_W - 12 - full, cyp = 12 + full;      // top-right corner, 12px margin
   g.fillStyle(0x0E1820, 0.92); g.fillCircle(cxp, cyp, mr);
   const R = MINIMAP_RANGE, scale = mr/R;                // MINIMAP_RANGE world px maps to the minimap radius
@@ -21,7 +21,7 @@ function drawMiniMap(g, gs, pl){
     g.fillStyle((is.mainland || is.big) ? 0x3D6E25 : 0x4C8A30, 0.95);
     for (const e of is.ells) if (within(e.cx, e.cy, e.rx)) g.fillCircle(w2x(e.cx), w2y(e.cy), Math.max(1, e.rx*scale));
   }
-  for (const p of gs.navyPorts) if (within(p.x, p.y)){
+  for (const p of (gs.nearbyPorts || gs.navyPorts)) if (within(p.x, p.y)){   // OPT-B2: NEARBY_PORTS_RADIUS ≫ MINIMAP_RANGE
     g.fillStyle((PORT_TYPES[p.type] && PORT_TYPES[p.type].color) || 0x8AC8E0, 1); g.fillCircle(w2x(p.x), w2y(p.y), 2.8);
     if (p.owner === 'player'){ g.lineStyle(1.2, 0xF0C840, 0.95); g.strokeCircle(w2x(p.x), w2y(p.y), 4.6); }   // PF1: yours = gold ring
   }

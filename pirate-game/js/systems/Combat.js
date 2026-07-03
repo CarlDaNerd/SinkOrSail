@@ -96,7 +96,7 @@ const Combat = {
       // before the land block so a coastal port marker is still hittable
       if (b.ownerFaction === 'player' && typeof PortCaptureSystem !== 'undefined' && scene.navyPorts){
         let portHit = false;
-        for (const port of scene.navyPorts){
+        for (const port of (scene.nearbyPorts || scene.navyPorts)){   // OPT-B2: player shells only fly near the player
           if (port.owner === 'player') continue;
           if (Math.hypot(b.x - port.x, b.y - port.y) < PORT_HIT_RADIUS){ PortCaptureSystem.damagePort(scene, port); portHit = true; break; }
         }

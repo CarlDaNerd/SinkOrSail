@@ -85,6 +85,18 @@ const FOG_CELL = 375;             // big-map fog reveal cell size (px) — finer
 const COORD_SCALE = 25;           // world px per displayed coordinate unit (HUD + map show position / COORD_SCALE so numbers stay small)
 const COMPASS_RING_W = 16;        // width (px) of the compass ring wrapped around the circular minimap
 const COMPASS_LABEL_PAD = 16;     // space (px) beyond the ring for the cardinal letters (so ticks never cross them)
+// ── mobile HUD scale ── on touch devices only, the corner minimap circle is sized
+// to MINIMAP_H_TOUCH px (desktop keeps the full MINIMAP_H); the compass ring, label
+// pad and cardinal-letter font scale by the same ratio so the assembly stays in
+// proportion. MINIMAP_RANGE (the world radius the radar covers) is deliberately NOT
+// scaled, so this is purely a HUD-size change — zoom, fog and gameplay are untouched.
+// Uses isTouchDevice() (not TouchInput.active) so it's correct even at HUD build time,
+// before TouchInput.init() has run.
+const MINIMAP_H_TOUCH = 90;       // mobile minimap circle diameter (px)
+function hudMiniScale(){ return (typeof TouchInput !== 'undefined' && TouchInput.isTouchDevice && TouchInput.isTouchDevice()) ? (MINIMAP_H_TOUCH / MINIMAP_H) : 1; }
+function miniMapH(){ return MINIMAP_H * hudMiniScale(); }
+function compassRingW(){ return COMPASS_RING_W * hudMiniScale(); }
+function compassLabelPad(){ return COMPASS_LABEL_PAD * hudMiniScale(); }
 const BOUNTY_ARROW_RANGE = 4500;  // px — a bounty target within this is tracked by the edge arrow; it hides only once ON the actual screen
 const MAP_SCALE_INIT = 0.045;             // big map (M): screen-px per world-px
 const MAP_RECENTER_S = 0.3;               // seconds for the C-key recenter + zoom-reset animation (eased)
@@ -419,3 +431,16 @@ const STORM_BOLT_S = 0.22;           // PLACEHOLDER — seconds the lightning bo
 
 // ── MW-15 ── dull-red flash on a ship that just took a hit
 const HIT_FLASH_S = 0.35;   // PLACEHOLDER — flash duration (s)
+
+// ── OPT-B1 ── the static port layer draws only ports NEAR the player. The world
+// holds ~900+ ports and a Graphics command buffer is re-processed every frame, so
+// drawing them all cost ~84% of per-frame graphics work (see optimize.md). Full
+// zoom-out (ZOOM_MIN) shows a half-diagonal of MINIMAP_RANGE px, so the draw
+// radius keeps every reachable view covered with slack; the layer re-culls after
+// PORT_REDRAW_DIST of player travel — long before that slack is spent.
+const PORT_DRAW_RADIUS = 2600;   // PLACEHOLDER — draw ports within this of the player
+const PORT_REDRAW_DIST = 400;    // PLACEHOLDER — px of travel between re-culls
+// OPT-B2: shared near-player port list (scene.nearbyPorts) — the six per-frame
+// "loop every port in the world" systems iterate this instead. Kept ≥
+// POP_SPAWN_RADIUS so ship-centred scans (merchant pickPort) stay valid.
+const NEARBY_PORTS_RADIUS = 5000;   // PLACEHOLDER — feel/perf-tune

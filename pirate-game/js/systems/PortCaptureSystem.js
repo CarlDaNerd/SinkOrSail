@@ -34,7 +34,7 @@ const PortCaptureSystem = {
 
   nearestCapturable(scene){
     let best = null, bd = PORT_CAPTURE_RANGE;
-    for (const port of scene.navyPorts){
+    for (const port of (scene.nearbyPorts || scene.navyPorts)){   // OPT-B2: capture range is tiny; runs per frame via the HUD hint
       if (port.owner === 'player') continue;
       if (port.hull > port.maxHull * PORT_CAPTURE_THRESHOLD_PCT / 100) continue;
       const d = Math.hypot(scene.player.x - port.x, scene.player.y - port.y);
@@ -64,7 +64,7 @@ const PortCaptureSystem = {
   update(scene, dt, dts){
     const t = scene.time.now / 1000;
     // un-owned ports slowly heal out of combat
-    for (const port of scene.navyPorts){
+    for (const port of (scene.nearbyPorts || scene.navyPorts)){   // OPT-B2: distant damaged ports pause regen until approached — invisible to the player (optimize.md B2)
       if (port.owner === 'player') continue;
       if (port.hull < port.maxHull && (t - port.lastHitAt) > PORT_REGEN_DELAY_S){
         port.hull = Math.min(port.maxHull, port.hull + PORT_REGEN_PER_S * dts);
@@ -76,7 +76,7 @@ const PortCaptureSystem = {
 
   // hull bar over any damaged or owned port; capture ring when in range
   draw(scene, g){
-    for (const port of scene.navyPorts){
+    for (const port of (scene.nearbyPorts || scene.navyPorts)){   // OPT-B2: bars beyond NEARBY_PORTS_RADIUS are far off-camera at any zoom
       const damaged = port.hull != null && port.hull < port.maxHull;
       if (!damaged && port.owner !== 'player') continue;
       const w = 44, x = port.x - w/2, y = port.y - 40;

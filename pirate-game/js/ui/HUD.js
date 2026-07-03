@@ -9,7 +9,7 @@ class HUD {
     this.s = scene; this.gs = gs;
     this.g = scene.add.graphics().setScrollFactor(0).setDepth(100);
     // circular minimap into its own masked graphics so nothing spills past the rim
-    const mmr = MINIMAP_H/2, mmfull = mmr + COMPASS_RING_W + COMPASS_LABEL_PAD, mmcx = GAME_W - 12 - mmfull, mmcy = 12 + mmfull;
+    const mmr = miniMapH()/2, mmfull = mmr + compassRingW() + compassLabelPad(), mmcx = GAME_W - 12 - mmfull, mmcy = 12 + mmfull;
     this.miniG = scene.add.graphics().setScrollFactor(0).setDepth(100);
     const mmMask = scene.make.graphics({ add: false });
     mmMask.fillStyle(0xffffff, 1); mmMask.fillCircle(mmcx, mmcy, mmr);
@@ -48,8 +48,8 @@ class HUD {
     this.tOver   = scene.add.text(GAME_W/2, GAME_H/2, '', { fontFamily:'ui-monospace,monospace', fontSize:'30px', color:'#E0503A', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(102);
     // circular-minimap compass ring: static cardinal letters (north-up), seated OUTSIDE
     // the ring so the ticks never cross them
-    { const mr = MINIMAP_H/2, full = mr + COMPASS_RING_W + COMPASS_LABEL_PAD, ccx = GAME_W - 12 - full, ccy = 12 + full, lr = mr + COMPASS_RING_W + COMPASS_LABEL_PAD*0.55;
-      const mkC = (lab, deg) => scene.add.text(ccx + Math.sin(deg*RAD)*lr, ccy - Math.cos(deg*RAD)*lr, lab, { fontFamily:'ui-monospace,monospace', fontSize:'13px', color:'#EAD9A6', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+    { const mr = miniMapH()/2, full = mr + compassRingW() + compassLabelPad(), ccx = GAME_W - 12 - full, ccy = 12 + full, lr = mr + compassRingW() + compassLabelPad()*0.55;
+      const mkC = (lab, deg) => scene.add.text(ccx + Math.sin(deg*RAD)*lr, ccy - Math.cos(deg*RAD)*lr, lab, { fontFamily:'ui-monospace,monospace', fontSize:Math.round(13*hudMiniScale()) + 'px', color:'#EAD9A6', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
       this.cN = mkC('N', 0); this.cE = mkC('E', 90); this.cS = mkC('S', 180); this.cW = mkC('W', 270); }
     this.tScale = scene.add.text(GAME_W/2, GAME_H - 22, '', { fontFamily:'ui-monospace,monospace', fontSize:'10px', color:'#D4C890' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
     this.tDockPrompt = scene.add.text(GAME_W/2, GAME_H - 96, '', { fontFamily:'ui-monospace,monospace', fontSize:'13px', color:'#F0C840', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(103);
@@ -69,10 +69,10 @@ class HUD {
   // create-time positions need moving. Touch-safe bottom keeps prompts above the
   // control band (C-8). (R-1 / MW-3 / MW-8 / MW-12)
   relayout(){
-    const mmr = MINIMAP_H/2, full = mmr + COMPASS_RING_W + COMPASS_LABEL_PAD;
+    const mmr = miniMapH()/2, full = mmr + compassRingW() + compassLabelPad();
     const cx = GAME_W - 12 - full, cy = 12 + full;
     this.mmMask.clear(); this.mmMask.fillStyle(0xffffff, 1); this.mmMask.fillCircle(cx, cy, mmr);
-    const lr = mmr + COMPASS_RING_W + COMPASS_LABEL_PAD*0.55;
+    const lr = mmr + compassRingW() + compassLabelPad()*0.55;
     const setC = (t, deg) => t.setPosition(cx + Math.sin(deg*RAD)*lr, cy - Math.cos(deg*RAD)*lr);
     setC(this.cN, 0); setC(this.cE, 90); setC(this.cS, 180); setC(this.cW, 270);
     const safeB = (typeof TouchInput !== 'undefined') ? TouchInput.safeBottomY(GAME_H) : GAME_H - 30;
@@ -187,7 +187,7 @@ class HUD {
     this.tOver.setText(pl.hull <= 0 ? 'YOU SANK\npress Esc → Reset Game' : '');
 
     drawMiniMap(this.miniG, gs, pl);
-    { const mr = MINIMAP_H/2, full = mr + COMPASS_RING_W + COMPASS_LABEL_PAD; drawCompassRing(g, gs, pl, GAME_W - 12 - full, 12 + full, mr, COMPASS_RING_W); }
+    { const mr = miniMapH()/2, full = mr + compassRingW() + compassLabelPad(); drawCompassRing(g, gs, pl, GAME_W - 12 - full, 12 + full, mr, compassRingW()); }
     const ref = 200*gs.cameras.main.zoom, bx = GAME_W/2 - ref/2, by = GAME_H - 26;
     g.lineStyle(2, 0xD4C890, 0.8);
     g.lineBetween(bx, by, bx + ref, by); g.lineBetween(bx, by - 5, bx, by + 5); g.lineBetween(bx + ref, by - 5, bx + ref, by + 5);
