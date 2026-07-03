@@ -25,6 +25,12 @@ const Save = {
         ar: e.assigned ? (scene.runners || []).findIndex(r => r.id === e.assigned) : -1 })),   // SC1: assigned-runner index
       // captured prizes in tow — coords/tier/hull only; re-stamped on load
       tows: (scene.tows || []).map(t => ({ x:Math.round(t.x), y:Math.round(t.y), h:Math.round(t.heading) || 0, tier:t.tier || 1, hull:Math.round(t.hull) })),
+      // EMPIRE-1a: prizes docked but not yet repaired+crewed to commission; re-linked to their port by coords
+      berthedPrizes: (scene.berthedPrizes || []).map(b => ({ tier:b.tier || 1, hull:Math.round(b.hull), crew:b.crew || 0,
+        port: (() => { const port = (scene.navyPorts || []).find(p => p.id === b.dockedAt); return port ? [Math.round(port.x), Math.round(port.y)] : null; })() })),
+      // EMPIRE-1b: finite port stock (only ports that differ from the deterministic seed default are worth persisting;
+      // saving all of them keeps this simple and robust to any future stock-model tuning)
+      portStock: (scene.navyPorts || []).filter(p => p.stock).map(p => [Math.round(p.x), Math.round(p.y), p.stock]),
       // SC1: tavern missions (dest re-linked by coords on load)
       missions: (scene.activeMissions || []).map(m => ({ type:m.type, title:m.title, need:m.need, done:m.done, reward:m.reward,
         dest: m.dest ? [Math.round(m.dest.x), Math.round(m.dest.y)] : null })),
@@ -94,6 +100,30 @@ const Save = {
           alive: true, wake: [], fire: { port:0, star:0, bow:0, stern:0 } };
         if (typeof ShipTiers !== 'undefined') ShipTiers.apply(scene, tow, false);
         scene.tows.push(tow);
+      }
+    }
+    // EMPIRE-1b: restore finite port stock (re-linked to deterministic ports by coords)
+    if (Array.isArray(s.portStock) && scene.navyPorts){
+      for (const [px, py, stock] of s.portStock){
+        const port = scene.navyPorts.find(p => Math.round(p.x) === px && Math.round(p.y) === py);
+        if (port && stock) port.stock = Object.assign({}, port.stock, stock);
+      }
+    }
+    // EMPIRE-1a: restore berthed prizes, re-occupying their dock slot (ghost claims
+    // were already voided above, so this is the only thing re-claiming a berth)
+    scene.berthedPrizes = [];
+    if (Array.isArray(s.berthedPrizes) && typeof Docks !== 'undefined'){
+      for (const bd of s.berthedPrizes){
+        const port = bd.port && scene.navyPorts.find(p => Math.round(p.x) === bd.port[0] && Math.round(p.y) === bd.port[1]);
+        if (!port) continue;                                    // port gone/unowned on this seed — drop it rather than ghost-spawn
+        const prize = { id: 'berth_' + Math.random().toString(36).slice(2, 8), heading: 0,
+          tier: bd.tier || 1, hull: bd.hull, crew: bd.crew || 0, vel: 0, faction: 'prize', state: 'berthed',
+          beingTowed: false, alive: true, wake: [], fire: { port:0, star:0, bow:0, stern:0 } };
+        if (typeof ShipTiers !== 'undefined') ShipTiers.apply(scene, prize, false);
+        prize.hull = Math.min(prize.maxHull, bd.hull);          // ShipTiers.apply may have re-clamped maxHull; keep saved hull
+        const slot = Docks.occupy(scene, port, prize);
+        if (slot){ const p2 = Docks.slotPos(port, slot); prize.x = p2.x; prize.y = p2.y; scene.berthedPrizes.push(prize); }
+        // if the port's berths are somehow all full (shouldn't happen — this ship held one), drop it rather than duplicate a slot
       }
     }
     // SC1: tavern missions — dest re-linked to the deterministic port by coords

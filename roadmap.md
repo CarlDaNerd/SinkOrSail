@@ -25,6 +25,7 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Recently Added (most recent commits first)
 
+- EMPIRE-1 — gated prize commissioning (repair hull + crew to minimum at the port menu before a towed prize becomes a runner, replacing instant conversion) and finite port stock (depletes on player purchase, replenished by merchant AI deliveries, previously-dormant cargo-assignment code now actually wired up)
 - OPT-B2 — shared `scene.nearbyPorts` list: the six per-frame all-924-port loops (dock scan, tower placement/fire, capture regen, minimap, cannonball port hits, merchant pickPort) now iterate near-player ports only (optimize.md B2)
 - SC1 — save coverage expanded: missions, Leviathan (persists dead, doesn't respawn), fleet organization, derelict purchases (all-additive, old saves still load)
 - WD1 — wind strength now breathes (±15% via two slow incommensurate sine waves, placeholder amplitude), applied to player/AI/escorts/runners alike; wind *direction* shifting already existed, so that doc item was stale
@@ -107,9 +108,12 @@ None currently. Reef generation and the blue-circle suicide crash are both confi
 - Ironman / hardcore save mode
 - Full resource list beyond the current six commodities
 - Regional/cultural ship types (Viking, Chinese, etc.) with matching island/base theming (M9) — ship type driven by the home port's culture
-- Empire/economy layer: sell/store/convert an old ship to a passive-trade merchant (distinct from the runner pipeline, which is already built), outposts via port capture
 - Numeric tuning pass: capture loot %, repair costs, cannon-tower stats, bounty reward/range — tier table has real numbers now but is still tagged PLACEHOLDER pending live feel-testing
 - Deeper tavern/mission integration with achievements and culture
 - Multiplayer (early research only, per doc — no implementation)
 - Slave trading (listed in doc's idea list, unbuilt)
 - Send ships only to explored ports (partially covered by FM1's explored-only routing for runners; not yet a player-wide rule)
+
+## Open design questions
+
+- Producer-type ports (their own sourceCommodity) currently only restock via merchant delivery, same as any other port — no passive trickle for producing their own good. Flagged during EMPIRE-1b as a default, not a locked decision.

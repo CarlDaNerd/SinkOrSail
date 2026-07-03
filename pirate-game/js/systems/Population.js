@@ -87,7 +87,10 @@ const Population = {
       const ship = Enemy.create(faction, hull, x, y, r() * 360, home, r, (Population._id = (Population._id || 0) + 1));
       if (faction === 'merchant'){
         if (r() < MERCHANT_WANDER_FRAC) ship.wander = true;          // a few just drift
-        else if (typeof AI !== 'undefined') ship.dest = AI.pickPort(scene, ship, null);   // the rest run a route
+        else if (typeof AI !== 'undefined'){
+          ship.dest = AI.pickPort(scene, ship, null);   // the rest run a route
+          if (typeof CommoditySystem !== 'undefined') CommoditySystem.assignCargo(scene, ship);   // EMPIRE-1b
+        }
       }
       scene.ships.push(ship);
     }

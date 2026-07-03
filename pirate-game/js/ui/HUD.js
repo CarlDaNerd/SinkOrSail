@@ -306,7 +306,17 @@ class HUD {
       const lV = (gs.tows && gs.tows.length) ? '[V] Make towed prize your flagship' : '';
       const lB = (port.derelict && typeof ShipTiers !== 'undefined') ? '[B] Buy docked ' + ShipTiers.get(port.derelict.tier).name + '  —  ' + port.derelict.price + 'g' : '';   // PF1
       const lT = (typeof TavernSystem !== 'undefined') ? '[T] Enter the tavern (missions)' : '';   // TM1
-      const extra = [l6, l7, l8, l9, l0, lV, lB, lT].filter(Boolean).join('\n');
+      // EMPIRE-1a: berthed prize at THIS port — repair/crew gate before it can commission as a runner
+      let lP = '', lK = '';
+      const prize = (gs.berthedPrizes || []).find(pr => pr.dockedAt === port.id);
+      if (prize){
+        const pNeed = prize.maxHull - prize.hull;
+        lP = pNeed <= 0 ? '[P] Prize hull fully repaired' : '[P] Repair prize hull  —  ' + Math.ceil(pNeed * REPAIR_COST_PER_HP) + 'g';
+        const pCap = (typeof ShipTiers !== 'undefined') ? ShipTiers.minCrew(prize) : 0;
+        const pCost = Math.round((typeof CREW_HIRE_COST !== 'undefined' ? CREW_HIRE_COST : 6) * (crewSpec && crewSpec.crewDiscount ? 0.6 : 1));
+        lK = (prize.crew || 0) >= pCap ? '[K] Prize fully crewed (' + pCap + ')' : '[K] Crew prize (' + (prize.crew||0) + '/' + pCap + ')  —  ' + pCost + 'g';
+      }
+      const extra = [l6, l7, l8, l9, l0, lV, lB, lT, lP, lK].filter(Boolean).join('\n');
       this.tDockMenu.setText('⚓  ' + port.name + '   (' + (port.type || 'Port') + ')\n\nGOLD  ' + (pl.bank || 0) + '     HOLD  ' + cargo + '     CREW  ' + (pl.crew || 0) + '/' + crewCap + '\n\n' + l1 + '\n' + l2 + '\n[3] Sell all cargo\n' + l4 + '\n' + l5 + (extra ? '\n' + extra : '') + '\n\n[F] Depart').setVisible(true);
       this.tDockPrompt.setVisible(false);
     } else if (gs.nearPort){

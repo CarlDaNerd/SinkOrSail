@@ -42,7 +42,7 @@ class GameScene extends Phaser.Scene {
     this.follow = this.add.rectangle(this.player.x, this.player.y, 1, 1, 0, 0);
     this.cameras.main.startFollow(this.follow, true, 0.08, 0.08);
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,ZERO,M,Z,X,T,J,L,B,C,V,G,R,SPACE');   // V: flagship swap (SW1); SPACE: double broadside (CQ); G: fleet screen, R: reroll route (FM1)
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,Q,E,F,ESC,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT,NINE,ZERO,M,Z,X,T,J,L,B,C,V,G,R,SPACE,P,K');   // V: flagship swap (SW1); SPACE: double broadside (CQ); G: fleet screen, R: reroll route (FM1); P/K: repair/crew a berthed prize (EMPIRE-1a)
     this.input.on('wheel', (p, over, dx, dy) => {
       if (this.mapOpen){ this.mapAnim = null; this.mapScale = Phaser.Math.Clamp(this.mapScale * (dy < 0 ? 1.12 : 0.892), MAP_SCALE_MIN, MAP_SCALE_MAX); this.mapDirty = true; }
       else if (!this.docked && !this.menuOpen){ this.viewZoom = Phaser.Math.Clamp(this.viewZoom * (dy < 0 ? 1.08 : 0.926), ZOOM_MIN, ZOOM_DEFAULT); }   // in-game: scroll to zoom OUT (down to the sight-circle limit)
@@ -226,6 +226,7 @@ class GameScene extends Phaser.Scene {
     this.docked = false; this.dockPort = null; this.nearPort = null;
     this.cannonballs.length = 0; this.loot.length = 0; this.popups.length = 0;
     if (this.tows) this.tows.length = 0;                            // BUGFIX: prizes must not survive New Game
+    if (this.berthedPrizes) this.berthedPrizes.length = 0;          // EMPIRE-1a: same for docked-but-not-yet-commissioned prizes
     for (const port of (this.navyPorts || [])) for (const d of (port.docks || [])){ d.occupantId = null; }   // BUGFIX: void ghost berth claims
     this.ships = []; Enemy.spawnFleet(this);
     this.explored.clear();
@@ -285,6 +286,39 @@ class GameScene extends Phaser.Scene {
     const got = PortEconomy.buy(this, port, c, Cargo.free(pl.hold));
     if (got > 0) this.flashPopup(pl.x, pl.y - 20, '+' + got + ' ' + (COMMODITY_INFO[c] ? COMMODITY_INFO[c].glyph : '?'), COMMODITY_INFO[c] ? COMMODITY_INFO[c].color : 0xF0C840);
     else this.flashPopup(pl.x, pl.y, "CAN'T BUY", 0xE0503A);
+  }
+
+  // EMPIRE-1a: find the berthed prize (if any) sitting at the currently docked port
+  _prizeAtDock(){
+    const port = this.dockPort;
+    if (!port || !this.berthedPrizes) return null;
+    return this.berthedPrizes.find(p => p.dockedAt === port.id) || null;
+  }
+  // repair a berthed prize's hull from the player's bank (same rate as the player's own ship)
+  repairPrize(){
+    const pl = this.player, prize = this._prizeAtDock();
+    if (!prize) return;
+    const need = prize.maxHull - prize.hull;
+    if (need <= 0){ this.flashPopup(pl.x, pl.y, 'PRIZE HULL FULL', 0x8AAAC8); return; }
+    const spend = Math.min(pl.bank, Math.ceil(need * REPAIR_COST_PER_HP));
+    if (spend <= 0){ this.flashPopup(pl.x, pl.y, 'NO GOLD', 0xE0503A); return; }
+    prize.hull = Math.min(prize.maxHull, prize.hull + spend / REPAIR_COST_PER_HP);
+    pl.bank -= spend;
+    this.flashPopup(pl.x, pl.y - 20, 'PRIZE REPAIRED', 0x4CA84C);
+    if (typeof BoardingSystem !== 'undefined') BoardingSystem.tryCommission(this, prize);
+  }
+  // crew a berthed prize up toward its tier's minimum-to-operate (same rate as player crew hire)
+  crewPrize(){
+    const pl = this.player, port = this.dockPort, prize = this._prizeAtDock();
+    if (!prize || !port) return;
+    const cap = (typeof ShipTiers !== 'undefined') ? ShipTiers.minCrew(prize) : 0;
+    if ((prize.crew || 0) >= cap){ this.flashPopup(pl.x, pl.y, 'PRIZE FULLY CREWED', 0x8AAAC8); return; }
+    const crewSpec = (typeof PORT_TYPES !== 'undefined') && PORT_TYPES[port.type];
+    const cost = Math.round((typeof CREW_HIRE_COST !== 'undefined' ? CREW_HIRE_COST : 6) * (crewSpec && crewSpec.crewDiscount ? 0.6 : 1));
+    if (pl.bank < cost){ this.flashPopup(pl.x, pl.y, 'NO GOLD', 0xE0503A); return; }
+    pl.bank -= cost; prize.crew = (prize.crew || 0) + 1;
+    this.flashPopup(pl.x, pl.y - 20, 'PRIZE CREW ' + prize.crew + '/' + cap, 0x4CA84C);
+    if (typeof BoardingSystem !== 'undefined') BoardingSystem.tryCommission(this, prize);
   }
 
   // fog of war: reveal a MINIMAP_RANGE-radius circle around the ship (same coverage
@@ -356,6 +390,8 @@ class GameScene extends Phaser.Scene {
       else if (Phaser.Input.Keyboard.JustDown(this.keys.EIGHT) && typeof UpgradeSystem !== 'undefined') UpgradeSystem.buyShip(this);
       else if (Phaser.Input.Keyboard.JustDown(this.keys.NINE)  && typeof HireSystem !== 'undefined') HireSystem.hireAtDock(this);
       else if (Phaser.Input.Keyboard.JustDown(this.keys.ZERO)  && typeof BountySystem !== 'undefined') BountySystem.acceptAtDock(this);
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.P)) this.repairPrize();   // EMPIRE-1a
+      else if (Phaser.Input.Keyboard.JustDown(this.keys.K)) this.crewPrize();     // EMPIRE-1a
       this.draw();                                   // keep the (frozen) world visible behind the menu
       return;
     }
@@ -569,6 +605,7 @@ class GameScene extends Phaser.Scene {
     const gs = this.gfxShips; gs.clear();
     for (const s of this.ships) if (s.alive) this.drawShip(gs, s);
     for (const s of (this.tows || [])) this.drawShip(gs, s);   // captured prizes trailing the player (drawn as real hulls, not a blob)
+    for (const s of (this.berthedPrizes || [])) this.drawShip(gs, s);   // EMPIRE-1a: prizes docked, awaiting repair+crew
     if (this.player.hull > 0) this.drawShip(gs, this.player);
     // cannonballs
     const gf = this.gfxFx; gf.clear(); gf.fillStyle(0x201810, 1);

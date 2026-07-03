@@ -53,11 +53,14 @@ const AI = {
       }
       if (port) Docks.release(scene, port, s); else { s.dockedAt = null; s.dockSlot = null; }
       s.dest = this.pickPort(scene, s, s.dest);                       // depart for the next stop
+      if (typeof CommoditySystem !== 'undefined') CommoditySystem.assignCargo(scene, s);   // EMPIRE-1b: pick up a fresh unit for the new leg
     }
     if (!s.dest || dist(s, s.dest) < PORT_ARRIVE_RANGE){
       if (s.dest && typeof Docks !== 'undefined'){
         const slot = Docks.occupy(scene, s.dest, s);                  // try to take a berth
         if (slot){
+          // EMPIRE-1b: hand off the carried commodity into the port's stock on arrival
+          if (s.cargo && typeof PortEconomy !== 'undefined'){ PortEconomy.deliver(s.dest, s.cargo.commodity, s.cargo.qty); s.cargo = null; }
           s.dockUntil = t + MERCHANT_DOCK_MIN_S + scene.eprng()*(MERCHANT_DOCK_MAX_S - MERCHANT_DOCK_MIN_S);
           return { targetHeading: s.heading, desiredSail: 0 };
         }

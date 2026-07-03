@@ -52,6 +52,12 @@ const CommoditySystem = {
     return best ? this.commodityForIsland(best) : COMMODITIES[0];
   },
 
+  // EMPIRE-1b: give a merchant its single freight unit, sourced from the nearest
+  // island's commodity (was previously only wired up via the debug spawn tool).
+  assignCargo(scene, ship){
+    ship.cargo = { commodity: this.nearestIslandCommodity(scene, ship.x, ship.y), qty: MERCHANT_DELIVERY_QTY };
+  },
+
   // registry hook: ensure the player has a hold (idempotent across R-reset)
   init(scene){
     const pl = scene.player;
