@@ -25,6 +25,9 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Recently Added (most recent commits first)
 
+- SC1 — save coverage expanded: missions, Leviathan (persists dead, doesn't respawn), fleet organization, derelict purchases (all-additive, old saves still load)
+- WD1 — wind strength now breathes (±15% via two slow incommensurate sine waves, placeholder amplitude), applied to player/AI/escorts/runners alike; wind *direction* shifting already existed, so that doc item was stale
+- Owned-port cap removed (doc VI: "should remove the limit on how many ports you can own") — `MAX_OWNED_PORTS` constant kept unused in case a soft cap comes back
 - Chase-boarding (boarding no longer stops your ship mid-pursuit), capture hints, land-anchored defense towers, cache-busting
 - TM1 — port taverns + mission board
 - FM1 — fleet/runner management screen: convoys, escorts, wind-aware explored-only reroutes
@@ -96,8 +99,7 @@ A closer code read found most of these already fixed — several carry inline co
 
 ## Bugs — still open, need input to proceed
 
-- **Reef generation issue** — code exists (`Island.js` reef bands/rocks, `WorldGen.js` reef placement) but the doc doesn't say what's specifically wrong with it. Need a description of the actual problem (visual, placement, collision?) before this can be scoped.
-- **Blue-circle suicide crash** — no matching code, comment, or event found anywhere in the repo. Need repro steps (what were you doing, what's the blue circle) to even locate the right system.
+None currently. Reef generation and the blue-circle suicide crash are both confirmed fixed (team-verified; no dedicated commit message found to cite, so noting the source is verification rather than a code citation).
 
 ## Future Features (from doc, not yet built)
 
