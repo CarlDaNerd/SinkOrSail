@@ -85,6 +85,16 @@ const FOG_CELL = 375;             // big-map fog reveal cell size (px) — finer
 const COORD_SCALE = 25;           // world px per displayed coordinate unit (HUD + map show position / COORD_SCALE so numbers stay small)
 const COMPASS_RING_W = 16;        // width (px) of the compass ring wrapped around the circular minimap
 const COMPASS_LABEL_PAD = 16;     // space (px) beyond the ring for the cardinal letters (so ticks never cross them)
+// ── mobile HUD scale ── the corner minimap + its compass ring render at HALF size
+// on touch devices only (desktop is unchanged). These return the EFFECTIVE on-screen
+// dimensions; MINIMAP_RANGE (the world radius the radar covers) is deliberately NOT
+// scaled, so this is purely a HUD-size change — zoom, fog and gameplay are untouched.
+// Uses isTouchDevice() (not TouchInput.active) so it's correct even at HUD build time,
+// before TouchInput.init() has run.
+function hudMiniScale(){ return (typeof TouchInput !== 'undefined' && TouchInput.isTouchDevice && TouchInput.isTouchDevice()) ? 0.5 : 1; }
+function miniMapH(){ return MINIMAP_H * hudMiniScale(); }
+function compassRingW(){ return COMPASS_RING_W * hudMiniScale(); }
+function compassLabelPad(){ return COMPASS_LABEL_PAD * hudMiniScale(); }
 const BOUNTY_ARROW_RANGE = 4500;  // px — a bounty target within this is tracked by the edge arrow; it hides only once ON the actual screen
 const MAP_SCALE_INIT = 0.045;             // big map (M): screen-px per world-px
 const MAP_RECENTER_S = 0.3;               // seconds for the C-key recenter + zoom-reset animation (eased)
