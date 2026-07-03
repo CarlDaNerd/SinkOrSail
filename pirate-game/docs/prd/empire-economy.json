@@ -1,4 +1,5 @@
-{ "prd": "EMPIRE 2-4: player-independent, player-influenceable economy (doc: Empire/Economy Layer)",
+{
+  "prd": "EMPIRE 2-4: player-independent, player-influenceable economy (doc: Empire/Economy Layer)",
   "status": "PRD only — no code in this PR",
   "stacksOn": "PR #28 (EMPIRE-1: berthed prizes gated on repair+crew, finite port.stock, merchant deliveries). Merge #28 first; these phases rebase onto it.",
   "rulings": [
@@ -22,7 +23,8 @@
       "Merchant despawn/chunk-unload: ledger resolves silently at eta (no dupe, no loss)",
       "Regen: each port regenerates ONLY its own source commodity toward PORT_STOCK_CAP at PORT_REGEN_FRAC_PER_MIN (placeholder 0.08/min ≈ 12min empty→full); avg merchant drain < regen so only players/piracy can zero a port",
       "Stock pricing: mult = lerp(STOCK_PRICE_EMPTY 1.5x → STOCK_PRICE_FULL 0.7x) on fill%; buy price re-quotes per 10-unit chunk so draining a port gets progressively costlier (Patrician pattern)",
-      "Merchants skip pickup at ports below a stock floor — a player buyout blocks merchant trade there until regen/deliveries recover it"
+      "Merchants skip pickup at ports below a stock floor — a player buyout blocks merchant trade there until regen/deliveries recover it",
+      "Perf budget (optimize.md-derived): ledger tick every LEDGER_TICK_S (5s placeholder), single O(ports) pass, max LEDGER_MAX_NEW_PER_TICK new transfers, eta resolution in the same pass, zero per-frame world-port iteration; regen applied lazily per tick, not per frame"
     ],
     "EMPIRE-3 runner trade logic (replaces flat gold)": [
       "Delete RUNNER_GOLD_PER_STOP faucet",
@@ -42,9 +44,16 @@
   },
   "flags": [
     "FLAG-E1: player-port storage cap — flat vs scale by port type/upgrades (placeholder flat)",
-    "FLAG-E2: ledger tick rate / max concurrent transfers — perf budget, tune",
+    "FLAG-E2 RESOLVED (per optimize.md constraints): ledger runs on its own timer, never per frame — LEDGER_TICK_S placeholder 5s; one O(ports) pass per tick creates at most LEDGER_MAX_NEW_PER_TICK (placeholder 8) transfers and resolves due etas in the same pass; hard rule: no new per-frame all-port loops (audit B2), visible-merchant binding piggybacks on the existing nearbyPorts/Population pass",
     "FLAG-E3: does port gold stay infinite, or should ports also have finite gold (assumed infinite for now)",
     "FLAG-E4: fleet menu v2 keeps the [G] hotkey or gets its own binding"
   ],
-  "depends": ["EMPIRE-1 (PR #28)", "PortEconomy/CommoditySystem", "RunnerSystem + FleetSystem (FM1)", "BankSystem (Carl)", "SaveSystem (Carl)", "Population/AI merchant routing"]
+  "depends": [
+    "EMPIRE-1 (PR #28)",
+    "PortEconomy/CommoditySystem",
+    "RunnerSystem + FleetSystem (FM1)",
+    "BankSystem (Carl)",
+    "SaveSystem (Carl)",
+    "Population/AI merchant routing"
+  ]
 }
