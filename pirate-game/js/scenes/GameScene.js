@@ -424,7 +424,7 @@ class GameScene extends Phaser.Scene {
     this.nearPort = null;
     if (pl.hull > 0){
       let best = DOCK_RADIUS;
-      for (const p of this.navyPorts){ const dd = Math.hypot(pl.x - p.x, pl.y - p.y); if (dd < best){ best = dd; this.nearPort = p; } }
+      for (const p of (this.nearbyPorts || this.navyPorts)){ const dd = Math.hypot(pl.x - p.x, pl.y - p.y); if (dd < best){ best = dd; this.nearPort = p; } }   // OPT-B2
       // MB3-3: the touch ACCESS-PORT button (shown only in dock range) fires the
       // exact same path as F — same WANTED / in-combat guards, same save sweep.
       const dockPressed = Phaser.Input.Keyboard.JustDown(this.keys.F) ||

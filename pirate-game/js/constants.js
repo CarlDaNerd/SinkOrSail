@@ -435,3 +435,7 @@ const HIT_FLASH_S = 0.35;   // PLACEHOLDER — flash duration (s)
 // PORT_REDRAW_DIST of player travel — long before that slack is spent.
 const PORT_DRAW_RADIUS = 2600;   // PLACEHOLDER — draw ports within this of the player
 const PORT_REDRAW_DIST = 400;    // PLACEHOLDER — px of travel between re-culls
+// OPT-B2: shared near-player port list (scene.nearbyPorts) — the six per-frame
+// "loop every port in the world" systems iterate this instead. Kept ≥
+// POP_SPAWN_RADIUS so ship-centred scans (merchant pickPort) stay valid.
+const NEARBY_PORTS_RADIUS = 5000;   // PLACEHOLDER — feel/perf-tune

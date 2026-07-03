@@ -19,11 +19,16 @@ const AI = {
   // pick a trade-route destination port within range (≠ exclude); fall back to the
   // nearest port overall so a trader always migrates toward civilisation
   pickPort(scene, s, exclude){
-    const ports = scene.navyPorts; if (!ports || !ports.length) return null;
+    // OPT-B2: candidates come from the shared near-player list (merchants only
+    // exist inside POP_SPAWN_RADIUS, which NEARBY_PORTS_RADIUS covers); the
+    // nearest-port fallback keeps the full-world scan so a trader with no local
+    // option still migrates toward civilisation. Runs per re-route, not per frame.
+    const ports = (scene.nearbyPorts && scene.nearbyPorts.length) ? scene.nearbyPorts : scene.navyPorts;
+    if (!ports || !ports.length) return null;
     const cands = [];
     for (const p of ports){ if (p === exclude) continue; if (dist(s, p) < MERCHANT_ROUTE_RANGE) cands.push(p); }
     if (cands.length) return cands[Math.floor(scene.eprng() * cands.length)];
-    let best = null, bd = 1e9; for (const p of ports){ if (p === exclude) continue; const dd = dist(s, p); if (dd < bd){ bd = dd; best = p; } }
+    let best = null, bd = 1e9; for (const p of scene.navyPorts){ if (p === exclude) continue; const dd = dist(s, p); if (dd < bd){ bd = dd; best = p; } }
     return best;
   },
 

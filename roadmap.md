@@ -25,6 +25,7 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Recently Added (most recent commits first)
 
+- OPT-B2 — shared `scene.nearbyPorts` list: the six per-frame all-924-port loops (dock scan, tower placement/fire, capture regen, minimap, cannonball port hits, merchant pickPort) now iterate near-player ports only (optimize.md B2)
 - SC1 — save coverage expanded: missions, Leviathan (persists dead, doesn't respawn), fleet organization, derelict purchases (all-additive, old saves still load)
 - WD1 — wind strength now breathes (±15% via two slow incommensurate sine waves, placeholder amplitude), applied to player/AI/escorts/runners alike; wind *direction* shifting already existed, so that doc item was stale
 - Owned-port cap removed (doc VI: "should remove the limit on how many ports you can own") — `MAX_OWNED_PORTS` constant kept unused in case a soft cap comes back
