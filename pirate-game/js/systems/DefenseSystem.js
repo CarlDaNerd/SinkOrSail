@@ -35,14 +35,14 @@ const DefenseSystem = {
 
   update(scene, dt, dts){
     const pl = scene.player; if (pl.hull <= 0) return;
-    for (const port of scene.navyPorts){                      // I18-4: place pending towers
+    for (const port of (scene.nearbyPorts || scene.navyPorts)){   // OPT-B2 + I18-4: place pending towers (captures/shelling happen near the player)
       if (port.towers && port.towers.some(tw => tw.x === null)) this._placeTowers(scene, port);
     }
     const wanted = scene.navyHostile();
     const pirate = scene.flag === 'pirate';
     const t = scene.time.now / 1000;
 
-    for (const port of scene.navyPorts){
+    for (const port of (scene.nearbyPorts || scene.navyPorts)){   // OPT-B2: only near ports can range the player anyway
       if (port.owner === 'player') continue;        // your own port's towers won't target you
       if (!port.towers || !port.towers.length) continue;
       // a port fights back if you're WANTED / flying pirate colors, OR if it's being
@@ -68,7 +68,7 @@ const DefenseSystem = {
   // optional overlay: show tower positions + range while a port is actively defending
   draw(scene, g){
     const now = scene.time.now / 1000, hostile = scene.navyHostile() || scene.flag === 'pirate', pl = scene.player;
-    for (const port of scene.navyPorts){
+    for (const port of (scene.nearbyPorts || scene.navyPorts)){   // OPT-B2
       if (port.owner === 'player' || !port.towers || !port.towers.length) continue;
       const raided = port.lastHitAt != null && (now - port.lastHitAt) < TOWER_DEFEND_WINDOW_S;
       if (!(hostile || raided)) continue;

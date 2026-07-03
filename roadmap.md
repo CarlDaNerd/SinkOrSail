@@ -25,6 +25,7 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Recently Added (most recent commits first)
 
+- OPT-B2 — shared `scene.nearbyPorts` list: the six per-frame all-924-port loops (dock scan, tower placement/fire, capture regen, minimap, cannonball port hits, merchant pickPort) now iterate near-player ports only (optimize.md B2)
 - Chase-boarding (boarding no longer stops your ship mid-pursuit), capture hints, land-anchored defense towers, cache-busting
 - TM1 — port taverns + mission board
 - FM1 — fleet/runner management screen: convoys, escorts, wind-aware explored-only reroutes

@@ -86,10 +86,19 @@ const Island = {
     // so distant ports stream into the layer well before they can be seen.
     const pl = scene.player;
     scene._portGfxAt = pl ? { x: pl.x, y: pl.y } : { x: 0, y: 0 };
+    // OPT-B2: this same pass rebuilds scene.nearbyPorts — the shared near-player
+    // list the per-frame systems iterate (dock scan, tower placement/fire,
+    // capture regen, minimap, cannonball port hits, merchant pickPort) instead
+    // of all 900+ world ports. Refreshed by every caller: create, load/reset,
+    // dock/undock/sink events, and the PORT_REDRAW_DIST travel re-cull.
+    const near = scene.nearbyPorts = [];
+    const n2 = NEARBY_PORTS_RADIUS * NEARBY_PORTS_RADIUS;
     const r2 = PORT_DRAW_RADIUS * PORT_DRAW_RADIUS;
     for (const np of scene.navyPorts){
       const pdx = np.x - scene._portGfxAt.x, pdy = np.y - scene._portGfxAt.y;
-      if (pdx*pdx + pdy*pdy > r2) continue;
+      const pd2 = pdx*pdx + pdy*pdy;
+      if (pd2 <= n2) near.push(np);
+      if (pd2 > r2) continue;
       const col = (PORT_TYPES[np.type] && PORT_TYPES[np.type].color) || 0x8AC8E0;
       const r = (np.type === 'TradingHub') ? 11 : 8;
       pg.lineStyle(1, 0x2A9EAE, 0.16); pg.strokeCircle(np.x, np.y, DOCK_RADIUS);
