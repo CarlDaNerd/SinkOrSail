@@ -45,7 +45,7 @@ class UIScene extends Phaser.Scene {
         // once from boot-time GAME_W, so after a rotate the drawn minimap moved
         // but the invisible tap circle didn't (map "wouldn't open" in the other
         // orientation because taps landed on empty space).
-        const mr = MINIMAP_H/2;
+        const mr = miniMapH()/2;
         this._miniZone = this.add.zone(0, 0, mr*2, mr*2).setScrollFactor(0).setDepth(141)
           .setInteractive(new Phaser.Geom.Circle(mr, mr, mr), Phaser.Geom.Circle.Contains);
         this._miniZone.on('pointerdown', () => { if (!this.gs.menuOpen && !this.gs.docked && !this.gs.mapOpen) this.gs.toggleMap(); });
@@ -74,7 +74,7 @@ class UIScene extends Phaser.Scene {
   // is already defined in local space, so only the position needs moving.
   _layoutMiniZone(){
     if (!this._miniZone) return;
-    const mr = MINIMAP_H/2, full = mr + COMPASS_RING_W + COMPASS_LABEL_PAD;
+    const mr = miniMapH()/2, full = mr + compassRingW() + compassLabelPad();
     const W = this.scale.gameSize.width;
     this._miniZone.setPosition(W - 12 - full, 12 + full);
   }

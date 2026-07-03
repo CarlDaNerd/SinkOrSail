@@ -7,7 +7,7 @@
 // drawn separately, unmasked, by the HUD.
 function drawMiniMap(g, gs, pl){
   g.clear();
-  const mr = MINIMAP_H/2, full = mr + COMPASS_RING_W + COMPASS_LABEL_PAD;   // map + ring + cardinal-letter pad
+  const mr = miniMapH()/2, full = mr + compassRingW() + compassLabelPad();   // map + ring + cardinal-letter pad (halved on mobile)
   const cxp = GAME_W - 12 - full, cyp = 12 + full;      // top-right corner, 12px margin
   g.fillStyle(0x0E1820, 0.92); g.fillCircle(cxp, cyp, mr);
   const R = MINIMAP_RANGE, scale = mr/R;                // MINIMAP_RANGE world px maps to the minimap radius
