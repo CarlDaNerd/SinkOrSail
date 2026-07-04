@@ -14,7 +14,7 @@ function drawMiniMap(g, gs, pl){
   const w2x = wx => cxp + (wx - pl.x)*scale, w2y = wy => cyp + (wy - pl.y)*scale;
   // circular range, radius-aware: keep a feature whose CIRCLE reaches within range,
   // so edge islands draw cleanly (clipped by the round mask) instead of popping in whole
-  const within = (wx, wy, r) => Math.hypot(wx - pl.x, wy - pl.y) <= R + (r || 0);
+  const within = (wx, wy, r) => { const dx = wx - pl.x, dy = wy - pl.y, rr = R + (r || 0); return dx*dx + dy*dy <= rr*rr; };   // M1: squared compare
 
   // land: draw every lobe so islands show their real footprint (big land a touch darker)
   for (const is of gs.islands){

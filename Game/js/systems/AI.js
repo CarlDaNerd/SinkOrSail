@@ -3,16 +3,26 @@
 // + fire intent; then we steer (avoidLand → avoidIrons), turn, accelerate, move
 // and fire. Maneuvering only — combat resolution lives in Combat.js.
 const AI = {
+  // M3 (optimize.md): target ACQUISITION is throttled — each ship re-scans the
+  // fleet every AI_SCAN_INTERVAL_S (spawn times naturally stagger the phases)
+  // and keeps its cached target (or cached "nothing") between scans, validated
+  // for liveness + range. Movement/attack logic stays per-frame.
   nearestPirate(scene, s, maxRange){
-    let tp = null, tpd = maxRange;
-    for (const o of scene.ships){ if (o.faction !== 'pirate' || !o.alive) continue; const od = dist(s, o); if (od < tpd){ tpd = od; tp = o; } }
+    const t = scene.time.now/1000, c = s._tgtP;
+    if (t < (s._tgtPAt || 0) && (c == null || (c.alive && dist2(s, c) < maxRange*maxRange))) return c;
+    let tp = null, tpd = maxRange*maxRange;
+    for (const o of scene.ships){ if (o.faction !== 'pirate' || !o.alive) continue; const od = dist2(s, o); if (od < tpd){ tpd = od; tp = o; } }
+    s._tgtP = tp; s._tgtPAt = t + AI_SCAN_INTERVAL_S;
     return tp;
   },
 
   // nearest alive merchant within range — pirates prey on these when idle
   nearestMerchant(scene, s, maxRange){
-    let tm = null, tmd = maxRange;
-    for (const o of scene.ships){ if (o.faction !== 'merchant' || !o.alive) continue; const od = dist(s, o); if (od < tmd){ tmd = od; tm = o; } }
+    const t = scene.time.now/1000, c = s._tgtM;
+    if (t < (s._tgtMAt || 0) && (c == null || (c.alive && dist2(s, c) < maxRange*maxRange))) return c;
+    let tm = null, tmd = maxRange*maxRange;
+    for (const o of scene.ships){ if (o.faction !== 'merchant' || !o.alive) continue; const od = dist2(s, o); if (od < tmd){ tmd = od; tm = o; } }
+    s._tgtM = tm; s._tgtMAt = t + AI_SCAN_INTERVAL_S;
     return tm;
   },
 
@@ -136,15 +146,23 @@ const AI = {
       }
 
     } else if (s.faction === 'navy'){
+      // M4 (optimize.md): canSee samples checkIsland every 40px of the sight
+      // line, per navy ship per frame while pirate colours fly — cache the
+      // verdict per ship and re-check every LOS_CHECK_INTERVAL_S instead.
+      const seesPlayer = () => {
+        const tls = scene.time.now/1000;
+        if (tls >= (s._losAt || 0)){ s._losVal = Visibility.canSee(scene, s.x, s.y, pl.x, pl.y, P.navySight); s._losAt = tls + LOS_CHECK_INTERVAL_S; }
+        return s._losVal;
+      };
       // continuously spot pirate colors within sight (land blocks the view) → hostile
-      if (playerPirateFlag && Visibility.canSee(scene, s.x, s.y, pl.x, pl.y, P.navySight)){
+      if (playerPirateFlag && seesPlayer()){
         if (!s.hostileToPlayer){ s.hostileToPlayer = true;
           if (!scene._coloresSeen){ scene.navyStanding = Math.max(-100, scene.navyStanding - P.crimePenalty); scene.flashPopup(pl.x, pl.y, 'COLORS SEEN', 0xE0503A); scene._coloresSeen = true; setTimeout(() => { scene._coloresSeen = false; }, 1500); }
         }
       }
       // forgiveness: drop the grudge once the player is no longer a threat AND out of contact
       if (s.hostileToPlayer && !FactionSystem.navyHostile(scene) && !playerPirateFlag){
-        const stillSees = Visibility.canSee(scene, s.x, s.y, pl.x, pl.y, P.navySight);
+        const stillSees = seesPlayer();   // M4: same cached verdict
         if (!stillSees || d > P.navySight*1.2){ s.hostileToPlayer = false; }
       }
       const hostile = FactionSystem.navyHostile(scene) || s.hostileToPlayer;
@@ -178,11 +196,17 @@ const AI = {
         else { targetHeading = angleTo(s, pl); desiredSail = 2; s.state = 'pursue'; }
       } else if (lawful){
         // hunt pirates, biased toward ones near the player so they feel like they help your fight
-        let tp = null, tpd = 1e9;
-        for (const o of scene.ships){ if (o.faction !== 'pirate' || !o.alive) continue;
-          const od = dist(s, o), score = od + (dist(o, pl) < P.privAssist ? -150 : 0);
-          if (score < tpd){ tpd = score; tp = o; } }
-        if (tp && dist(s, tp) < P.privAssist){
+        // M3: the biased double-distance scan re-runs every AI_SCAN_INTERVAL_S, not per frame
+        const tnow = scene.time.now/1000;
+        let tp = s._tgtA;
+        if (tnow >= (s._tgtAAt || 0) || (tp && !tp.alive)){
+          tp = null; let tpd = 1e9;
+          for (const o of scene.ships){ if (o.faction !== 'pirate' || !o.alive) continue;
+            const od = dist(s, o), score = od + (dist(o, pl) < P.privAssist ? -150 : 0);
+            if (score < tpd){ tpd = score; tp = o; } }
+          s._tgtA = tp; s._tgtAAt = tnow + AI_SCAN_INTERVAL_S;
+        }
+        if (tp && tp.alive && dist(s, tp) < P.privAssist){
           if (dist(s, tp) < 260){ ({ targetHeading, desiredSail, wantFire } = AI.combatManeuver(s, tp, dist(s, tp))); s.state = 'assist'; }
           else { targetHeading = angleTo(s, tp); desiredSail = 2; s.state = 'hunt'; }
         } else { ({ targetHeading, desiredSail } = AI.patrolHome(scene, s)); s.state = 'guard'; }

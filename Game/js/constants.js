@@ -447,3 +447,7 @@ const PORT_REDRAW_DIST = 400;    // PLACEHOLDER — px of travel between re-cull
 // "loop every port in the world" systems iterate this instead. Kept ≥
 // POP_SPAWN_RADIUS so ship-centred scans (merchant pickPort) stay valid.
 const NEARBY_PORTS_RADIUS = 5000;   // PLACEHOLDER — feel/perf-tune
+// M3/M4 (optimize.md): AI target-acquisition + navy line-of-sight throttles.
+// Movement and combat stay per-frame; only the SCANS re-run on these clocks.
+const AI_SCAN_INTERVAL_S = 0.35;    // PLACEHOLDER — per-ship fleet re-scan cadence
+const LOS_CHECK_INTERVAL_S = 0.3;   // PLACEHOLDER — per-navy-ship sight-line re-check
