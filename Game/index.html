@@ -215,74 +215,74 @@
 
 <!-- ── load order: dependencies first, scene classes before main, debug after main ── -->
 <!-- foundation -->
-<script src="js/constants.js?v=20260703"></script>
+<script src="js/constants.js?v=20260704"></script>
 <!-- core: event bus + system registry (load right after constants, before anything that uses them) -->
-<script src="js/core/Events.js?v=20260703"></script>
-<script src="js/core/SystemRegistry.js?v=20260703"></script>
-<script src="js/utils/PRNG.js?v=20260703"></script>
-<script src="js/utils/MathUtils.js?v=20260703"></script>
-<script src="js/systems/SailingPhysics.js?v=20260703"></script>
+<script src="js/core/Events.js?v=20260704"></script>
+<script src="js/core/SystemRegistry.js?v=20260704"></script>
+<script src="js/utils/PRNG.js?v=20260704"></script>
+<script src="js/utils/MathUtils.js?v=20260704"></script>
+<script src="js/systems/SailingPhysics.js?v=20260704"></script>
 <!-- world -->
-<script src="js/world/Port.js?v=20260703"></script>
-<script src="js/world/WorldGen.js?v=20260703"></script>
-<script src="js/world/Island.js?v=20260703"></script>
-<script src="js/world/ChunkManager.js?v=20260703"></script>
-<script src="js/systems/CollisionSystem.js?v=20260703"></script>
-<script src="js/world/Visibility.js?v=20260703"></script>
-<script src="js/systems/Steering.js?v=20260703"></script>
+<script src="js/world/Port.js?v=20260704"></script>
+<script src="js/world/WorldGen.js?v=20260704"></script>
+<script src="js/world/Island.js?v=20260704"></script>
+<script src="js/world/ChunkManager.js?v=20260704"></script>
+<script src="js/systems/CollisionSystem.js?v=20260704"></script>
+<script src="js/world/Visibility.js?v=20260704"></script>
+<script src="js/systems/Steering.js?v=20260704"></script>
 <!-- factions / flags -->
-<script src="js/systems/FactionSystem.js?v=20260703"></script>
-<script src="js/systems/FlagSystem.js?v=20260703"></script>
+<script src="js/systems/FactionSystem.js?v=20260704"></script>
+<script src="js/systems/FlagSystem.js?v=20260704"></script>
 <!-- ship tiers (data + hook; load before Player so it can stamp the start tier) -->
-<script src="js/systems/ShipTiers.js?v=20260703"></script>
+<script src="js/systems/ShipTiers.js?v=20260704"></script>
 <!-- entities -->
-<script src="js/entities/Loot.js?v=20260703"></script>
-<script src="js/entities/Cannonball.js?v=20260703"></script>
-<script src="js/entities/Player.js?v=20260703"></script>
-<script src="js/entities/Enemy.js?v=20260703"></script>
+<script src="js/entities/Loot.js?v=20260704"></script>
+<script src="js/entities/Cannonball.js?v=20260704"></script>
+<script src="js/entities/Player.js?v=20260704"></script>
+<script src="js/entities/Enemy.js?v=20260704"></script>
 <!-- combat / ai -->
-<script src="js/systems/Combat.js?v=20260703"></script>
-<script src="js/systems/AI.js?v=20260703"></script>
+<script src="js/systems/Combat.js?v=20260704"></script>
+<script src="js/systems/AI.js?v=20260704"></script>
 <!-- save -->
-<script src="js/systems/SaveSystem.js?v=20260703"></script>
+<script src="js/systems/SaveSystem.js?v=20260704"></script>
 <!-- feature systems (registry-driven; registered in SystemRegistry.js) -->
-<script src="js/systems/CommoditySystem.js?v=20260703"></script>
-<script src="js/systems/BankSystem.js?v=20260703"></script>
-<script src="js/systems/CrewSystem.js?v=20260703"></script>
-<script src="js/systems/UpgradeSystem.js?v=20260703"></script>
-<script src="js/systems/PortEconomy.js?v=20260703"></script>
-<script src="js/systems/DefenseSystem.js?v=20260703"></script>
-<script src="js/systems/Population.js?v=20260703"></script>
-<script src="js/systems/PortCaptureSystem.js?v=20260703"></script>
-<script src="js/systems/BoardingSystem.js?v=20260703"></script>
-<script src="js/systems/RunnerSystem.js?v=20260703"></script>
-<script src="js/systems/LeviathanSystem.js?v=20260703"></script>
-<script src="js/systems/FleetSystem.js?v=20260703"></script>
-<script src="js/systems/HireSystem.js?v=20260703"></script>
-<script src="js/systems/BountySystem.js?v=20260703"></script>
-<script src="js/systems/ZoomSystem.js?v=20260703"></script>
-<script src="js/systems/WindSystem.js?v=20260703"></script>
-<script src="js/systems/WeatherSystem.js?v=20260703"></script>
+<script src="js/systems/CommoditySystem.js?v=20260704"></script>
+<script src="js/systems/BankSystem.js?v=20260704"></script>
+<script src="js/systems/CrewSystem.js?v=20260704"></script>
+<script src="js/systems/UpgradeSystem.js?v=20260704"></script>
+<script src="js/systems/PortEconomy.js?v=20260704"></script>
+<script src="js/systems/DefenseSystem.js?v=20260704"></script>
+<script src="js/systems/Population.js?v=20260704"></script>
+<script src="js/systems/PortCaptureSystem.js?v=20260704"></script>
+<script src="js/systems/BoardingSystem.js?v=20260704"></script>
+<script src="js/systems/RunnerSystem.js?v=20260704"></script>
+<script src="js/systems/LeviathanSystem.js?v=20260704"></script>
+<script src="js/systems/FleetSystem.js?v=20260704"></script>
+<script src="js/systems/HireSystem.js?v=20260704"></script>
+<script src="js/systems/BountySystem.js?v=20260704"></script>
+<script src="js/systems/ZoomSystem.js?v=20260704"></script>
+<script src="js/systems/WindSystem.js?v=20260704"></script>
+<script src="js/systems/WeatherSystem.js?v=20260704"></script>
 <!-- dev/QC observers (pure event-bus listeners + overlays; HUD draws their UI) -->
-<script src="js/systems/AchievementSystem.js?v=20260703"></script>
-<script src="js/systems/DevLog.js?v=20260703"></script>
-<script src="js/systems/TouchInput.js?v=20260703"></script>
+<script src="js/systems/AchievementSystem.js?v=20260704"></script>
+<script src="js/systems/DevLog.js?v=20260704"></script>
+<script src="js/systems/TouchInput.js?v=20260704"></script>
 <!-- ui -->
-<script src="js/ui/WindCompass.js?v=20260703"></script>
-<script src="js/ui/MiniMap.js?v=20260703"></script>
-<script src="js/ui/WorldMap.js?v=20260703"></script>
-<script src="js/ui/HUD.js?v=20260703"></script>
+<script src="js/ui/WindCompass.js?v=20260704"></script>
+<script src="js/ui/MiniMap.js?v=20260704"></script>
+<script src="js/ui/WorldMap.js?v=20260704"></script>
+<script src="js/ui/HUD.js?v=20260704"></script>
 <!-- missions -->
-<script src="js/missions/MissionLoader.js?v=20260703"></script>
-<script src="js/missions/MissionDefs.js?v=20260703"></script>
-<script src="js/systems/TavernSystem.js?v=20260703"></script>
+<script src="js/missions/MissionLoader.js?v=20260704"></script>
+<script src="js/missions/MissionDefs.js?v=20260704"></script>
+<script src="js/systems/TavernSystem.js?v=20260704"></script>
 <!-- scenes -->
-<script src="js/scenes/BootScene.js?v=20260703"></script>
-<script src="js/scenes/MenuScene.js?v=20260703"></script>
-<script src="js/scenes/GameScene.js?v=20260703"></script>
-<script src="js/scenes/UIScene.js?v=20260703"></script>
+<script src="js/scenes/BootScene.js?v=20260704"></script>
+<script src="js/scenes/MenuScene.js?v=20260704"></script>
+<script src="js/scenes/GameScene.js?v=20260704"></script>
+<script src="js/scenes/UIScene.js?v=20260704"></script>
 <!-- launch + debug -->
-<script src="js/main.js?v=20260703"></script>
-<script src="js/debug/DebugOverlay.js?v=20260703"></script>
+<script src="js/main.js?v=20260704"></script>
+<script src="js/debug/DebugOverlay.js?v=20260704"></script>
 </body>
 </html>

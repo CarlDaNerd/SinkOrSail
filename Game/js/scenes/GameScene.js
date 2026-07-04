@@ -214,7 +214,16 @@ class GameScene extends Phaser.Scene {
     } else if (this.mapFollow){ this.mapCenterX = this.player.x; this.mapCenterY = this.player.y; }
     if (this.keys.Z.isDown){ this.mapAnim = null; this.mapScale = Math.max(MAP_SCALE_MIN, this.mapScale*(1 - 1.6*dts)); }
     if (this.keys.X.isDown){ this.mapAnim = null; this.mapScale = Math.min(MAP_SCALE_MAX, this.mapScale*(1 + 1.6*dts)); }
-    this.mapDirty = true;
+    // OPT-B3: was `this.mapDirty = true` every frame → a full drawWorldMap 60×/s even
+    // when nothing moved. Redraw only when the view has actually shifted/zoomed since the
+    // LAST render (recorded in UIScene after it draws). Comparing against the last DRAWN
+    // center — not the previous frame — lets slow ship-follow drift accumulate to the
+    // threshold instead of freezing the chart. Pan / wheel-zoom / fog-reveal still set
+    // mapDirty at their own sources.
+    if (this._mapDrawCX === undefined
+        || Math.abs(this.mapCenterX - this._mapDrawCX) > MAP_REDRAW_EPS
+        || Math.abs(this.mapCenterY - this._mapDrawCY) > MAP_REDRAW_EPS
+        || this.mapScale !== this._mapDrawScale) this.mapDirty = true;
   }
   // full run restart (the Reset Game menu button)
   resetGame(){
