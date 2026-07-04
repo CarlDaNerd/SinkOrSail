@@ -13,15 +13,15 @@ framework, no bundler. Open a file and play.
 
 ## Run it
 
-The game lives in `pirate-game/`. It's static — any web server works:
+The game lives in `Game/`. It's static — any web server works:
 
 ```bash
-cd pirate-game
+cd Game
 python -m http.server 8000
 # open http://localhost:8000
 ```
 
-Or just open `pirate-game/index.html` in a browser. (A server is recommended so
+Or just open `Game/index.html` in a browser. (A server is recommended so
 the chunked world and save features behave normally.)
 
 No install, no dependencies — Phaser loads from a CDN.
@@ -91,7 +91,7 @@ is frame-rate-independent via a `dt` (per-frame) / `dts` (per-second) contract
 established in `GameScene`.
 
 ```
-pirate-game/
+Game/
   index.html              loads every script in order
   js/
     constants.js          all tunable numbers live here

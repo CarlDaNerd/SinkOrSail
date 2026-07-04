@@ -6,7 +6,7 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Notes
 
-- Source doc: "Sink or Sail" Google Doc. Source of truth for "built": `pirate-game/js/` on `main`.
+- Source doc: "Sink or Sail" Google Doc. Source of truth for "built": `Game/js/` on `main`.
 - Bank/save ownership and chunk system are core-owned; other modules use them defensively.
 - Commodities are trade goods only (lumber, cloth, iron, rum, sugar, tobacco) — gold pays for upgrades/repair/building.
 - Doc's own `[x]/[~]/[ ]` tags are stale in several places — the code has moved ahead of the doc's last edit. See Conflicts.

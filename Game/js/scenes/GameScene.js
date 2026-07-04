@@ -458,6 +458,7 @@ class GameScene extends Phaser.Scene {
     }
 
     Chunks.update(this);                           // stream terrain in/out around the player
+    Chunks.cull(this);                             // OPT-B4: hide off-camera chunk terrain (skip its per-frame tessellation)
     this._revealFog();                             // fog-of-war: reveal a MINIMAP_RANGE circle around the ship
     // OPT-B1: re-cull the near-player port layer once we've traveled far enough
     // that newly-in-range ports could approach the view edge (covers teleports too)

@@ -102,6 +102,8 @@ const MAP_SCALE_INIT = 0.045;             // big map (M): screen-px per world-px
 const MAP_RECENTER_S = 0.3;               // seconds for the C-key recenter + zoom-reset animation (eased)
 const MAP_SCALE_MIN = 0.0025, MAP_SCALE_MAX = 0.22;   // MIN low enough to zoom the big map way out (whole world fits)
 const MAP_REDRAW_EPS = 2;                 // OPT-B3: world-px the chart center must drift (vs the last render) before it re-draws — skips per-frame redraws while the map is open but static
+const CHUNK_CULL_MARGIN = 1500;           // OPT-B4: px beyond the camera view a chunk stays rendered (covers island bodies that overhang their chunk) — bigger than the largest land overhang, smaller than a chunk
+const MINIMAP_REDRAW_MS = 110;            // OPT-B5: minimum ms between minimap radar rebuilds (~9Hz sweep); the Graphics still renders each frame, only the recompute is throttled
 
 // ── BIOMES (SEA vs. CLUSTER) ──────────────────────────────────────────────
 // The world is MOSTLY OPEN SEA. Land is concentrated into discrete CLUSTERS. A
