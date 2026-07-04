@@ -136,7 +136,8 @@ class UIScene extends Phaser.Scene {
 
     // big map (only re-render on pan/zoom)
     if (gs.mapOpen){
-      if (gs.mapDirty){ drawWorldMap(this.mapG, this.mapLandG, this.mapMaskG, gs); gs.mapDirty = false; }
+      if (gs.mapDirty){ drawWorldMap(this.mapG, this.mapLandG, this.mapMaskG, gs); gs.mapDirty = false;
+        gs._mapDrawCX = gs.mapCenterX; gs._mapDrawCY = gs.mapCenterY; gs._mapDrawScale = gs.mapScale; }   // OPT-B3: remember what we drew so updateMap only re-dirties on real movement
       this.mapG.setVisible(true); this.mapLandG.setVisible(true);
       this.mapText.setText('MAP   ' + Math.round(gs.mapCenterX/COORD_SCALE) + ', ' + Math.round(gs.mapCenterY/COORD_SCALE) + '     drag to pan · wheel / Z X zoom · M or Esc close   (still sailing)').setVisible(true);
     } else { this.mapG.setVisible(false); this.mapLandG.setVisible(false); this.mapText.setVisible(false); }

@@ -24,6 +24,7 @@
 // depth so big land never paints over small.
 const WorldGen = {
   _cache: new Map(),
+  _chunkCache: new Map(),   // OPT-B3: memoised generateChunk() results, keyed "cx,cy"
 
   landiness(rx, ry){ return valueNoise(rx*BIOME_FREQ, ry*BIOME_FREQ, (WORLD_SEED ^ 0x9E3779B9) >>> 0); },
 
@@ -335,6 +336,14 @@ const WorldGen = {
   // chunk = features (from every region within MAX_FEATURE_REACH) whose CENTRE
   // falls in this chunk
   generateChunk(cx, cy){
+    // OPT-B3: memoise the per-chunk gather. It's a pure, deterministic function of
+    // (cx,cy) — region() is already cached, but this re-filtered + re-allocated every
+    // call, and drawWorldMap calls it per touched chunk per redraw. Cache the result
+    // (references into the region cache, read-only downstream) so an open chart and
+    // terrain streaming both stop rebuilding chunks they've already seen.
+    const ck = cx + ',' + cy;
+    const memo = this._chunkCache.get(ck);
+    if (memo) return memo;
     const x0 = cx*CHUNK_SIZE, y0 = cy*CHUNK_SIZE, x1 = x0 + CHUNK_SIZE, y1 = y0 + CHUNK_SIZE;
     const inChunk = (px, py) => px >= x0 && px < x1 && py >= y0 && py < y1;
     const lands = [], reefs = [], shallows = [];
@@ -346,6 +355,9 @@ const WorldGen = {
       for (const f of reg.reefs)    if (inChunk(f.cx, f.cy)) reefs.push(f);
       for (const f of reg.shallows) if (inChunk(f.cx, f.cy)) shallows.push(f);
     }
-    return { lands, reefs, shallows };
+    const out = { lands, reefs, shallows };
+    if (this._chunkCache.size > 200) this._chunkCache.clear();   // simple bound (matches region cache pattern)
+    this._chunkCache.set(ck, out);
+    return out;
   },
 };

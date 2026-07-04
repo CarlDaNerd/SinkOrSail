@@ -101,6 +101,7 @@ const BOUNTY_ARROW_RANGE = 4500;  // px — a bounty target within this is track
 const MAP_SCALE_INIT = 0.045;             // big map (M): screen-px per world-px
 const MAP_RECENTER_S = 0.3;               // seconds for the C-key recenter + zoom-reset animation (eased)
 const MAP_SCALE_MIN = 0.0025, MAP_SCALE_MAX = 0.22;   // MIN low enough to zoom the big map way out (whole world fits)
+const MAP_REDRAW_EPS = 2;                 // OPT-B3: world-px the chart center must drift (vs the last render) before it re-draws — skips per-frame redraws while the map is open but static
 
 // ── BIOMES (SEA vs. CLUSTER) ──────────────────────────────────────────────
 // The world is MOSTLY OPEN SEA. Land is concentrated into discrete CLUSTERS. A
