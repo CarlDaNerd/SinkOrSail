@@ -1,7 +1,0 @@
-{ "prd": "Port identity + map information layer (doc II/VI)", "status": "PRD only",
-  "items": [
-    "Culturally-themed unique port names (theme hooks for M9 ship types later)",
-    "Big-map port icons show what the port sells (source-commodity glyph)",
-    "Captured/owned ports render distinctly on the big map + minimap",
-    "Active weather events shown on the big map",
-    "Unmanned docked ships you can buy at berths (visible hull on a pad + dock-menu buy)" ] }

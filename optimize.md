@@ -223,7 +223,7 @@ Three event subscriptions in `GameScene.create` each trigger a complete 924-port
 
 ## Reproducing the measurements
 
-Serve `pirate-game/` statically, open with headless Chromium (or any browser), start a new
+Serve `Game/` statically, open with headless Chromium (or any browser), start a new
 game, then in the console:
 ```js
 // per-frame Graphics command load

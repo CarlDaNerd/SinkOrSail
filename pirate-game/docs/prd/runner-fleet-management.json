@@ -1,8 +1,0 @@
-{ "prd": "Runner & fleet management (doc M5 tail)", "status": "PRD only",
-  "items": [
-    "Fleet screen: list runners/convoys with state",
-    "Assign which ports a runner visits (explored-only rule: send ships only to ports you have explored)",
-    "Assign escorts to runners/convoys",
-    "Convoys: up to 3 cargo ships + 1 privateer, 1.5x gather per cargo ship",
-    "Runner routes account for wind direction (doc V pathing bug)" ],
-  "depends": ["RunnerSystem (exists)", "HireSystem privateers"] }

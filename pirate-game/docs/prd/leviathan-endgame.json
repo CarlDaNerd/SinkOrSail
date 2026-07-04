@@ -1,7 +1,0 @@
-{ "prd": "Leviathan endgame target (doc II)", "status": "PRD only",
-  "items": [
-    "Roaming Leviathan spawn (tier 6 hostile) — one in the world",
-    "Combat regen that outpaces small fleets",
-    "Dual capture condition: hull <= 10% AND 200 boarders simultaneously",
-    "Multi-ship requirement surfaces through the existing capture crew math",
-    "min-crew-to-operate vs min-crew-to-board split" ] }

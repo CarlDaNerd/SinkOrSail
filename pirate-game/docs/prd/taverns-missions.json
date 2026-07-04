@@ -1,6 +1,0 @@
-{ "prd": "Taverns + missions (doc II Random)", "status": "PRD only",
-  "items": [
-    "Tavern at ports: a dock-menu subscreen for rumors/hiring flavor and mission pickup",
-    "Missions: extend the existing MissionLoader with port-given missions (delivery, hunt, escort)",
-    "Mission tracking on HUD + reward notification" ],
-  "notes": "MissionLoader already scans at boot — build on it, don't replace." }
