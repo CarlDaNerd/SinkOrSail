@@ -87,11 +87,14 @@ const Combat = {
 
   updateCannonballs(scene, dt){
     const cb = scene.cannonballs;
+    // S2 (optimize.md): order doesn't matter — swap-pop is O(1) vs splice's O(n).
+    // Backwards iteration means the element swapped in from the tail was already visited.
+    const drop = i => { cb[i] = cb[cb.length - 1]; cb.pop(); };
     for (let i = cb.length - 1; i >= 0; i--){
       const b = cb[i]; b.x += b.vx*dt; b.y += b.vy*dt; b.age += dt/60;
       // player cannon-type upgrade extends range (= projectile lifetime)
       const life = (b.ownerFaction === 'player' && typeof UpgradeSystem !== 'undefined') ? P.cannonLife * UpgradeSystem.rangeMult(scene) : P.cannonLife;
-      if (b.age > life){ cb.splice(i, 1); continue; }
+      if (b.age > life){ drop(i); continue; }
       // player shells can damage an un-owned port (capture mechanic) — checked
       // before the land block so a coastal port marker is still hittable
       if (b.ownerFaction === 'player' && typeof PortCaptureSystem !== 'undefined' && scene.navyPorts){
@@ -100,9 +103,9 @@ const Combat = {
           if (port.owner === 'player') continue;
           if (((b.x - port.x)**2 + (b.y - port.y)**2) < PORT_HIT_RADIUS*PORT_HIT_RADIUS){ PortCaptureSystem.damagePort(scene, port); portHit = true; break; }   // M1
         }
-        if (portHit){ cb.splice(i, 1); continue; }
+        if (portHit){ drop(i); continue; }
       }
-      if (Collision.checkIsland(scene, b.x, b.y, 4).hit){ cb.splice(i, 1); continue; }  // land blocks shots
+      if (Collision.checkIsland(scene, b.x, b.y, 4).hit){ drop(i); continue; }  // land blocks shots
       let hit = false;
       // hits player?
       if (b.ownerFaction !== 'player' && scene.player.hull > 0 && ((b.x - scene.player.x)**2 + (b.y - scene.player.y)**2) < 24*24){   // M1
@@ -121,18 +124,19 @@ const Combat = {
       }
       // hostile shells can sink the player's trade runners (your own shots excluded)
       if (!hit && b.ownerFaction !== 'player' && typeof RunnerSystem !== 'undefined' && RunnerSystem.tryHit(scene, b)) hit = true;
-      if (hit) cb.splice(i, 1);
+      if (hit) drop(i);
     }
   },
 
   updateLoot(scene, dts){
-    for (let i = scene.loot.length - 1; i >= 0; i--){
-      const l = scene.loot[i]; l.age += dts;
-      if (l.age > l.life){ scene.loot.splice(i, 1); continue; }
+    const lt = scene.loot, dropL = i => { lt[i] = lt[lt.length - 1]; lt.pop(); };   // S2: swap-pop
+    for (let i = lt.length - 1; i >= 0; i--){
+      const l = lt[i]; l.age += dts;
+      if (l.age > l.life){ dropL(i); continue; }
       if (scene.player.hull > 0 && ((l.x - scene.player.x)**2 + (l.y - scene.player.y)**2) < 36*36){  // LOOT_COLLECT_RADIUS (M1: squared)
         scene.player.gold += l.value; scene.player.ammo = Math.min(scene.player.maxAmmo, scene.player.ammo + 6);
         scene.flashPopup(l.x, l.y, '+' + l.value + 'g', 0xF0C840);
-        scene.loot.splice(i, 1);
+        dropL(i);
       }
     }
   },

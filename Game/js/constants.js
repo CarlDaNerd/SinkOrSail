@@ -451,3 +451,7 @@ const NEARBY_PORTS_RADIUS = 5000;   // PLACEHOLDER — feel/perf-tune
 // Movement and combat stay per-frame; only the SCANS re-run on these clocks.
 const AI_SCAN_INTERVAL_S = 0.35;    // PLACEHOLDER — per-ship fleet re-scan cadence
 const LOS_CHECK_INTERVAL_S = 0.3;   // PLACEHOLDER — per-navy-ship sight-line re-check
+// M8 (optimize.md): fast-changing HUD/menu strings rebuild on this clock, not
+// per frame — Phaser re-renders a Text's canvas + re-uploads the texture on
+// every CHANGED string, and speed/coords/hull change nearly every frame.
+const HUD_TEXT_INTERVAL_MS = 100;   // PLACEHOLDER — 10 Hz, imperceptible
