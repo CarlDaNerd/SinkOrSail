@@ -62,4 +62,24 @@ const Chunks = {
     }
     scene.islands = lands; scene.reefs = reefs;
   },
+
+  // OPT-B4: hide the terrain Graphics of chunks outside the camera view. Phaser
+  // does NOT cull Graphics — every loaded chunk's 11 layers re-tessellate each
+  // frame even when 3000px off-screen. The AABB test is trivially cheap (~25-49
+  // chunks); the saving is skipping the tessellation of the hidden ones. Runs
+  // every frame so it tracks zoom (combat) as well as panning; setVisible only
+  // fires on an actual change. CHUNK_CULL_MARGIN keeps islands whose body
+  // overhangs their chunk from popping at the view edge.
+  cull(scene){
+    const cam = scene.cameras && scene.cameras.main; if (!cam) return;
+    const wv = cam.worldView, m = CHUNK_CULL_MARGIN;
+    const l = wv.x - m, r = wv.right + m, t = wv.y - m, b = wv.bottom + m;
+    for (const ch of scene._chunks.values()){
+      const x0 = ch.cx*CHUNK_SIZE, y0 = ch.cy*CHUNK_SIZE;
+      const vis = x0 < r && x0 + CHUNK_SIZE > l && y0 < b && y0 + CHUNK_SIZE > t;
+      if (ch._vis === vis) continue;                 // no redundant setVisible churn
+      ch._vis = vis;
+      if (ch.gfx) for (const g of ch.gfx) g.setVisible(vis);
+    }
+  },
 };

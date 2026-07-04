@@ -186,7 +186,13 @@ class HUD {
     this.tStatus.setText(banner).setColor(hostile ? '#E0503A' : '#D0A030');
     this.tOver.setText(pl.hull <= 0 ? 'YOU SANK\npress Esc → Reset Game' : '');
 
-    drawMiniMap(this.miniG, gs, pl);
+    // OPT-B5: the radar recomputes every island/ship/nearby-port every frame. Throttle
+    // the REBUILD to ~9Hz (the miniG Graphics still renders each frame — only the
+    // recompute is gated) and skip it entirely while paused (nothing moves).
+    { const nowMs = gs.time.now;
+      if (!gs.menuOpen && (this._miniAt === undefined || nowMs - this._miniAt >= MINIMAP_REDRAW_MS)){
+        this._miniAt = nowMs; drawMiniMap(this.miniG, gs, pl);
+      } }
     { const mr = miniMapH()/2, full = mr + compassRingW() + compassLabelPad(); drawCompassRing(g, gs, pl, GAME_W - 12 - full, 12 + full, mr, compassRingW()); }
     const ref = 200*gs.cameras.main.zoom, bx = GAME_W/2 - ref/2, by = GAME_H - 26;
     g.lineStyle(2, 0xD4C890, 0.8);
