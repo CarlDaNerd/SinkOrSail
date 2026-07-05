@@ -25,8 +25,8 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Recently Added (most recent commits first)
 
+- I27 fix — tavern offers keep stable [1]/[2] slots (accepting no longer renumbers the board; the old splice made the second accept silently no-op); taken offers stay listed as ACCEPTED
 - OPT-M9/S3/S6/S7 — runner + privateer wakes now render (they paid pushWake cost invisibly); all wake/hull draws camera-view-gated; weather streak loops skip while menus are open; `roundPixels: true` (revert if wake art shimmers); all 57 scripts `defer`ed for faster load
-
 - OPT-M7/M8/S2 — GC-churn fixes (wake/arc drawers hoisted out of per-frame closures, scratch arrays for storm ship-lists + ship-collision set), HUD/dock/tavern/fleet strings rebuilt at 10 Hz (`HUD_TEXT_INTERVAL_MS`) instead of per frame, swap-pop replaces `splice` in cannonball/loot loops (optimize.md M7, M8, S2)
 - OPT-M1–M4 — `dist2` squared-compare sweep (AI scans, ship-collision pair gate, cannonball/loot/port hit tests, minimap range test, dock scan, tower gates), `checkIsland` per-island bounding pre-test, staggered AI target acquisition (`AI_SCAN_INTERVAL_S`), cached navy line-of-sight (`LOS_CHECK_INTERVAL_S`) (optimize.md M1–M4)
 - EMPIRE-1 — gated prize commissioning (repair hull + crew to minimum at the port menu before a towed prize becomes a runner, replacing instant conversion) and finite port stock (depletes on player purchase, replenished by merchant AI deliveries, previously-dormant cargo-assignment code now actually wired up)
