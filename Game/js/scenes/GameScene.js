@@ -469,8 +469,8 @@ class GameScene extends Phaser.Scene {
     // WANTED or mid-combat — recover standing / break off first.
     this.nearPort = null;
     if (pl.hull > 0){
-      let best = DOCK_RADIUS;
-      for (const p of (this.nearbyPorts || this.navyPorts)){ const dd = Math.hypot(pl.x - p.x, pl.y - p.y); if (dd < best){ best = dd; this.nearPort = p; } }   // OPT-B2
+      let best = DOCK_RADIUS*DOCK_RADIUS;   // M1: min-search on squared distance
+      for (const p of (this.nearbyPorts || this.navyPorts)){ const dd = (pl.x - p.x)**2 + (pl.y - p.y)**2; if (dd < best){ best = dd; this.nearPort = p; } }   // OPT-B2
       // MB3-3: the touch ACCESS-PORT button (shown only in dock range) fires the
       // exact same path as F — same WANTED / in-combat guards, same save sweep.
       const dockPressed = Phaser.Input.Keyboard.JustDown(this.keys.F) ||

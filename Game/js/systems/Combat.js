@@ -98,14 +98,14 @@ const Combat = {
         let portHit = false;
         for (const port of (scene.nearbyPorts || scene.navyPorts)){   // OPT-B2: player shells only fly near the player
           if (port.owner === 'player') continue;
-          if (Math.hypot(b.x - port.x, b.y - port.y) < PORT_HIT_RADIUS){ PortCaptureSystem.damagePort(scene, port); portHit = true; break; }
+          if (((b.x - port.x)**2 + (b.y - port.y)**2) < PORT_HIT_RADIUS*PORT_HIT_RADIUS){ PortCaptureSystem.damagePort(scene, port); portHit = true; break; }   // M1
         }
         if (portHit){ cb.splice(i, 1); continue; }
       }
       if (Collision.checkIsland(scene, b.x, b.y, 4).hit){ cb.splice(i, 1); continue; }  // land blocks shots
       let hit = false;
       // hits player?
-      if (b.ownerFaction !== 'player' && scene.player.hull > 0 && Math.hypot(b.x - scene.player.x, b.y - scene.player.y) < 24){
+      if (b.ownerFaction !== 'player' && scene.player.hull > 0 && ((b.x - scene.player.x)**2 + (b.y - scene.player.y)**2) < 24*24){   // M1
         scene.player.hull = Math.max(0, scene.player.hull - P.damage);
         scene.player.lastHitAt = scene.time.now/1000;
         scene.flashPopup(scene.player.x, scene.player.y, '-' + P.damage, 0xE0503A);
@@ -116,7 +116,7 @@ const Combat = {
         for (const s of scene.ships){
           if (!s.alive || s.id === b.owner) continue;
           if (b.ownerFaction === s.faction) continue;          // no friendly fire within same faction
-          if (Math.hypot(b.x - s.x, b.y - s.y) < 24){ this.onHit(scene, b, s); hit = true; break; }
+          if (((b.x - s.x)**2 + (b.y - s.y)**2) < 24*24){ this.onHit(scene, b, s); hit = true; break; }   // M1
         }
       }
       // hostile shells can sink the player's trade runners (your own shots excluded)
@@ -129,7 +129,7 @@ const Combat = {
     for (let i = scene.loot.length - 1; i >= 0; i--){
       const l = scene.loot[i]; l.age += dts;
       if (l.age > l.life){ scene.loot.splice(i, 1); continue; }
-      if (scene.player.hull > 0 && Math.hypot(l.x - scene.player.x, l.y - scene.player.y) < 36){  // LOOT_COLLECT_RADIUS
+      if (scene.player.hull > 0 && ((l.x - scene.player.x)**2 + (l.y - scene.player.y)**2) < 36*36){  // LOOT_COLLECT_RADIUS (M1: squared)
         scene.player.gold += l.value; scene.player.ammo = Math.min(scene.player.maxAmmo, scene.player.ammo + 6);
         scene.flashPopup(l.x, l.y, '+' + l.value + 'g', 0xF0C840);
         scene.loot.splice(i, 1);

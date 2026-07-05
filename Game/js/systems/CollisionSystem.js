@@ -6,9 +6,19 @@ const Collision = {
   // point-vs-island ellipse test (radius pads each ellipse). Returns a surface
   // normal on hit so callers can resolve along/into shore.
   checkIsland(scene, x, y, radius){
-    for (const is of scene.islands) for (const e of is.ells){
-      const nx = (x - e.cx)/(e.rx + radius), ny = (y - e.cy)/(e.ry + radius);
-      if (nx*nx + ny*ny < 1){ const a = Math.atan2(y - e.cy, x - e.cx); return { hit:true, nx:Math.cos(a), ny:Math.sin(a) }; }
+    for (const is of scene.islands){
+      // M2 (optimize.md): bounding pre-test — is.rad is the measured footprint
+      // radius (centre offset + widest ellipse extent), so a point farther than
+      // rad + pad can't touch any padded ellipse. Guarded so a shape without
+      // rad (if one ever appears) still gets the full test.
+      if (is.rad != null){
+        const bdx = x - is.cx, bdy = y - is.cy, br = is.rad + radius;
+        if (bdx*bdx + bdy*bdy > br*br) continue;
+      }
+      for (const e of is.ells){
+        const nx = (x - e.cx)/(e.rx + radius), ny = (y - e.cy)/(e.ry + radius);
+        if (nx*nx + ny*ny < 1){ const a = Math.atan2(y - e.cy, x - e.cx); return { hit:true, nx:Math.cos(a), ny:Math.sin(a) }; }
+      }
     }
     return { hit:false };
   },
@@ -99,8 +109,9 @@ const Collision = {
     const min = HULL_BEAM*2.4;                                  // hulls touch beam-to-beam
     for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++){
       const a = all[i], b = all[j];
-      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-      if (d <= 0 || d >= min) continue;
+      const dx = b.x - a.x, dy = b.y - a.y, d2 = dx*dx + dy*dy;             // M1: gate on squared distance
+      if (d2 <= 0 || d2 >= min*min) continue;
+      const d = Math.sqrt(d2);
       const ux = dx/d, uy = dy/d, overlap = min - d;
       const ma = a.maxHull || 100, mb = b.maxHull || 100, sum = ma + mb;
       const fa = mb/sum, fb = ma/sum;                           // each ship's yield share (lighter yields more)

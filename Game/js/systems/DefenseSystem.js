@@ -49,14 +49,14 @@ const DefenseSystem = {
       // raided right now — so shelling an isolated port (no navy witness) still wakes it
       const raided = port.lastHitAt != null && (t - port.lastHitAt) < TOWER_DEFEND_WINDOW_S;
       if (!(wanted || pirate || raided)) continue;
-      const pd = Math.hypot(pl.x - port.x, pl.y - port.y);
-      if (pd > TOWER_RANGE + 120) continue;       // player not near this port
+      const pd2 = (pl.x - port.x)**2 + (pl.y - port.y)**2;   // M1
+      if (pd2 > (TOWER_RANGE + 120)*(TOWER_RANGE + 120)) continue;       // player not near this port
       let fired = false;
       for (const t of port.towers){
         if (t.x === null) continue;                           // I18-4: not placed yet
         if (t.cd > 0){ t.cd -= dts; continue; }
-        const d = Math.hypot(pl.x - t.x, pl.y - t.y);
-        if (d > TOWER_RANGE || d < 1) continue;
+        const d2 = (pl.x - t.x)**2 + (pl.y - t.y)**2;   // M1
+        if (d2 > TOWER_RANGE*TOWER_RANGE || d2 < 1) continue;
         const ang = Math.atan2(pl.y - t.y, pl.x - t.x);
         scene.cannonballs.push(Cannonball.create(t.x, t.y, Math.cos(ang) * TOWER_BALL_SPEED, Math.sin(ang) * TOWER_BALL_SPEED, 'tower_' + port.id, 'navy'));
         t.cd = TOWER_COOLDOWN_S; fired = true;
@@ -72,7 +72,7 @@ const DefenseSystem = {
       if (port.owner === 'player' || !port.towers || !port.towers.length) continue;
       const raided = port.lastHitAt != null && (now - port.lastHitAt) < TOWER_DEFEND_WINDOW_S;
       if (!(hostile || raided)) continue;
-      if (Math.hypot(pl.x - port.x, pl.y - port.y) > TOWER_RANGE + 120) continue;
+      if (((pl.x - port.x)**2 + (pl.y - port.y)**2) > (TOWER_RANGE + 120)*(TOWER_RANGE + 120)) continue;   // M1
       for (const t of port.towers){ if (t.x === null) continue; g.lineStyle(2, 0xE0503A, 0.6); g.strokeCircle(t.x, t.y, 7); g.lineStyle(1, 0xE0503A, 0.12); g.strokeCircle(t.x, t.y, TOWER_RANGE); }   // I18-4
     }
   },
