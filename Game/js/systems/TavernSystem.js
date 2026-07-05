@@ -48,10 +48,15 @@ const TavernSystem = {
     const offer = scene._tavernOffers[idx];
     if (!offer) return;
     const pl = scene.player;
+    // I27 fix: accepting used to SPLICE the offer out, renumbering the board —
+    // pressing [2] after taking [1] then hit an empty slot and silently no-oped
+    // ('the second mission does not show up'). Offers now keep their slots for
+    // the whole visit; taken ones stay listed as accepted.
+    if (offer.taken){ scene.flashPopup(pl.x, pl.y - 30, 'ALREADY TAKEN', 0xE0A040); return; }
     if (scene.activeMissions.length >= TAVERN_MAX_ACTIVE){
       scene.flashPopup(pl.x, pl.y - 30, 'MISSION LOG FULL (' + TAVERN_MAX_ACTIVE + ')', 0xE0503A); return;
     }
-    scene._tavernOffers.splice(idx, 1);
+    offer.taken = true;
     scene.activeMissions.push(offer);
     scene.flashPopup(pl.x, pl.y - 30, 'ACCEPTED: ' + offer.title.toUpperCase(), 0xF0C840);
   },
@@ -82,7 +87,7 @@ const TavernSystem = {
     s += 'RUMOR: "' + this._rumor(scene, port) + '"\n\nWORK ON THE BOARD:\n';
     const offers = scene._tavernOffers || [];
     if (!offers.length) s += '  (nothing today — come back after a voyage)\n';
-    offers.forEach((o, i) => { s += '[' + (i + 1) + '] ' + o.title + '  —  ' + o.reward + 'g\n      ' + o.desc + '\n'; });
+    offers.forEach((o, i) => { s += '[' + (i + 1) + '] ' + o.title + '  —  ' + o.reward + 'g' + (o.taken ? '   — ACCEPTED ✓' : '') + '\n      ' + o.desc + '\n'; });   // I27: slots never renumber
     s += '\nYOUR LOG (' + scene.activeMissions.length + '/' + TAVERN_MAX_ACTIVE + '):\n';
     if (!scene.activeMissions.length) s += '  (no active missions)\n';
     for (const m of scene.activeMissions) s += '  • ' + this.progressLine(m) + '\n';
