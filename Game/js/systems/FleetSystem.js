@@ -109,6 +109,12 @@ const FleetSystem = {
     if (!scene._fleetText) this._mkText(scene);
     const t = scene._fleetText;
     if (!scene.fleetOpen){ t.setVisible(false); return; }
+    // M8 (optimize.md): the whole panel string was rebuilt per frame while open —
+    // rebuild at HUD_TEXT_INTERVAL_MS (instant on the frame it opens; ≤0.1s lag
+    // on the selection arrow, and the world is frozen while this screen is up).
+    const nowT = scene.time.now;
+    if (t.visible && nowT - (this._fleetTxtAt || 0) < HUD_TEXT_INTERVAL_MS) return;
+    this._fleetTxtAt = nowT;
     const rs = scene.runners || [], h = scene.hire || { hired: [] };
     let s = '⚓  FLEET   —   ' + rs.length + ' runner' + (rs.length === 1 ? '' : 's') + ', ' + h.hired.length + ' privateer' + (h.hired.length === 1 ? '' : 's') + '\n\n';
     if (!rs.length) s += '  No runners yet — tow a captured prize to one of your ports.\n';

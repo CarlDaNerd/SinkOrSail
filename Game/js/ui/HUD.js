@@ -129,11 +129,16 @@ class HUD {
     // speed
     const sp = Math.min(pl.vel/P.maxSpeed, 1), sc = sp < 0.05 ? 0xE0503A : sp < 0.5 ? 0xE0A040 : 0x4CA84C;
     g.fillStyle(0x223040, 1); g.fillRect(20, 33, 150, 6); g.fillStyle(sc, 1); g.fillRect(20, 33, 150*sp, 6);
-    this.tSpeed.setText('SPEED  ' + (pl.vel/P.maxSpeed*9).toFixed(1) + ' kn');
-    this.tSail.setText(['NO SAILS', 'MAIN SAIL', 'FULL SAIL'][pl.sailState]).setColor(['#E0503A', '#E0A040', '#4CA84C'][pl.sailState]);
-    // hull
+    // hull bar — Graphics, must stay OUTSIDE the M8 gate (g.clear runs per frame)
     const hp = Math.max(0, pl.hull/pl.maxHull);
     g.fillStyle(0x223040, 1); g.fillRect(20, 80, 150, 5); g.fillStyle(hp < 0.35 ? 0xE0503A : 0x4CA84C, 1); g.fillRect(20, 80, 150*hp, 5);
+    // M8 (optimize.md): the numeric readouts change nearly every frame — rebuild
+    // their strings at HUD_TEXT_INTERVAL_MS instead (bars/pips are Graphics and
+    // stay per-frame; event banners below stay per-frame).
+    const _txtGo = gs.time.now - (this._txtAt || 0) >= HUD_TEXT_INTERVAL_MS;
+    if (_txtGo){ this._txtAt = gs.time.now;
+    this.tSpeed.setText('SPEED  ' + (pl.vel/P.maxSpeed*9).toFixed(1) + ' kn');
+    this.tSail.setText(['NO SAILS', 'MAIN SAIL', 'FULL SAIL'][pl.sailState]).setColor(['#E0503A', '#E0A040', '#4CA84C'][pl.sailState]);
     this.tHull.setText('HULL ' + Math.ceil(pl.hull));
     this.tAmmo.setText('AMMO ' + pl.ammo); this.tGold.setText('GOLD ' + pl.gold);
     const crewCap = (typeof ShipTiers !== 'undefined') ? ShipTiers.maxCrew(pl) : (typeof CREW_MAX !== 'undefined' ? CREW_MAX : 40);
@@ -143,6 +148,7 @@ class HUD {
       // ASSUMPTION: −y = North, +x = East (screen-up is north); keeps raw x,y AND adds the compass form
       const ns = cyv <= 0 ? 'N' : 'S', ew = cxv >= 0 ? 'E' : 'W';
       this.tCoord.setText(cxv + ',' + cyv + '   ' + Math.abs(cyv) + '°' + ns + ' ' + Math.abs(cxv) + '°' + ew); }
+    }   // end M8 10 Hz text gate
     // wanted level (standing 0..-100 → 0..5 pips)
     const wl = Math.min(5, Math.max(0, Math.ceil(-gs.navyStanding / 20))), hostile = gs.navyHostile();
     this.tWanted.setText('WANTED');
@@ -275,6 +281,15 @@ class HUD {
     this.tAchList.setText(s).setPosition(GAME_W/2, GAME_H/2).setVisible(true);
   }
 
+  // M8 (optimize.md): the dock/tavern panels rebuild a large string per frame
+  // while open — rebuild at HUD_TEXT_INTERVAL_MS instead (and instantly on the
+  // frame the panel becomes visible, so nothing stale ever flashes).
+  _dockGo(){
+    const now = this.gs.time.now;
+    if (now - (this._dockTxtAt || 0) < HUD_TEXT_INTERVAL_MS) return false;
+    this._dockTxtAt = now; return true;
+  }
+
   drawDock(g){
     const gs = this.gs, pl = gs.player;
     // TM1: the tavern board takes over the dock panel while open
@@ -282,7 +297,8 @@ class HUD {
       const w = 440, h = 400, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
       g.fillStyle(0x140E08, 0.94); g.fillRect(x, y, w, h);          // warmer wood tone than the port menu
       g.lineStyle(2, 0xB08040, 0.6); g.strokeRect(x, y, w, h);
-      this.tDockMenu.setText(TavernSystem.boardText(gs)).setVisible(true);
+      if (!this.tDockMenu.visible || this._dockGo()) this.tDockMenu.setText(TavernSystem.boardText(gs));   // M8: 10 Hz, instant on open
+      this.tDockMenu.setVisible(true);
       this.tDockPrompt.setVisible(false);
       return;
     }
@@ -323,7 +339,7 @@ class HUD {
         lK = (prize.crew || 0) >= pCap ? '[K] Prize fully crewed (' + pCap + ')' : '[K] Crew prize (' + (prize.crew||0) + '/' + pCap + ')  —  ' + pCost + 'g';
       }
       const extra = [l6, l7, l8, l9, l0, lV, lB, lT, lP, lK].filter(Boolean).join('\n');
-      this.tDockMenu.setText('⚓  ' + port.name + '   (' + (port.type || 'Port') + ')\n\nGOLD  ' + (pl.bank || 0) + '     HOLD  ' + cargo + '     CREW  ' + (pl.crew || 0) + '/' + crewCap + '\n\n' + l1 + '\n' + l2 + '\n[3] Sell all cargo\n' + l4 + '\n' + l5 + (extra ? '\n' + extra : '') + '\n\n[F] Depart').setVisible(true);
+      if (!this.tDockMenu.visible || this._dockGo()) this.tDockMenu.setText('⚓  ' + port.name + '   (' + (port.type || 'Port') + ')\n\nGOLD  ' + (pl.bank || 0) + '     HOLD  ' + cargo + '     CREW  ' + (pl.crew || 0) + '/' + crewCap + '\n\n' + l1 + '\n' + l2 + '\n[3] Sell all cargo\n' + l4 + '\n' + l5 + (extra ? '\n' + extra : '') + '\n\n[F] Depart').setVisible(true);
       this.tDockPrompt.setVisible(false);
     } else if (gs.nearPort){
       let msg;
