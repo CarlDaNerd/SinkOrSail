@@ -10,6 +10,9 @@ const config = {
   width: GAME_W,
   height: GAME_H,
   backgroundColor: '#15263C',
+  // S6 (optimize.md): cheaper sub-pixel work on some GPUs. REVERT THIS LINE
+  // if the wake art starts to shimmer — untestable headless, flagged in PR.
+  render: { roundPixels: true },
   scene: [BootScene, MenuScene, GameScene, UIScene],
   fps: { target: 60 },
   // RESIZE: canvas tracks the window (phone rotate / browser resize). GAME_W/H

@@ -104,7 +104,7 @@ const WeatherSystem = {
       const t = scene.time.now/1000;
       // snowfall flecks around the player (cheap, like the rain streaks)
       g.fillStyle(0xEAF4FA, 0.5);
-      for (let i = 0; i < 50; i++){ const rx = pl.x + (Math.random() - 0.5)*1400, ry = pl.y + (Math.random() - 0.5)*900; g.fillCircle(rx, ry, 1.3); }
+      if (!scene.menuOpen) for (let i = 0; i < 50; i++){ const rx = pl.x + (Math.random() - 0.5)*1400, ry = pl.y + (Math.random() - 0.5)*900; g.fillCircle(rx, ry, 1.3); }   // S3: skip while menus cover the screen
       // bergs: white cap over pale base, bobbing (visual only — RULED no drift)
       for (const b of (w.data.bergs || [])){
         const bob = Math.sin(t * SNOW_BOB_SPEED + b.ph) * SNOW_BOB_AMP;
@@ -335,7 +335,7 @@ const WeatherSystem = {
       // MW-10: inside the cell, rain at ~2× density (rain draws 40 streaks → storm 80)
       if (Math.hypot(pl.x - w.data.cx, pl.y - w.data.cy) < STORM_RADIUS){
         g.lineStyle(1, 0x9FB6C8, 0.35);
-        for (let i = 0; i < 80; i++){ const rx = pl.x + (Math.random() - 0.5)*1400, ry = pl.y + (Math.random() - 0.5)*900; g.lineBetween(rx, ry, rx - 8, ry + 15); }
+        if (!scene.menuOpen) for (let i = 0; i < 80; i++){ const rx = pl.x + (Math.random() - 0.5)*1400, ry = pl.y + (Math.random() - 0.5)*900; g.lineBetween(rx, ry, rx - 8, ry + 15); }   // S3
       }
       // MW-10: jagged lightning bolt from the sky down to the struck ship
       const b = w.data.bolt;
@@ -352,7 +352,7 @@ const WeatherSystem = {
         g.strokePath();
       }
     }
-    if (w.active === 'rain'){ g.lineStyle(1, 0x9FB6C8, 0.3); for (let i = 0; i < 40; i++){ const rx = pl.x + (Math.random() - 0.5) * 1400, ry = pl.y + (Math.random() - 0.5) * 900; g.lineBetween(rx, ry, rx - 6, ry + 12); } }
+    /* S3: skip streaks while menus cover the screen */ if (w.active === 'rain' && !scene.menuOpen){ g.lineStyle(1, 0x9FB6C8, 0.3); for (let i = 0; i < 40; i++){ const rx = pl.x + (Math.random() - 0.5) * 1400, ry = pl.y + (Math.random() - 0.5) * 900; g.lineBetween(rx, ry, rx - 6, ry + 12); } }
     // storm flash: only when you're actually inside the squall
     if (w.active === 'storm' && w.data.flash > 0 && Math.hypot(pl.x - w.data.cx, pl.y - w.data.cy) < STORM_RADIUS){ g.fillStyle(0xFFFFFF, w.data.flash); g.fillRect(pl.x - 1200, pl.y - 800, 2400, 1600); }
   },
