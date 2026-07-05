@@ -566,13 +566,20 @@ class GameScene extends Phaser.Scene {
     this.flashPopup(pl.x, pl.y - 30, '⚓ HULL PURCHASED — IN TOW', 0x6ED0E0);
   }
 
-  draw(){
-    const gw = this.gfxWorld; gw.clear();
-    // MW-14: each ripple is a pair of short arcs flanking the travel line — they
-    // widen and fade over WAKE_RIPPLE_LIFE_S (the surf-ripple read). PLACEHOLDER shape.
-    const nowS = this.time.now/1000;
-    const drawWake = (s, col) => {
-      for (const r of s.wake){
+  // M7 (optimize.md): drawWake + the polyline half-arc were closures re-created
+  // inside draw() every frame — hoisted to methods to stop the allocation churn.
+  _halfArc(gw, cx, cy, rr, a0){
+    gw.beginPath();
+    for (let k = 0; k <= 8; k++){
+      const th = a0 + k * (Math.PI / 8);
+      const X = cx + Math.cos(th) * rr, Y = cy + Math.sin(th) * rr;
+      if (k === 0) gw.moveTo(X, Y); else gw.lineTo(X, Y);
+    }
+    gw.strokePath();
+  }
+
+  _drawWake(gw, nowS, s, col){
+    for (const r of s.wake){
         const a = (nowS - r.t0) / WAKE_RIPPLE_LIFE_S;
         if (!(a >= 0 && a < 1)) continue;                       // also skips old-format entries safely
         const grow = 4 + a*11, alpha = 0.34 * (1 - a);
@@ -588,21 +595,19 @@ class GameScene extends Phaser.Scene {
         // (which φ+π..φ+2π does at most headings) render flipped — only
         // west-ish headings stayed in range, hence 'only correct sailing west'.
         // Draw the half-circles as explicit polylines instead: renderer-proof.
-        const half = (cx, cy, rr, a0) => {
-          gw.beginPath();
-          for (let k = 0; k <= 8; k++){
-            const th = a0 + k * (Math.PI / 8);
-            const X = cx + Math.cos(th) * rr, Y = cy + Math.sin(th) * rr;
-            if (k === 0) gw.moveTo(X, Y); else gw.lineTo(X, Y);
-          }
-          gw.strokePath();
-        };
-        half(r.x + px*grow*0.7, r.y + py*grow*0.7, grow, phi);              // starboard arc, bulges out
-        half(r.x - px*grow*0.7, r.y - py*grow*0.7, grow, phi + Math.PI);    // port arc, bulges out
-      }
-    };
-    drawWake(this.player, 0xCFE8F5);
-    for (const s of this.ships) if (s.alive) drawWake(s, 0xA8C0D0);
+        this._halfArc(gw, r.x + px*grow*0.7, r.y + py*grow*0.7, grow, phi);              // starboard arc, bulges out
+        this._halfArc(gw, r.x - px*grow*0.7, r.y - py*grow*0.7, grow, phi + Math.PI);    // port arc, bulges out
+    }
+  }
+
+  draw(){
+    const gw = this.gfxWorld; gw.clear();
+    // MW-14: ripple pairs flank the travel line, widening/fading over
+    // WAKE_RIPPLE_LIFE_S (the surf-ripple read). PLACEHOLDER shape. (M7: the
+    // wake/arc drawers live in _drawWake/_halfArc above, not per-frame closures.)
+    const nowS = this.time.now/1000;
+    this._drawWake(gw, nowS, this.player, 0xCFE8F5);
+    for (const s of this.ships) if (s.alive) this._drawWake(gw, nowS, s, 0xA8C0D0);
     // loot
     for (const l of this.loot){ const fade = l.age > l.life - 2 ? (l.life - l.age)/2 : 1; gw.fillStyle(0xF0C840, 0.85*fade); gw.fillCircle(l.x, l.y, 7); gw.lineStyle(2, 0xF0C840, 0.4*fade); gw.strokeCircle(l.x, l.y, 12); }
     // debug range ring (world space, centered on player)

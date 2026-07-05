@@ -25,6 +25,7 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Recently Added (most recent commits first)
 
+- OPT-M7/M8/S2 — GC-churn fixes (wake/arc drawers hoisted out of per-frame closures, scratch arrays for storm ship-lists + ship-collision set), HUD/dock/tavern/fleet strings rebuilt at 10 Hz (`HUD_TEXT_INTERVAL_MS`) instead of per frame, swap-pop replaces `splice` in cannonball/loot loops (optimize.md M7, M8, S2)
 - OPT-M1–M4 — `dist2` squared-compare sweep (AI scans, ship-collision pair gate, cannonball/loot/port hit tests, minimap range test, dock scan, tower gates), `checkIsland` per-island bounding pre-test, staggered AI target acquisition (`AI_SCAN_INTERVAL_S`), cached navy line-of-sight (`LOS_CHECK_INTERVAL_S`) (optimize.md M1–M4)
 - EMPIRE-1 — gated prize commissioning (repair hull + crew to minimum at the port menu before a towed prize becomes a runner, replacing instant conversion) and finite port stock (depletes on player purchase, replenished by merchant AI deliveries, previously-dormant cargo-assignment code now actually wired up)
 - OPT-B2 — shared `scene.nearbyPorts` list: the six per-frame all-924-port loops (dock scan, tower placement/fire, capture regen, minimap, cannonball port hits, merchant pickPort) now iterate near-player ports only (optimize.md B2)

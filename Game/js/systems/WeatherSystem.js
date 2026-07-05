@@ -203,7 +203,10 @@ const WeatherSystem = {
   // ── cyclone (moving vortex) ──
   // every ship in the world, so the storm sweeps friend and foe alike
   _allShips(scene){
-    const out = [];
+    // M7 (optimize.md): reuse one scratch array — this runs in update paths and
+    // allocated a fresh array per call. Callers consume the result immediately.
+    const out = this._shipsBuf || (this._shipsBuf = []);
+    out.length = 0;
     if (scene.player && scene.player.hull > 0) out.push(scene.player);
     for (const s of (scene.ships || [])) if (s.alive) out.push(s);
     for (const r of (scene.runners || [])) if (r.alive !== false) out.push(r);
