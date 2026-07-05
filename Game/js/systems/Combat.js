@@ -105,7 +105,13 @@ const Combat = {
         }
         if (portHit){ drop(i); continue; }
       }
-      if (Collision.checkIsland(scene, b.x, b.y, 4).hit){ drop(i); continue; }  // land blocks shots
+      // I32: tower shots ARC over terrain — shore batteries sit ON land (I18-4),
+      // so this check killed their balls the frame they spawned ('cannons can't
+      // fire over land / balls never leave'). Ship + player shots stay
+      // land-blocked. DEFAULT RULING: towers arc over ALL land, not just their
+      // own island — flag it if that should tighten.
+      const arcs = typeof b.owner === 'string' && b.owner.indexOf('tower_') === 0;
+      if (!arcs && Collision.checkIsland(scene, b.x, b.y, 4).hit){ drop(i); continue; }  // land blocks (non-tower) shots
       let hit = false;
       // hits player?
       if (b.ownerFaction !== 'player' && scene.player.hull > 0 && ((b.x - scene.player.x)**2 + (b.y - scene.player.y)**2) < 24*24){   // M1
