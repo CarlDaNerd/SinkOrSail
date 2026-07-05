@@ -103,7 +103,8 @@ const Collision = {
   // mass (maxHull) — a heavy ship pushes a light one hard and barely slows; ramming
   // a bigger hull bounces you. The lighter ship always yields more. Never push onto land.
   resolveShipCollisions(scene){
-    const all = [];
+    const all = this._collBuf || (this._collBuf = []);   // M7: reused scratch, was a fresh array per frame
+    all.length = 0;
     if (scene.player.hull > 0) all.push(scene.player);
     for (const s of scene.ships) if (s.alive) all.push(s);
     const min = HULL_BEAM*2.4;                                  // hulls touch beam-to-beam
