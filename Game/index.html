@@ -2,6 +2,47 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>
+// ── crash-log bootstrap ── installed as the FIRST script on the page (before
+// Phaser and every game file) so it catches errors even during boot. Keeps a
+// small ring buffer, persisted to localStorage on every capture — an uncaught
+// throw kills Phaser's whole rAF loop dead (nothing schedules the next frame,
+// e.g. the P0 Leviathan/waypoint bug), so anything depending on the scene
+// being alive never gets to record the crash; this listens at the raw window
+// level instead and survives the freeze. js/systems/CrashLog.js (loaded later,
+// once a scene exists) enriches new entries with live game-state context via
+// __crashLogContext and feeds them into the on-screen dev log via __crashLogSubs.
+(function(){
+  const KEY = 'sos_crashlog_v1', MAX = 40;
+  let log; try { const saved = JSON.parse(localStorage.getItem(KEY)); log = Array.isArray(saved) ? saved : []; } catch (e){ log = []; }
+  window.__crashLog = log;             // persists across reloads — a frozen game can be reloaded and the log is still here
+  window.__crashLogContext = null;     // set by CrashLog.init(scene) once the game boots
+  window.__crashLogSubs = [];          // CrashLog.js subscribes to push a DevLog line per new entry
+
+  function persist(){ try { localStorage.setItem(KEY, JSON.stringify(window.__crashLog.slice(-MAX))); } catch (e){} }
+
+  window.__crashLogRecord = function(kind, message, stack, source){
+    let ctx; try { ctx = window.__crashLogContext ? window.__crashLogContext() : undefined; } catch (e){}
+    const entry = { t: Date.now(), kind, message: message || 'Unknown error', stack: stack || '', source: source || '', ctx };
+    window.__crashLog.push(entry);
+    if (window.__crashLog.length > MAX) window.__crashLog.shift();
+    persist();
+    console.error('[CrashLog]', kind, message, source || '', stack || '');
+    for (const fn of window.__crashLogSubs) try { fn(entry); } catch (e){}
+    return entry;
+  };
+
+  window.addEventListener('error', function(e){
+    window.__crashLogRecord('error', e.message,
+      (e.error && e.error.stack) ? e.error.stack : '',
+      e.filename ? (e.filename.split('/').pop() + ':' + e.lineno + ':' + e.colno) : '');
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    const r = e.reason;
+    window.__crashLogRecord('promise', (r && r.message) ? r.message : String(r), (r && r.stack) ? r.stack : '', '');
+  });
+})();
+</script>
 <!-- MB2-8/9: viewport-fit=cover → edge-to-edge in landscape Safari (notch safe);
      PWA meta + manifest → Add-to-Home-Screen gives TRUE fullscreen on iPhone
      (Apple ships no element-fullscreen API there). -->
@@ -111,6 +152,14 @@
       </div>
     </div>
 
+    <div class="grp" data-g="errlog">ERROR LOG</div>
+    <div class="body">
+      <div id="errCount" style="font-size:9.5px;color:#8AAAC8;margin-bottom:6px;">0 recorded</div>
+      <div class="devgrid">
+        <button id="errCopy">COPY LOG</button><button id="errDownload">DOWNLOAD LOG</button><button id="errClear">CLEAR</button>
+      </div>
+    </div>
+
     <div class="grp collapsed" data-g="sail">SAILING</div>
     <div class="body">
       <div class="row"><label>Max speed <span class="val" id="v_maxSpeed"></span></label><input type="range" id="maxSpeed" min="0.5" max="4" step="0.05"></div>
@@ -215,74 +264,75 @@
 
 <!-- ── load order: dependencies first, scene classes before main, debug after main ── -->
 <!-- foundation -->
-<script defer src="js/constants.js?v=20260704"></script>
+<script defer src="js/constants.js?v=20260706"></script>
 <!-- core: event bus + system registry (load right after constants, before anything that uses them) -->
-<script defer src="js/core/Events.js?v=20260704"></script>
-<script defer src="js/core/SystemRegistry.js?v=20260704"></script>
-<script defer src="js/utils/PRNG.js?v=20260704"></script>
-<script defer src="js/utils/MathUtils.js?v=20260704"></script>
-<script defer src="js/systems/SailingPhysics.js?v=20260704"></script>
+<script defer src="js/core/Events.js?v=20260706"></script>
+<script defer src="js/core/SystemRegistry.js?v=20260706"></script>
+<script defer src="js/systems/CrashLog.js?v=20260706"></script>
+<script defer src="js/utils/PRNG.js?v=20260706"></script>
+<script defer src="js/utils/MathUtils.js?v=20260706"></script>
+<script defer src="js/systems/SailingPhysics.js?v=20260706"></script>
 <!-- world -->
-<script defer src="js/world/Port.js?v=20260704"></script>
-<script defer src="js/world/WorldGen.js?v=20260704"></script>
-<script defer src="js/world/Island.js?v=20260704"></script>
-<script defer src="js/world/ChunkManager.js?v=20260704"></script>
-<script defer src="js/systems/CollisionSystem.js?v=20260704"></script>
-<script defer src="js/world/Visibility.js?v=20260704"></script>
-<script defer src="js/systems/Steering.js?v=20260704"></script>
+<script defer src="js/world/Port.js?v=20260706"></script>
+<script defer src="js/world/WorldGen.js?v=20260706"></script>
+<script defer src="js/world/Island.js?v=20260706"></script>
+<script defer src="js/world/ChunkManager.js?v=20260706"></script>
+<script defer src="js/systems/CollisionSystem.js?v=20260706"></script>
+<script defer src="js/world/Visibility.js?v=20260706"></script>
+<script defer src="js/systems/Steering.js?v=20260706"></script>
 <!-- factions / flags -->
-<script defer src="js/systems/FactionSystem.js?v=20260704"></script>
-<script defer src="js/systems/FlagSystem.js?v=20260704"></script>
+<script defer src="js/systems/FactionSystem.js?v=20260706"></script>
+<script defer src="js/systems/FlagSystem.js?v=20260706"></script>
 <!-- ship tiers (data + hook; load before Player so it can stamp the start tier) -->
-<script defer src="js/systems/ShipTiers.js?v=20260704"></script>
+<script defer src="js/systems/ShipTiers.js?v=20260706"></script>
 <!-- entities -->
-<script defer src="js/entities/Loot.js?v=20260704"></script>
-<script defer src="js/entities/Cannonball.js?v=20260704"></script>
-<script defer src="js/entities/Player.js?v=20260704"></script>
-<script defer src="js/entities/Enemy.js?v=20260704"></script>
+<script defer src="js/entities/Loot.js?v=20260706"></script>
+<script defer src="js/entities/Cannonball.js?v=20260706"></script>
+<script defer src="js/entities/Player.js?v=20260706"></script>
+<script defer src="js/entities/Enemy.js?v=20260706"></script>
 <!-- combat / ai -->
-<script defer src="js/systems/Combat.js?v=20260704"></script>
-<script defer src="js/systems/AI.js?v=20260704"></script>
+<script defer src="js/systems/Combat.js?v=20260706"></script>
+<script defer src="js/systems/AI.js?v=20260706"></script>
 <!-- save -->
-<script defer src="js/systems/SaveSystem.js?v=20260704"></script>
+<script defer src="js/systems/SaveSystem.js?v=20260706"></script>
 <!-- feature systems (registry-driven; registered in SystemRegistry.js) -->
-<script defer src="js/systems/CommoditySystem.js?v=20260704"></script>
-<script defer src="js/systems/BankSystem.js?v=20260704"></script>
-<script defer src="js/systems/CrewSystem.js?v=20260704"></script>
-<script defer src="js/systems/UpgradeSystem.js?v=20260704"></script>
-<script defer src="js/systems/PortEconomy.js?v=20260704"></script>
-<script defer src="js/systems/DefenseSystem.js?v=20260704"></script>
-<script defer src="js/systems/Population.js?v=20260704"></script>
-<script defer src="js/systems/PortCaptureSystem.js?v=20260704"></script>
-<script defer src="js/systems/BoardingSystem.js?v=20260704"></script>
-<script defer src="js/systems/RunnerSystem.js?v=20260704"></script>
-<script defer src="js/systems/LeviathanSystem.js?v=20260704"></script>
-<script defer src="js/systems/FleetSystem.js?v=20260704"></script>
-<script defer src="js/systems/HireSystem.js?v=20260704"></script>
-<script defer src="js/systems/BountySystem.js?v=20260704"></script>
-<script defer src="js/systems/ZoomSystem.js?v=20260704"></script>
-<script defer src="js/systems/WindSystem.js?v=20260704"></script>
-<script defer src="js/systems/WeatherSystem.js?v=20260704"></script>
+<script defer src="js/systems/CommoditySystem.js?v=20260706"></script>
+<script defer src="js/systems/BankSystem.js?v=20260706"></script>
+<script defer src="js/systems/CrewSystem.js?v=20260706"></script>
+<script defer src="js/systems/UpgradeSystem.js?v=20260706"></script>
+<script defer src="js/systems/PortEconomy.js?v=20260706"></script>
+<script defer src="js/systems/DefenseSystem.js?v=20260706"></script>
+<script defer src="js/systems/Population.js?v=20260706"></script>
+<script defer src="js/systems/PortCaptureSystem.js?v=20260706"></script>
+<script defer src="js/systems/BoardingSystem.js?v=20260706"></script>
+<script defer src="js/systems/RunnerSystem.js?v=20260706"></script>
+<script defer src="js/systems/LeviathanSystem.js?v=20260706"></script>
+<script defer src="js/systems/FleetSystem.js?v=20260706"></script>
+<script defer src="js/systems/HireSystem.js?v=20260706"></script>
+<script defer src="js/systems/BountySystem.js?v=20260706"></script>
+<script defer src="js/systems/ZoomSystem.js?v=20260706"></script>
+<script defer src="js/systems/WindSystem.js?v=20260706"></script>
+<script defer src="js/systems/WeatherSystem.js?v=20260706"></script>
 <!-- dev/QC observers (pure event-bus listeners + overlays; HUD draws their UI) -->
-<script defer src="js/systems/AchievementSystem.js?v=20260704"></script>
-<script defer src="js/systems/DevLog.js?v=20260704"></script>
-<script defer src="js/systems/TouchInput.js?v=20260704"></script>
+<script defer src="js/systems/AchievementSystem.js?v=20260706"></script>
+<script defer src="js/systems/DevLog.js?v=20260706"></script>
+<script defer src="js/systems/TouchInput.js?v=20260706"></script>
 <!-- ui -->
-<script defer src="js/ui/WindCompass.js?v=20260704"></script>
-<script defer src="js/ui/MiniMap.js?v=20260704"></script>
-<script defer src="js/ui/WorldMap.js?v=20260704"></script>
-<script defer src="js/ui/HUD.js?v=20260704"></script>
+<script defer src="js/ui/WindCompass.js?v=20260706"></script>
+<script defer src="js/ui/MiniMap.js?v=20260706"></script>
+<script defer src="js/ui/WorldMap.js?v=20260706"></script>
+<script defer src="js/ui/HUD.js?v=20260706"></script>
 <!-- missions -->
-<script defer src="js/missions/MissionLoader.js?v=20260704"></script>
-<script defer src="js/missions/MissionDefs.js?v=20260704"></script>
-<script defer src="js/systems/TavernSystem.js?v=20260704"></script>
+<script defer src="js/missions/MissionLoader.js?v=20260706"></script>
+<script defer src="js/missions/MissionDefs.js?v=20260706"></script>
+<script defer src="js/systems/TavernSystem.js?v=20260706"></script>
 <!-- scenes -->
-<script defer src="js/scenes/BootScene.js?v=20260704"></script>
-<script defer src="js/scenes/MenuScene.js?v=20260704"></script>
-<script defer src="js/scenes/GameScene.js?v=20260704"></script>
-<script defer src="js/scenes/UIScene.js?v=20260704"></script>
+<script defer src="js/scenes/BootScene.js?v=20260706"></script>
+<script defer src="js/scenes/MenuScene.js?v=20260706"></script>
+<script defer src="js/scenes/GameScene.js?v=20260706"></script>
+<script defer src="js/scenes/UIScene.js?v=20260706"></script>
 <!-- launch + debug -->
-<script defer src="js/main.js?v=20260704"></script>
-<script defer src="js/debug/DebugOverlay.js?v=20260704"></script>
+<script defer src="js/main.js?v=20260706"></script>
+<script defer src="js/debug/DebugOverlay.js?v=20260706"></script>
 </body>
 </html>

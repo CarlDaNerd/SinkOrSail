@@ -127,5 +127,22 @@ const FLAG_RAISE_DELAY_S=${P.flagDelay}, FLAG_COMBAT_LOCK_S=${P.flagCombatLock};
 
   onClick('dbgClearEnemies', () => { const s = sc(); if (!s) return; for (const sh of s.ships) sh.alive = false; s.ships.length = 0; if (s.tows) s.tows.length = 0; s.flashPopup(s.player.x, s.player.y - 20, 'ENEMIES CLEARED', 0x6ED0E0); });
 
+  // ── ERROR LOG ── surfaces window.__crashLog (captured by the bootstrap script
+  // at the top of index.html, before anything else loads) via CrashLog.js.
+  function refreshErrCount(){ const el = $('errCount'); if (el && typeof CrashLog !== 'undefined') el.textContent = CrashLog.entries().length + ' recorded'; }
+  setInterval(refreshErrCount, 2000);   // panel may be open when a new error lands
+  refreshErrCount();
+
+  onClick('errCopy', () => {
+    if (typeof CrashLog === 'undefined') return;
+    const txt = CrashLog.report(), out = $('constsOut');
+    out.value = txt; out.style.display = 'block'; out.focus(); out.select();
+    const flash = m => { const b = $('errCopy'); b.textContent = m; setTimeout(() => b.textContent = 'COPY LOG', 1100); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => flash('COPIED')).catch(() => { try { document.execCommand('copy'); flash('COPIED'); } catch(e){ flash('SELECT+COPY'); } });
+    else { try { document.execCommand('copy'); flash('COPIED'); } catch(e){ flash('SELECT+COPY'); } }
+  });
+  onClick('errDownload', () => { if (typeof CrashLog !== 'undefined') CrashLog.download(); });
+  onClick('errClear', () => { if (typeof CrashLog !== 'undefined'){ CrashLog.clear(); refreshErrCount(); } });
+
   syncPanel();
 })();
