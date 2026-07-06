@@ -455,3 +455,8 @@ const LOS_CHECK_INTERVAL_S = 0.3;   // PLACEHOLDER — per-navy-ship sight-line 
 // per frame — Phaser re-renders a Text's canvas + re-uploads the texture on
 // every CHANGED string, and speed/coords/hull change nearly every frame.
 const HUD_TEXT_INTERVAL_MS = 100;   // PLACEHOLDER — 10 Hz, imperceptible
+// KS1 (Kenney reskin phase 1): ship sprites replace polygon hulls. Toggle to
+// false to fall back to the old Graphics ships instantly (also auto-falls
+// back per-ship if a texture is missing).
+const SHIP_SPRITES = true;
+const SHIP_SPRITE_SCALE = 0.38;     // PLACEHOLDER — sprite (113px tall) vs old 40px hull at scale 1
