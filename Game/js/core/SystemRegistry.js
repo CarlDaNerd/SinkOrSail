@@ -31,13 +31,41 @@ const Systems = {
     this.list.push(system);
   },
 
-  init(scene){ for (const s of this.list) if (s.init) s.init(scene); },
-  update(scene, dt, dts){ for (const s of this.list) if (s.update) s.update(scene, dt, dts); },
-  draw(scene, g){ for (const s of this.list) if (s.draw) s.draw(scene, g); },
+  init(scene){ for (const s of this.list) if (s.init) this._safe(s, 'init', scene); },
+  update(scene, dt, dts){ for (const s of this.list) if (s.update) this._safe(s, 'update', scene, dt, dts); },
+  draw(scene, g){ for (const s of this.list) if (s.draw) this._safe(s, 'draw', scene, g); },
 
   // fired by GameScene when the player docks; lets bank/bounty/menu systems
   // react without GameScene knowing they exist.
-  onDock(scene, port){ for (const s of this.list) if (s.onDock) s.onDock(scene, port); },
+  onDock(scene, port){ for (const s of this.list) if (s.onDock) this._safe(s, 'onDock', scene, port); },
+
+  // Run one system's hook guarded: an uncaught throw here would otherwise kill
+  // Phaser's whole rAF loop (nothing schedules the next frame — the documented
+  // P0 Leviathan/waypoint bug), freezing the game for every player over ONE
+  // broken feature. Instead: log it (CrashLog, or console as a fallback before
+  // that script loads) and permanently disable just THIS hook on THIS system —
+  // it goes inert rather than repeatedly re-throwing every frame, and every
+  // other system keeps running normally.
+  _safe(sys, hook, ...args){
+    if (sys.__deadHooks && sys.__deadHooks[hook]) return;
+    try { sys[hook](...args); }
+    catch (err){
+      if (!sys.__deadHooks) sys.__deadHooks = {};
+      sys.__deadHooks[hook] = true;
+      const name = this._nameOf(sys);
+      if (typeof CrashLog !== 'undefined') CrashLog.capture(err, { system: name, hook });
+      else console.error('[SystemRegistry] disabling ' + name + '.' + hook + ' after an error:', err);
+    }
+  },
+
+  // Best-effort readable name for the log: these systems are global consts, so
+  // find the global that points at this exact object. Only runs on the (rare)
+  // error path and is cached on the system afterward.
+  _nameOf(sys){
+    if (sys.__name) return sys.__name;
+    try { for (const k in window) if (window[k] === sys){ sys.__name = k; break; } } catch (e){}
+    return sys.__name || 'system';
+  },
 };
 
 // ── registration ──────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#15263C');   // no bounds — the world streams infinitely
 
     this.player = Player.create(0, 0);                 // start at the world origin
+    if (typeof CrashLog !== 'undefined') CrashLog.init(this);   // wires live game-state context into the crash-log bootstrap (index.html); do this before anything else can throw
     this.navyStanding = 0;                             // 0 = neutral/friendly, negative = wanted
     this.flag = 'neutral'; this.flagPending = null; this.flagChangeAt = 0;
     this.docked = false; this.dockPort = null; this.nearPort = null;  // port docking state
@@ -495,7 +496,20 @@ class GameScene extends Phaser.Scene {
       if (outOfCombat && pl.hull < cap){ pl.hull = Math.min(cap, pl.hull + P.regenRate*dts); }
     }
 
-    for (const s of this.ships){ if (s.alive) AI.update(this, s, dt, dts); }
+    // guarded per-ship: an uncaught throw inside one ship's AI tick would
+    // otherwise kill Phaser's whole rAF loop dead for every player (the
+    // documented P0 Leviathan/waypoint bug). Log it and let just that ship
+    // coast without further AI (keeps whatever heading/sail it last had)
+    // instead of freezing the game over one bad ship.
+    for (const s of this.ships){
+      if (!s.alive || s._aiDisabled) continue;
+      try { AI.update(this, s, dt, dts); }
+      catch (err){
+        s._aiDisabled = true;
+        if (typeof CrashLog !== 'undefined') CrashLog.capture(err, { system:'AI.update', faction:s.faction });
+        else console.error('[GameScene] disabling AI for a', s.faction, 'ship after an error:', err);
+      }
+    }
     Collision.resolveShipCollisions(this);
     Combat.updateCannonballs(this, dt);
     Combat.updateLoot(this, dts);
