@@ -1,0 +1,41 @@
+{ "prd": "SV1: save organization — 3 in-game slots + organized .json exports (issue #47)",
+  "status": "PRD only — awaiting 'Go' before code",
+  "rulings": [
+    "Scope: BOTH in-game slots and organized file exports (Noah)",
+    "Naming: auto name on save, renameable later (Noah)",
+    "Slot count: 3 (Noah)",
+    "Carl's asks from #47 all covered: gitignored saves folder, timestamps, names"
+  ],
+  "design": {
+    "slots": [
+      "localStorage keys sos_save_slot1..sos_save_slot3; each stores { v: SaveSystem.VERSION, name, savedAt (epoch ms), payload: <existing serialize() output, unchanged> }",
+      "sos_active_slot remembers the last loaded/saved slot; the existing auto-save-on-dock writes to the ACTIVE slot (behavior otherwise unchanged)",
+      "Migration: on first boot, a legacy single-key save is moved into slot 1 (name 'Migrated save', savedAt = now), legacy key removed — old players lose nothing",
+      "Boot: auto-load the most recently saved slot (parity with today). FLAG SV-A: dedicated boot-time slot picker later"
+    ],
+    "naming": [
+      "Auto name at save time: '<dockPort.name> — <YYYY-MM-DD HH:MM>' (local time). PLACEHOLDER format, tune",
+      "Rename from the save menu; MVP rename input = window.prompt(). FLAG SV-B: replace with in-game text input for mobile polish"
+    ],
+    "save_menu": [
+      "New save section on the dock menu (same text-panel style, 10 Hz M8 gate, touch bindings via TouchInput like other menus)",
+      "Per slot: name, timestamp, one-line summary (gold, ship tier, ports owned — FLAG SV-C placeholder field set)",
+      "Keys: [1-3] load slot (confirm if unsaved progress), [S] save to active slot, [W] switch active slot, [R] rename active, [X] delete (confirm), [E] export active slot, [I] import file into active slot"
+    ],
+    "exports": [
+      "Export filename: SinkOrSail_<slug(name)>_<YYYYMMDD-HHMMSS>.json",
+      "Export payload = the wrapped object (name + savedAt travel with the file); importer accepts BOTH wrapped and legacy bare payloads",
+      "Repo gets saves/ with .gitkeep + one-line README ('drop exported saves here — ignored by git'); .gitignore adds saves/*.json (Carl's dev-convention ask)"
+    ],
+    "compatibility": [
+      "serialize()/restore() payload format untouched — zero save-version bump",
+      "SaveSystem is Carl's module: PR flagged loudly, additive changes only, existing function signatures preserved"
+    ]
+  },
+  "flags": [
+    "FLAG SV-A: boot-time slot picker (default for now: auto-load most recent)",
+    "FLAG SV-B: rename UX — window.prompt() MVP vs in-game text input",
+    "FLAG SV-C: slot summary fields (placeholder: gold, tier, ports owned)"
+  ],
+  "depends": ["SaveSystem (Carl)", "HUD dock menu + TouchInput", "no engine or payload changes"]
+}
