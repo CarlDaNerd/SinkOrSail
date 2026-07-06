@@ -25,6 +25,7 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Recently Added (most recent commits first)
 
+- DBG1 - Added some crash logging to the game to help troubleshoot crashes.
 - I32 fix — port defense tower shots arc over land (they spawned on land-anchored towers and the land check deleted them the same frame); ship/player shots remain land-blocked
 - I27 fix — tavern offers keep stable [1]/[2] slots (accepting no longer renumbers the board; the old splice made the second accept silently no-op); taken offers stay listed as ACCEPTED
 - OPT-M9/S3/S6/S7 — runner + privateer wakes now render (they paid pushWake cost invisibly); all wake/hull draws camera-view-gated; weather streak loops skip while menus are open; `roundPixels: true` (revert if wake art shimmers); all 57 scripts `defer`ed for faster load
