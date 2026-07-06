@@ -120,6 +120,21 @@ None currently. Reef generation and the blue-circle suicide crash are both confi
 - Slave trading (listed in doc's idea list, unbuilt)
 - Send ships only to explored ports (partially covered by FM1's explored-only routing for runners; not yet a player-wide rule)
 
+## Open rulings (pick by number, e.g. "R1-1")
+
+- **R1 — Tier-5 name** (doc "Man-o'-War" vs code "Galleon"): 1) keep Galleon, edit doc · 2) rename code to Man-o'-War · 3) both: Galleon stays tier 5, Man-o'-War becomes a new tier between Galleon and Leviathan (7 tiers, rebalances tier table)
+- **R2 — Camera zoom** (doc: manual zoom only outside battle; code: always manual, battle force-zoom overrides): 1) keep code, update doc wording · 2) match doc: lock manual zoom during battle
+- **R3 — Stale design doc** (tags/bug list/sections outdated vs code): 1) Carl/Noah hand-edit the doc, roadmap stays the truth ledger · 2) Fable drafts a corrected doc revision to paste in · 3) leave doc as historical intent, Conflicts section is the permanent diff
+- **R4 — Cyclone escape** (doc: inescapable + instant death <50% hull; code: ramped pull, escapable early, cooldown damage in eye): 1) confirm evolved design, close flag · 2) match doc literally · 3) keep ramp, add <50%-hull death inside the eye only
+- **R5 — Producer-port passive trickle** (currently delivery-only restock): 1) own-commodity regen %/min toward cap — EMPIRE-2's designed answer, confirming folds it into that build · 2) delivery-only forever (buyouts brutal, supply chains dominant) · 3) trickle for producers only (in practice = option 1, EMPIRE-2 already limits regen to own resource)
+- **R6 — Ironman mode**: 1) simple flag: save on dock only, no manual saves, delete on death · 2) hard: also delete on load + exports disabled (no save-scumming; conflicts with SV1 exports) · 3) defer until SV1 slots land
+- **R7 — Resource list expansion** (six commodities today): 1) stay at six until EMPIRE-2 proves the loop · 2) expand to doc's full list now (needs port-type source mapping per good) · 3) add 2-3 high-value low-volume luxury/illicit goods only
+- **R8 — Cultural ship types** (doc M9): 1) cosmetic first (palette + name flavor by home-port culture) · 2) full stat variants + island theming · 3) defer post-EMPIRE, bundle with achievements/culture integration
+- **R9 — Explored-only sending beyond runners**: 1) adopt player-wide now (FM1 machinery exists) · 2) keep runners-only, revisit when the next send-ships feature appears (EMPIRE-4 auto-sell inherits it anyway)
+- **R10 — Doc idea-list "slave trading"**: 1) omit · 2) reskin slot as generic contraband smuggling (illegal cargo, navy heat) · 3) as doc lists it — content/tone call for Carl + Noah
+
+External flags also awaiting rulings (tracked in their PRDs/PRs, listed for one-stop visibility): E1/E3/E4 (empire-economy PRD), SV-A/SV-B/SV-C (PR #48 save organization), M-A/M-B (#27 mission destinations).
+
 ## Open design questions
 
 - Producer-type ports (their own sourceCommodity) currently only restock via merchant delivery, same as any other port — no passive trickle for producing their own good. Flagged during EMPIRE-1b as a default, not a locked decision.
