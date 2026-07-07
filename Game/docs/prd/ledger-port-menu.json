@@ -1,0 +1,46 @@
+{ "prd": "UI1: ledger port menu — paged book UI replacing the flat dock panel",
+  "status": "PRD only — awaiting 'Go' before code",
+  "rulings": [
+    "Carl: menu becomes tabs/pages navigated left↔right; a Ship page and a Goods/Commodities page (+ more); buy/sell chosen WITHIN a page, not one global keybind per action; quantities 1 / 10 / custom",
+    "Noah: art direction = Captain's Ledger (book, page-flip); v1 pages = 1 Ship (repair/restock) · 2 Goods (buy/sell) · 3 Tavern; quantity input = 1 / 10 / MAX buttons only (no custom entry)",
+    "Fleet menu stays a separate screen (prior ruling) — NOT a book page",
+    "All styling/timing/pricing values PLACEHOLDER — live feel-tune"
+  ],
+  "pages": {
+    "header (persistent on every page)": [
+      "Port name + type, gold, page bookmarks (3 tabs drawn as ledger bookmarks; active one raised), [F] DEPART wax-seal (bottom-right, doubles as touch target)"
+    ],
+    "page 1 — SHIP": [
+      "Rows: HULL (repair), CREW (hire), AMMO (restock)",
+      "Each row: current/max, unit cost, projected cost at the selected quantity",
+      "MAX = min(need, affordable); repair MAX = full hull, repair 1/10 = HP chunks (PLACEHOLDER chunk size)"
+    ],
+    "page 2 — GOODS": [
+      "One row per commodity: name · port stock · buy quote · sell quote · your hold count",
+      "Stock + quotes come straight from PortEconomy/EMPIRE-1 (finite stock respected; sold-out rows show '—' on buy)",
+      "Buy/sell resolved per row with the selected quantity; MAX buy = min(hold space, port stock, affordable), MAX sell = your count"
+    ],
+    "page 3 — TAVERN": [
+      "TavernSystem.boardText content re-laid as a page: rumor, offers (stable slots + ACCEPTED flags from I27), YOUR LOG",
+      "Accept = select offer row + activate; the [T] toggle key is retired (FLAG U4: keep as a jump-to-page-3 shortcut?)"
+    ]
+  },
+  "input_model": {
+    "keyboard": "←/→ (and Q/E) flip pages · ↑/↓ select row · Z cycles quantity 1→10→MAX (persistent, shown as a pressed chip) · B buy / S sell (Goods) or Enter = row's single action (Ship/Tavern) · F depart. Total live binds in-menu: 8, replacing today's per-action number keys",
+    "touch": "Tap bookmarks or edge arrows to flip · tap row to select · tap qty chip · tap BUY/SELL chips · tap seal to depart — routed through the existing TouchInput layer",
+    "m8_compliance": "Page text rebuilds at HUD_TEXT_INTERVAL_MS and immediately on any input event (flip/select/transaction), same gate pattern as the current dock panel"
+  },
+  "ledger_skin_v1": [
+    "Parchment field: flat warm fills + ink-line rules drawn with Phaser Graphics (no texture assets in v1); dashed row rules; wax-seal depart = drawn circle + anchor glyph",
+    "Serif face via one Google Fonts <link> in index.html (IM Fell English + Alegreya), fontFamily in text styles, system-serif fallback if the font hasn't loaded (FLAG U2)",
+    "Page flip v1 = quick slide+fade tween between page renders (FLAG U1: real curl animation later); flip sound hook left as a no-op"
+  ],
+  "flags": [
+    "FLAG U1: page-flip animation — v1 slide/fade vs full curl effect",
+    "FLAG U2: font loading — Google Fonts link vs bundled woff vs system serif only",
+    "FLAG U3: where port capture/defense status lives — Ship page footer for now vs a future 4th Port page (SV1 saves, PR #48, would join as a page in the same pass)",
+    "FLAG U4: retire [T] fully vs keep as jump-to-tavern shortcut"
+  ],
+  "touches": ["HUD.js (drawDock replaced by page renderer)", "TavernSystem (boardText becomes page-3 renderer)", "GameScene input handling", "TouchInput bindings", "index.html (font link)", "constants.js (styling/qty PLACEHOLDERs)"],
+  "out_of_scope_v1": ["Fleet menu (separate screen by ruling)", "SV1 save page (lands as page 4 with PR #48's build)", "texture-based parchment art", "gamepad"]
+}
