@@ -25,6 +25,8 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Recently Added (most recent commits first)
 
+- KS2 — Kenney terrain tiles: beach/jungle/core land layers get world-anchored masked tile textures (flat colours remain as grout + instant `TERRAIN_TILES=false` fallback); RULED — low-hull incapacitation (slow-then-stop) no longer applies to the player's own ship, AI unchanged
+
 - KS1 — Kenney Pirate Pack ship reskin: sprite hulls (6 faction colours × 4 damage states) replace polygon ships, hit-flash as tint, flags/hull-bars kept as overlays, leak-proof sprite pooling, `SHIP_SPRITES` toggle for instant fallback (CC0, CREDITS.md added)
 
 - DBG1 - Added some crash logging to the game to help troubleshoot crashes.

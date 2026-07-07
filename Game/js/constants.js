@@ -460,3 +460,7 @@ const HUD_TEXT_INTERVAL_MS = 100;   // PLACEHOLDER — 10 Hz, imperceptible
 // back per-ship if a texture is missing).
 const SHIP_SPRITES = true;
 const SHIP_SPRITE_SCALE = 0.38;     // PLACEHOLDER — sprite (113px tall) vs old 40px hull at scale 1
+// KS2: Kenney tile textures over the land layers. Toggle off (or delete the
+// assets) for instant fallback to flat Graphics colours. All PLACEHOLDER.
+const TERRAIN_TILES = true;
+const TERRAIN_CORE_TINT = 0x88AA88;   // darkens the grass tile for the inner-core layer
