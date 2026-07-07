@@ -1,0 +1,25 @@
+{ "prd": "KS: Kenney Pirate Pack reskin (CC0) — phase 1 ships (this PR), phases 2-3 planned",
+  "rulings": [
+    "Asset source: official Kenney Pirate Pack, CC0 (License.txt committed alongside) — supplied by Noah",
+    "DEFAULT RULINGS (flag to change): faction colours player=red, pirate=black, navy=blue, merchant=white, privateer=green, prizes/tows=yellow; damage-state thresholds 66%/33% hull; sprite depth 9 (under the Graphics overlay layer)"
+  ],
+  "phase_1_ships_this_pr": [
+    "24 sprites (6 colours × 4 damage states, 66×113) committed to Game/assets/kenney/ships as ship_<colour>_<state>.png — colour/state layout derived by per-image pixel analysis, not guessed",
+    "GameScene.preload loads them; drawShip renders a pooled Phaser Image per ship (position/rotation/scale per frame, heading maps 1:1 since Kenney bows point up), texture swaps as hull% crosses damage thresholds",
+    "MW-15 hit flash becomes a sprite tint; stern flags (incl. pending half-raise + pirate skull dot) and damaged-hull bars stay Graphics in _drawShipOverlays, drawn ABOVE the sprite and shared with the fallback path",
+    "Lifecycle: per-frame sweep destroys sprites of dead/off-view/despawned ships — leak-proof against Population culls; lazy recreation on re-entry",
+    "SHIP_SPRITES=false (or any missing texture) instantly restores the old polygon ships — zero-risk rollback",
+    "PLACEHOLDERs: SHIP_SPRITE_SCALE 0.38, thresholds, tint colour — live feel-tune"
+  ],
+  "known_v1_tradeoffs": [
+    "Sail state (none/main/full) is not reflected on sprites — Kenney art bakes sails in (FLAG KS-A: composite via Ship parts later)",
+    "Bow/stern chaser muzzles no longer drawn in sprite mode (sprite art reads as armed)"
+  ],
+  "later_phases": [
+    "KS2 — sea/terrain tiles + port structures from the pack's Tilesheet",
+    "KS3 — UI icons, explosions/effects, cannonball sprite",
+    "FLAG KS-B: dinghy sprites for tier-1 ships",
+    "FLAG KS-C: state-3 wreck sprite as a sinking animation",
+    "FLAG KS-D: ship (25-30) don't exist — pack tops out at 24 + dinghies; any 5th state needs Ship parts compositing"
+  ]
+}

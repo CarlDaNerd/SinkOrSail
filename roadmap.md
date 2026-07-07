@@ -25,6 +25,8 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Recently Added (most recent commits first)
 
+- KS1 — Kenney Pirate Pack ship reskin: sprite hulls (6 faction colours × 4 damage states) replace polygon ships, hit-flash as tint, flags/hull-bars kept as overlays, leak-proof sprite pooling, `SHIP_SPRITES` toggle for instant fallback (CC0, CREDITS.md added)
+
 - DBG1 - Added some crash logging to the game to help troubleshoot crashes.
 - I32 fix — port defense tower shots arc over land (they spawned on land-anchored towers and the land check deleted them the same frame); ship/player shots remain land-blocked
 - I27 fix — tavern offers keep stable [1]/[2] slots (accepting no longer renumbers the board; the old splice made the second accept silently no-op); taken offers stay listed as ACCEPTED

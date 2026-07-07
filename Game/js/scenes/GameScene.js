@@ -6,6 +6,17 @@
 class GameScene extends Phaser.Scene {
   constructor(){ super('GameScene'); }
 
+  preload(){
+    // KS1: Kenney Pirate Pack ships (CC0) — 6 colors × 4 damage states.
+    // Loaded via the Phaser loader; missing files just mean the polygon
+    // fallback draws instead.
+    if (typeof SHIP_SPRITES !== 'undefined' && SHIP_SPRITES){
+      for (const c of ['white', 'black', 'red', 'green', 'blue', 'yellow'])
+        for (let st = 0; st < 4; st++)
+          this.load.image('ship_' + c + '_' + st, 'assets/kenney/ships/ship_' + c + '_' + st + '.png');
+    }
+  }
+
   create(data){
     this.eprng = makePRNG(WORLD_SEED*7 + 13);          // enemy/event PRNG; terrain self-seeds per chunk
     this.cameras.main.setBackgroundColor('#15263C');   // no bounds — the world streams infinitely
@@ -648,6 +659,12 @@ class GameScene extends Phaser.Scene {
     for (const s of this.ships) if (s.alive && this._inView(s)) this.drawShip(gs, s);   // M9: view-gated
     for (const s of (this.tows || [])) if (this._inView(s)) this.drawShip(gs, s);   // captured prizes trailing the player (drawn as real hulls, not a blob)
     for (const s of (this.berthedPrizes || [])) if (this._inView(s)) this.drawShip(gs, s);   // EMPIRE-1a: prizes docked, awaiting repair+crew
+    // KS1: sprite sweep — any ship sprite not touched this frame belongs to a
+    // dead, despawned, or off-view ship; destroy it (leak-proof against
+    // Population culls without touching Population). Recreation is lazy.
+    if (this._shipSprites) for (const spr of this._shipSprites){
+      if (!spr._used){ spr.destroy(); this._shipSprites.delete(spr); } else { spr._used = false; }
+    }
     if (this.player.hull > 0) this.drawShip(gs, this.player);
     // cannonballs
     const gf = this.gfxFx; gf.clear(); gf.fillStyle(0x201810, 1);
@@ -677,7 +694,31 @@ class GameScene extends Phaser.Scene {
     if (typeof FleetSystem !== 'undefined') FleetSystem.draw(this);   // FM1: fleet overlay (self-hides)
   }
 
+  // KS1: faction → Kenney hull/sail colour, hull% → damage state (state 3 =
+  // wrecked, reserved for a future sinking animation — FLAG KS-C)
+  _shipSpriteKey(s){
+    const col = { player:'red', pirate:'black', navy:'blue', merchant:'white', privateer:'green', prize:'yellow' }[s.faction] || 'yellow';
+    const pct = s.maxHull ? Math.max(0, s.hull / s.maxHull) : 1;
+    const st = pct > 0.66 ? 0 : pct > 0.33 ? 1 : 2;   // PLACEHOLDER thresholds
+    return 'ship_' + col + '_' + st;
+  }
+
   drawShip(g, s){
+    if (typeof SHIP_SPRITES !== 'undefined' && SHIP_SPRITES){
+      const key = this._shipSpriteKey(s);
+      if (this.textures.exists(key)){
+        const set = this._shipSprites || (this._shipSprites = new Set());
+        let spr = s._spr;
+        if (!spr || !spr.scene){ spr = s._spr = this.add.image(s.x, s.y, key).setDepth(9); set.add(spr); }   // depth 9: under gfxShips(10) so flags/bars overlay
+        if (spr.texture.key !== key) spr.setTexture(key);
+        spr.setPosition(s.x, s.y).setRotation(s.heading * RAD).setScale(SHIP_SPRITE_SCALE * (s.scale || 1)).setVisible(true);
+        const fs = this.time.now/1000 - (s.lastHitAt || -99);              // MW-15 hit flash → tint
+        if (fs >= 0 && fs < HIT_FLASH_S) spr.setTint(0xE06050); else spr.clearTint();
+        spr._used = true;
+        this._drawShipOverlays(g, s);                                       // flags + hull bar stay Graphics, drawn above
+        return;
+      }
+    }
     const colors = {
       player:[0x7A4E28, 0xC08840], merchant:[0xB89A60, 0xD0AA70],
       pirate:[0x5A2010, 0x7A3020], navy:[0x24506E, 0x3E7AA0], privateer:[0x2B5A2B, 0x46863C],
@@ -704,7 +745,16 @@ class GameScene extends Phaser.Scene {
       if (ShipTiers.has(s, 'bow'))   g.fillRect(-2, -22, 4, 6);          // forward muzzle
       if (ShipTiers.has(s, 'stern')) g.fillRect(-2, 16, 4, 6);           // aft muzzle
     }
-    // stern flagpole + flag (local coords: stern is +y / downward)
+    g.restore();
+    this._drawShipOverlays(g, s);
+  }
+
+  // KS1: everything gameplay-readable that must survive the sprite swap —
+  // stern flag (player/pirate/navy/privateer colours + pending half-raise)
+  // and the damaged-hull bar. Shared by the sprite path and polygon fallback.
+  _drawShipOverlays(g, s){
+    g.save(); g.translateCanvas(s.x, s.y); g.rotateCanvas(s.heading*RAD);
+    const sc = s.scale || 1; g.scaleCanvas(sc, sc);
     let flagColor = null;
     if (s.faction === 'player'){ flagColor = this.flag === 'pirate' ? 0x101010 : null; }
     else if (s.faction === 'pirate'){ flagColor = 0x101010; }
@@ -714,13 +764,11 @@ class GameScene extends Phaser.Scene {
     if (flagColor !== null){ g.fillStyle(flagColor, 1); g.fillRect(0, 18, 9, 6);
       if (flagColor === 0x101010){ g.fillStyle(0xD4D4D4, 1); g.fillCircle(4.5, 21, 1.4); }   // skull dot for pirate colors
     }
-    // pending flag: draw it half-raised + faint to show it's changing
     if (s.faction === 'player' && this.flagPending !== null){
       const pc = this.flagPending === 'pirate' ? 0x101010 : 0xB89A60;
       g.fillStyle(pc, 0.4); g.fillRect(0, 23, 8, 5);
     }
     g.restore();
-    // hull bar for damaged ships
     if (s.hull < s.maxHull){ const w = 22, pct = Math.max(0, s.hull/s.maxHull);
       g.fillStyle(0x000000, 0.5); g.fillRect(s.x - w/2, s.y - 32, w, 3);
       g.fillStyle(pct < 0.35 ? 0xE0503A : 0x4CA84C, 1); g.fillRect(s.x - w/2, s.y - 32, w*pct, 3); }
