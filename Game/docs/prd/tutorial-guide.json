@@ -1,0 +1,36 @@
+{ "prd": "TUT1: animated tutorial guide — overlay sprite teacher, action-gated lessons",
+  "status": "PRD only — awaiting 'Go' before code",
+  "rulings": [
+    "Noah: runs BOTH auto on first new game (skippable) AND from the title screen, plus [H] replays anytime",
+    "Noah: presentation = overlay panel + animated sprite (per approved demo v2)",
+    "Noah: progression = do-the-action-to-advance (press W, steer, fire, dock, open map)",
+    "Asset: 'Animated Pirate 1' by David Harrington, OGA-BY 3.0 (verified at opengameart.org/content/animated-pirate-1) — attribution required, DRM-free, public-repo compatible"
+  ],
+  "lessons_v1": [
+    "1 SAILS — text teaches W / sail button; advances when sailState changes",
+    "2 STEERING — A/D or tap-steer; advances after cumulative heading change > TUT_STEER_RAD (PLACEHOLDER)",
+    "3 BROADSIDE — SPACE / fire icon; advances on the player's first cannonball",
+    "4 DOCKING — points at the nearest port (reuses bounty-arrow style hint); advances on the dock event",
+    "5 MAP — M / map button; advances when the world map opens; closing line, tutorialDone set"
+  ],
+  "behavior": [
+    "Guide sprite (32×32, idle 6f / walk 12f, pixelated scale PLACEHOLDER) lives on the UI camera along the overlay's bottom edge; walks (tweened x, flips when heading left) to a new mark per lesson, idles while teaching — same choreography as demo v2 incl. the reduced-motion handling (never freeze frames, never teleport; shorten walks instead)",
+    "Bubble = parchment panel in the UI1 Ledger skin language (Graphics fills + ink rules, serif), text rebuilt on lesson change + M8 gate",
+    "Lesson text swaps key labels for touch labels on mobile (input-agnostic detection: all advance conditions hook existing game events/state, not raw keys)",
+    "World runs LIVE during the tutorial — the actions ARE the lessons (FLAG T2: suppress weather spawns + hostile AI aggression within TUT_SAFE_RADIUS of spawn while active, PLACEHOLDER)",
+    "Skip: visible SKIP control + ESC (FLAG T3: confirm dialog y/n); skipping sets tutorialDone",
+    "tutorialDone persisted in the save payload (additive field, no version bump); [H] at sea replays without clearing tutorialDone; title screen gains a TUTORIAL entry"
+  ],
+  "assets_and_attribution": [
+    "Game/assets/tutorial/pirate_idle.png (192×32) + pirate_walk.png (384×32), loaded via this.load.spritesheet (frameWidth 32) — first image assets in the repo",
+    "CREDITS.md at repo root: 'Animated Pirate 1' — David Harrington — OGA-BY 3.0 — https://opengameart.org/content/animated-pirate-1 (required by license)"
+  ],
+  "flags": [
+    "FLAG T1: advance thresholds (steer radians, etc.) — all PLACEHOLDER, feel-tune",
+    "FLAG T2: safety bubble during tutorial (no storms / no aggro near spawn) y/n",
+    "FLAG T3: skip confirmation dialog y/n",
+    "FLAG T4: title-screen entry placement (game currently boots straight into GameScene — a minimal title/menu state may need to exist first; if none, v1 ships auto+[H] and title entry follows the title screen)"
+  ],
+  "touches": ["new systems/TutorialSystem.js", "GameScene (event hooks + [H])", "UIScene/HUD (overlay layer)", "SaveSystem (one additive field — Carl's module, flagged)", "TouchInput (labels)", "assets/ + CREDITS.md"],
+  "out_of_scope_v1": ["in-world walking guide on a real island", "voice/sound", "per-lesson achievements"]
+}
