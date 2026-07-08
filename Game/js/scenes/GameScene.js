@@ -392,31 +392,29 @@ class GameScene extends Phaser.Scene {
     }
     // (the big map does NOT pause — sailing continues; it's handled after the sim)
 
-    // ── docked: world is frozen; F departs, 1/2 buy ──
+    // ── docked: world frozen; UI1 ledger book — ←/→ (or Q/E) flip pages,
+    // ↑/↓ rows, Z cycles qty 1/10/MAX, SPACE acts, B buy / S sell on goods,
+    // T jumps to the tavern page (FLAG U4 default), F departs. Per-action
+    // number keybinds retired per Carl's ruling; touch taps hit the same rows.
     if (this.docked){
-      if (Phaser.Input.Keyboard.JustDown(this.keys.F)){ this.docked = false; this.dockPort = null; this.tavernOpen = false; }
-      // TM1: [T] flips between the port menu and the tavern board; while the
-      // board is open, 1/2 accept its offers instead of the port actions
-      if (Phaser.Input.Keyboard.JustDown(this.keys.T) && typeof TavernSystem !== 'undefined') TavernSystem.toggle(this);
-      if (this.tavernOpen && typeof TavernSystem !== 'undefined'){
-        if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) TavernSystem.accept(this, 0);
-        else if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) TavernSystem.accept(this, 1);
-        this.draw(); return;
+      const JD = k => Phaser.Input.Keyboard.JustDown(k);
+      if (this.dockPage === undefined){ this.dockPage = 0; this.dockRow = 0; this.dockQty = 0; }
+      if (JD(this.keys.F)){ this.docked = false; this.dockPort = null; this.tavernOpen = false; this.dockPage = 0; this.draw(); return; }
+      const dirty = () => { this._dockDirty = true; };
+      if (JD(this.cursors.left)  || JD(this.keys.Q)){ this.dockPage = (this.dockPage + 2) % 3; this.dockRow = 0; dirty(); }
+      if (JD(this.cursors.right) || JD(this.keys.E)){ this.dockPage = (this.dockPage + 1) % 3; this.dockRow = 0; dirty(); }
+      if (JD(this.keys.T)){ this.dockPage = 2; this.dockRow = 0; dirty(); }
+      this.tavernOpen = (this.dockPage === 2);       // TavernSystem.accept gates on this
+      const rows = (this.uiHud && this.uiHud._pageRows) || [];
+      if (JD(this.cursors.up)){ this.dockRow = Math.max(0, (this.dockRow || 0) - 1); dirty(); }
+      if (JD(this.cursors.down)){ this.dockRow = Math.min(Math.max(0, rows.length - 1), (this.dockRow || 0) + 1); dirty(); }
+      if (JD(this.keys.Z)){ this.dockQty = ((this.dockQty || 0) + 1) % 3; dirty(); }
+      const row = rows[Math.min(this.dockRow || 0, rows.length - 1)];
+      if (row){
+        if (JD(this.keys.SPACE) && row.act){ row.act(); dirty(); }
+        if (JD(this.keys.B) && row.buy){ row.buy(); dirty(); }
+        if (JD(this.keys.S) && row.sell){ row.sell(); dirty(); }
       }
-      if (Phaser.Input.Keyboard.JustDown(this.keys.V)) this.swapToPrize();   // AUD-3: dock-menu [V] swap (RULED a: docked too)
-      if (Phaser.Input.Keyboard.JustDown(this.keys.B)) this.buyDerelict();   // PF1: buy the quay hull
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) this.repairAtPort();
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) this.restockAtPort();
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.THREE)) this.sellAllAtPort();
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.FOUR)) this.buySourceAtPort();
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.FIVE) && typeof CrewSystem !== 'undefined') CrewSystem.hireOne(this, this.dockPort);
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.SIX)   && typeof UpgradeSystem !== 'undefined') UpgradeSystem.buySail(this);
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.SEVEN) && typeof UpgradeSystem !== 'undefined') UpgradeSystem.buyCannon(this);
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.EIGHT) && typeof UpgradeSystem !== 'undefined') UpgradeSystem.buyShip(this);
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.NINE)  && typeof HireSystem !== 'undefined') HireSystem.hireAtDock(this);
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.ZERO)  && typeof BountySystem !== 'undefined') BountySystem.acceptAtDock(this);
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.P)) this.repairPrize();   // EMPIRE-1a
-      else if (Phaser.Input.Keyboard.JustDown(this.keys.K)) this.crewPrize();     // EMPIRE-1a
       this.draw();                                   // keep the (frozen) world visible behind the menu
       return;
     }
