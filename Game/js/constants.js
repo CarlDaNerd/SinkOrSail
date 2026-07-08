@@ -463,3 +463,7 @@ const SHIP_SPRITES = true;
 const LEDGER_FONT = "'IM Fell English', Georgia, serif";
 const LEDGER_W = 470, LEDGER_H = 430, LEDGER_LH = 22;   // panel + line height
 const SHIP_SPRITE_SCALE = 0.38;     // PLACEHOLDER — sprite (113px tall) vs old 40px hull at scale 1
+// KS2: Kenney tile textures over the land layers. Toggle off (or delete the
+// assets) for instant fallback to flat Graphics colours. All PLACEHOLDER.
+const TERRAIN_TILES = true;
+const TERRAIN_CORE_TINT = 0x88AA88;   // darkens the grass tile for the inner-core layer

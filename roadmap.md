@@ -25,10 +25,9 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Recently Added (most recent commits first)
 
+- KS2 — Kenney terrain tiles: beach/jungle/core land layers get world-anchored masked tile textures (flat colours remain as grout + instant `TERRAIN_TILES=false` fallback); RULED — low-hull incapacitation (slow-then-stop) no longer applies to the player's own ship, AI unchanged
 - UI1 — ledger port menu: the flat dock panel becomes a 3-page parchment book (Ship / Goods / Tavern) flipped with ←/→, rows selected with ↑/↓, quantities via a 1/10/MAX chip [Z], SPACE/B/S act, wax-seal or F departs; per-commodity sell rows use live PortEconomy quotes; taps hit the same rects as keys; per-action number keybinds retired
-
 - KS1 — Kenney Pirate Pack ship reskin: sprite hulls (6 faction colours × 4 damage states) replace polygon ships, hit-flash as tint, flags/hull-bars kept as overlays, leak-proof sprite pooling, `SHIP_SPRITES` toggle for instant fallback (CC0, CREDITS.md added)
-
 - DBG1 - Added some crash logging to the game to help troubleshoot crashes.
 - I32 fix — port defense tower shots arc over land (they spawned on land-anchored towers and the land check deleted them the same frame); ship/player shots remain land-blocked
 - I27 fix — tavern offers keep stable [1]/[2] slots (accepting no longer renumbers the board; the old splice made the second accept silently no-op); taken offers stay listed as ACCEPTED

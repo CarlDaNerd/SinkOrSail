@@ -63,7 +63,44 @@ const Island = {
     this.drawBeach(gBBeach, bigLands);   this.drawJungle(gBJungle, bigLands);   this.drawCore(gBCore, bigLands);
     this.drawBeach(gIBeach, smallLands); this.drawJungle(gIJungle, smallLands); this.drawCore(gICore, smallLands);
     this.drawReefRocks(gRocks, chunk.reefs);
-    return [gShallow, gMBeach, gMJungle, gMCore, gBBeach, gBJungle, gBCore, gIBeach, gIJungle, gICore, gRocks];
+    // KS2: masked Kenney tile textures laid over each land layer. The flat
+    // Graphics colours stay underneath as grout + instant fallback
+    // (TERRAIN_TILES=false or missing assets = old look, per-chunk).
+    // TileSprites are world-anchored (tilePosition = bbox origin) so the
+    // pattern is seamless across chunk borders; everything pushed into the
+    // returned gfx list so ChunkManager destroys it on unload and the B4
+    // visibility cull applies unchanged.
+    const extras = [];
+    if (typeof TERRAIN_TILES !== 'undefined' && TERRAIN_TILES && scene.textures.exists('tile_sand')){
+      const addLayer = (lands, texKey, shrinkSteps, depth, tint) => {
+        const es = [];
+        for (const is of lands){
+          const bw = is.bw || 0;
+          for (const e of is.ells){
+            const rx = e.rx - shrinkSteps*bw, ry = e.ry - shrinkSteps*bw;
+            if (rx > 3 && ry > 3) es.push({ cx:e.cx, cy:e.cy, rx, ry });
+          }
+        }
+        if (!es.length) return;
+        let x0 = 1e15, y0 = 1e15, x1 = -1e15, y1 = -1e15;
+        for (const e of es){ x0 = Math.min(x0, e.cx - e.rx); y0 = Math.min(y0, e.cy - e.ry); x1 = Math.max(x1, e.cx + e.rx); y1 = Math.max(y1, e.cy + e.ry); }
+        const ts = scene.add.tileSprite(x0, y0, x1 - x0, y1 - y0, texKey).setOrigin(0, 0).setDepth(depth);
+        ts.tilePositionX = x0; ts.tilePositionY = y0;
+        if (tint) ts.setTint(tint);
+        const mg = scene.make.graphics({ add: false });
+        mg.fillStyle(0xFFFFFF, 1);
+        for (const e of es) mg.fillEllipse(e.cx, e.cy, e.rx*2, e.ry*2);
+        ts.setMask(mg.createGeometryMask());
+        extras.push(ts, mg);
+      };
+      const groups = [ [mainLands, 1.305, 1.345, 1.385], [bigLands, 1.445, 1.475, 1.505], [smallLands, 1.565, 1.595, 1.625] ];
+      for (const [lands, dB, dJ, dC] of groups){
+        addLayer(lands, 'tile_sand',  0, dB, 0);                    // beach ring
+        addLayer(lands, 'tile_grass', 1, dJ, 0);                    // jungle band
+        addLayer(lands, 'tile_grass', 2, dC, TERRAIN_CORE_TINT);    // inner core (tinted darker)
+      }
+    }
+    return [gShallow, gMBeach, gMJungle, gMCore, gBBeach, gBJungle, gBCore, gIBeach, gIJungle, gICore, gRocks].concat(extras);
   },
 
   // port markers: type-coloured dot + ring + faint dock-radius ring (above land).

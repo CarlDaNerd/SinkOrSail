@@ -15,6 +15,10 @@ class GameScene extends Phaser.Scene {
         for (let st = 0; st < 4; st++)
           this.load.image('ship_' + c + '_' + st, 'assets/kenney/ships/ship_' + c + '_' + st + '.png');
     }
+    if (typeof TERRAIN_TILES !== 'undefined' && TERRAIN_TILES){   // KS2
+      this.load.image('tile_sand',  'assets/kenney/tiles/terrain_sand.png');
+      this.load.image('tile_grass', 'assets/kenney/tiles/terrain_grass.png');
+    }
   }
 
   create(data){
@@ -452,7 +456,8 @@ class GameScene extends Phaser.Scene {
       const cMult = (typeof crewSpeedMult !== 'undefined') ? crewSpeedMult(pl) : 1;               // crew bonus / understaffed penalty
       const uMult = (typeof UpgradeSystem !== 'undefined') ? UpgradeSystem.speedMult(this) : 1;   // sail-material upgrade
       const sMult = (typeof WindSystem !== 'undefined' && WindSystem.speedFactor) ? WindSystem.speedFactor(this) : 1;   // WD1: breathing wind strength
-      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState]*wMult*cMult*uMult*hullSpeedMult(pl)*sMult;   // CQ: battered hull slows, then stops (regen recovers you)
+      // RULED (Noah, Jul 7): low-hull incapacitation does NOT apply to the player's own ship — AI ships still slow/stop below HULL_SLOW/STOP_PCT (hullSpeedMult stays in AI.js)
+      const tgt = calcTargetSpeed(wa)*SAIL_MULTIPLIERS[pl.sailState]*wMult*cMult*uMult*sMult;
       pl.vel += (tgt - pl.vel)*Math.min((tgt > pl.vel ? P.accel : P.decel)*dt, 1);
       Collision.moveShip(this, pl, dt);
       // reefs: drag + periodic hull damage while grounded (they don't block, they hurt)
