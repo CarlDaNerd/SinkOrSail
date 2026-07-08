@@ -54,6 +54,18 @@ class HUD {
     this.tScale = scene.add.text(GAME_W/2, GAME_H - 22, '', { fontFamily:'ui-monospace,monospace', fontSize:'10px', color:'#D4C890' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
     this.tDockPrompt = scene.add.text(GAME_W/2, GAME_H - 96, '', { fontFamily:'ui-monospace,monospace', fontSize:'13px', color:'#F0C840', fontStyle:'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(103);
     this.tDockMenu = scene.add.text(GAME_W/2, GAME_H/2, '', { fontFamily:'ui-monospace,monospace', fontSize:'14px', color:'#D4C890', align:'center', lineSpacing:6 }).setOrigin(0.5).setScrollFactor(0).setDepth(103);
+    // UI1: the ledger book — ink-on-parchment serif page (left-anchored so
+    // every text line maps to a deterministic tap rectangle)
+    this.tLedger = scene.add.text(0, 0, '', { fontFamily: LEDGER_FONT, fontSize: '15px', color: '#3B2A18', lineSpacing: LEDGER_LH - 15 }).setOrigin(0, 0).setScrollFactor(0).setDepth(103).setVisible(false);
+    this.gs.uiHud = this;                                     // GameScene reads _pageRows for key actions
+    // UI1 touch: taps route through the same rects the renderer records
+    scene.input.on('pointerdown', p => {
+      const g2 = this.gs;
+      if (!g2.docked || !this._hits) return;
+      for (const hz of this._hits){
+        if (p.x >= hz.x && p.x <= hz.x + hz.w && p.y >= hz.y && p.y <= hz.y + hz.h){ hz.fn(); g2._dockDirty = true; break; }
+      }
+    });
     this.popupPool = []; for (let i = 0; i < 16; i++){ const t = scene.add.text(0, 0, '', { fontFamily:'ui-monospace,monospace', fontSize:'12px', fontStyle:'bold' }).setScrollFactor(0).setDepth(60).setOrigin(0.5); this.popupPool.push(t); }
 
     // ── dev log (bottom-left) + achievement toast / list overlay ──
@@ -290,57 +302,121 @@ class HUD {
     this._dockTxtAt = now; return true;
   }
 
+  // ── UI1: page model — three ledger pages of rows {t, act?, buy?, sell?} ──
+  _ledgerModel(gs){
+    const pl = gs.player, port = gs.dockPort;
+    const qn = [1, 10, Infinity][gs.dockQty || 0];
+    const pages = [[], [], []];
+    // page 0 — SHIP
+    const rep = pl.maxHull - pl.hull;
+    pages[0].push({ t: rep <= 0 ? 'Hull — fully repaired' : 'Repair hull to full  —  ' + Math.ceil(rep * REPAIR_COST_PER_HP) + 'g', act: () => gs.repairAtPort() });
+    const an = pl.maxAmmo - pl.ammo;
+    pages[0].push({ t: an <= 0 ? 'Ammo — full' : 'Restock ammo to full  —  ' + (an * AMMO_COST_PER_UNIT) + 'g', act: () => gs.restockAtPort() });
+    const crewCap = (typeof ShipTiers !== 'undefined') ? ShipTiers.maxCrew(pl) : 40;
+    pages[0].push({ t: (pl.crew || 0) >= crewCap ? 'Crew full (' + crewCap + ')' : 'Hire crew ×' + (qn === Infinity ? 'MAX' : qn) + '  (' + (pl.crew || 0) + '/' + crewCap + ')',
+      act: () => { const n = qn === Infinity ? 200 : qn;
+        for (let i = 0; i < n; i++){ const before = pl.crew || 0; if (typeof CrewSystem !== 'undefined') CrewSystem.hireOne(gs, port); if ((pl.crew || 0) === before) break; } } });
+    if (typeof UpgradeSystem !== 'undefined'){
+      pages[0].push({ t: UpgradeSystem.sailLabel(gs),   act: () => UpgradeSystem.buySail(gs) });
+      pages[0].push({ t: UpgradeSystem.cannonLabel(gs), act: () => UpgradeSystem.buyCannon(gs) });
+      pages[0].push({ t: UpgradeSystem.shipLabel(gs),   act: () => UpgradeSystem.buyShip(gs) });
+    }
+    if (typeof HireSystem !== 'undefined') pages[0].push({ t: HireSystem.hireLabel(gs), act: () => HireSystem.hireAtDock(gs) });
+    if (gs.tows && gs.tows.length) pages[0].push({ t: 'Make towed prize your flagship', act: () => gs.swapToPrize() });
+    if (port.derelict && typeof ShipTiers !== 'undefined') pages[0].push({ t: 'Buy docked ' + ShipTiers.get(port.derelict.tier).name + '  —  ' + port.derelict.price + 'g', act: () => gs.buyDerelict() });
+    const prize = gs._prizeAtDock ? gs._prizeAtDock() : null;
+    if (prize){
+      const pn = prize.maxHull - prize.hull;
+      pages[0].push({ t: pn <= 0 ? 'Prize hull — repaired' : 'Repair prize hull  —  ' + Math.ceil(pn * REPAIR_COST_PER_HP) + 'g', act: () => gs.repairPrize() });
+      pages[0].push({ t: 'Crew the prize (' + (prize.crew || 0) + ')', act: () => gs.crewPrize() });
+    }
+    // page 1 — GOODS (B buys, S sells, qty chip applies; SPACE = row default)
+    const src = port.sourceCommodity;
+    if (src){
+      const doBuy = () => { const cap = Math.min(qn === Infinity ? 9999 : qn, Cargo.free(pl.hold));
+        const got = PortEconomy.buy(gs, port, src, cap);
+        gs.flashPopup(pl.x, pl.y - 20, got > 0 ? '+' + got + ' ' + src : "CAN'T BUY", got > 0 ? 0xF0C840 : 0xE0503A); };
+      pages[1].push({ t: 'Buy ' + src + '  —  ' + PortEconomy.sellPrice(port, src) + 'g/ea' + (port.stock != null ? '   (stock ' + Math.floor(port.stock) + ')' : ''), buy: doBuy, act: doBuy });
+    }
+    if (pl.hold) for (const c of COMMODITIES){
+      const have = Cargo.qty(pl.hold, c);
+      if (have <= 0) continue;
+      const doSell = () => { const n = qn === Infinity ? have : Math.min(qn, have);
+        const unit = PortEconomy.buyPrice(port, c);
+        const sold = PortEconomy.sell(gs, port, c, n);
+        gs.flashPopup(pl.x, pl.y - 20, sold > 0 ? '+' + (sold * unit) + 'g' : "CAN'T SELL", sold > 0 ? 0xF0C840 : 0xE0503A); };
+      pages[1].push({ t: 'Sell ' + c + '  —  ' + PortEconomy.buyPrice(port, c) + 'g/ea   (have ' + have + ')', sell: doSell, act: doSell });
+    }
+    pages[1].push({ t: 'Sell ALL cargo', act: () => gs.sellAllAtPort() });
+    // page 2 — TAVERN (missions + bounty)
+    if (gs._tavernOffers) gs._tavernOffers.forEach((o, i) => {
+      pages[2].push({ t: o.title + '  —  ' + o.reward + 'g' + (o.taken ? '   — ACCEPTED ✓' : ''), act: () => { if (typeof TavernSystem !== 'undefined') TavernSystem.accept(gs, i); } });
+    });
+    if (typeof BountySystem !== 'undefined') pages[2].push({ t: 'Accept bounty (hunt a pirate)', act: () => BountySystem.acceptAtDock(gs) });
+    return pages;
+  }
+
+  // ── UI1: the ledger book renderer — parchment leaf, bookmarks, rows, seal ──
+  _drawLedger(g, gs){
+    const port = gs.dockPort, pl = gs.player;
+    const w = LEDGER_W, h = LEDGER_H, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
+    // leaf (Graphics-only v1; textured parchment is a later phase)
+    g.fillStyle(0x0B0704, 0.45); g.fillRect(x + 6, y + 8, w, h);
+    g.fillStyle(0xE8D5AC, 0.98); g.fillRect(x, y, w, h);
+    g.lineStyle(2, 0x8A6B3F, 1); g.strokeRect(x, y, w, h);
+    g.lineStyle(1, 0x8A6B3F, 0.55); g.strokeRect(x + 7, y + 7, w - 14, h - 14);
+    // wax seal = depart (tap target + F)
+    const sx = x + w - 46, sy = y + h - 46;
+    g.fillStyle(0x5A1616, 1); g.fillCircle(sx + 2, sy + 3, 24);
+    g.fillStyle(0x7A1F1F, 1); g.fillCircle(sx, sy, 24);
+    g.fillStyle(0xB23A2E, 0.8); g.fillCircle(sx - 6, sy - 7, 8);
+    // page-flip chevrons
+    g.fillStyle(0x6E4F2A, 0.9);
+    g.fillTriangle(x + 14, y + h/2, x + 30, y + h/2 - 12, x + 30, y + h/2 + 12);
+    g.fillTriangle(x + w - 14, y + h/2, x + w - 30, y + h/2 - 12, x + w - 30, y + h/2 + 12);
+    // rebuild text + hit rects at 10 Hz, instantly on open or input
+    if (!this.tLedger.visible || gs._dockDirty || this._dockGo()){
+      gs._dockDirty = false;
+      const pages = this._ledgerModel(gs);
+      const page = Math.min(gs.dockPage || 0, 2);
+      const rows = pages[page];
+      this._pageRows = rows;
+      gs.dockRow = Math.min(gs.dockRow || 0, Math.max(0, rows.length - 1));
+      const names = ['SHIP', 'GOODS', 'TAVERN'];
+      const marks = names.map((nm, i) => (i === page ? '▙ ' + nm + ' ▟' : '  ' + nm + '  ')).join('     ');
+      const qn = ['1', '10', 'MAX'], qline = 'Quantity [Z]:   ' + qn.map((q, i) => (i === (gs.dockQty || 0) ? '«' + q + '»' : ' ' + q + ' ')).join('  ');
+      let s2 = port.name + '   —   ' + (port.type || 'Port') + '\n';
+      s2 += 'GOLD ' + (pl.bank || 0) + '     HOLD ' + (typeof Cargo !== 'undefined' && pl.hold ? Cargo.used(pl.hold) + '/' + pl.hold.capacity : '—') + '     CREW ' + (pl.crew || 0) + '\n';
+      s2 += marks + '\n';
+      s2 += (page < 2 ? qline : (typeof TavernSystem !== 'undefined' ? 'RUMOR: "' + TavernSystem._rumor(gs, port) + '"' : '')) + '\n';
+      s2 += '\n';
+      rows.forEach((r, i) => { s2 += (i === gs.dockRow ? '\u25B6 ' : '   ') + r.t + '\n'; });
+      if (page === 2 && gs.activeMissions){
+        s2 += '\nYOUR LOG (' + gs.activeMissions.length + '):\n';
+        for (const m of gs.activeMissions) s2 += '   \u2022 ' + (typeof TavernSystem !== 'undefined' ? TavernSystem.progressLine(m) : m.title) + '\n';
+      }
+      s2 += '\n\u2190/\u2192 pages    \u2191/\u2193 rows    SPACE act    F / seal: depart';
+      this.tLedger.setPosition(x + 40, y + 16).setText(s2).setVisible(true);
+      // tap rects: chevrons, qty chips, rows, seal
+      const hits = this._hits = [];
+      const LH = LEDGER_LH;
+      hits.push({ x: x, y: y + h/2 - 40, w: 40, h: 80, fn: () => { gs.dockPage = ((gs.dockPage || 0) + 2) % 3; gs.dockRow = 0; gs.tavernOpen = gs.dockPage === 2; } });
+      hits.push({ x: x + w - 40, y: y + h/2 - 40, w: 40, h: 80, fn: () => { gs.dockPage = ((gs.dockPage || 0) + 1) % 3; gs.dockRow = 0; gs.tavernOpen = gs.dockPage === 2; } });
+      if (page < 2) hits.push({ x: x + 40, y: y + 16 + 3*LH, w: 260, h: LH, fn: () => { gs.dockQty = ((gs.dockQty || 0) + 1) % 3; } });
+      const rowsTop = y + 16 + 5*LH;
+      rows.forEach((r, i) => hits.push({ x: x + 40, y: rowsTop + i*LH, w: w - 90, h: LH,
+        fn: () => { if (gs.dockRow === i){ (r.act || r.buy || r.sell || (() => {}))(); } else { gs.dockRow = i; } } }));
+      hits.push({ x: sx - 28, y: sy - 28, w: 56, h: 56, fn: () => { gs.docked = false; gs.dockPort = null; gs.tavernOpen = false; gs.dockPage = 0; } });
+    }
+  }
+
   drawDock(g){
     const gs = this.gs, pl = gs.player;
-    // TM1: the tavern board takes over the dock panel while open
-    if (gs.docked && gs.dockPort && gs.tavernOpen && typeof TavernSystem !== 'undefined'){
-      const w = 440, h = 400, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
-      g.fillStyle(0x140E08, 0.94); g.fillRect(x, y, w, h);          // warmer wood tone than the port menu
-      g.lineStyle(2, 0xB08040, 0.6); g.strokeRect(x, y, w, h);
-      if (!this.tDockMenu.visible || this._dockGo()) this.tDockMenu.setText(TavernSystem.boardText(gs));   // M8: 10 Hz, instant on open
-      this.tDockMenu.setVisible(true);
+    if (gs.docked && gs.dockPort){
+      this._drawLedger(g, gs);
+      this.tDockMenu.setVisible(false);
       this.tDockPrompt.setVisible(false);
       return;
-    }
-    if (gs.docked && gs.dockPort){
-      const w = 440, h = 400, x = GAME_W/2 - w/2, y = GAME_H/2 - h/2;
-      g.fillStyle(0x0E1820, 0.94); g.fillRect(x, y, w, h);
-      g.lineStyle(2, 0x2A9EAE, 0.6); g.strokeRect(x, y, w, h);
-      const port = gs.dockPort;
-      const repairNeed = pl.maxHull - pl.hull, ammoNeed = pl.maxAmmo - pl.ammo;
-      const l1 = repairNeed <= 0 ? '[1] Hull fully repaired' : '[1] Repair hull  —  ' + Math.ceil(repairNeed * REPAIR_COST_PER_HP) + 'g';
-      const l2 = ammoNeed   <= 0 ? '[2] Ammo full'           : '[2] Restock ammo  —  ' + (ammoNeed * AMMO_COST_PER_UNIT) + 'g';
-      let cargo = '(empty)';
-      if (pl.hold){ const parts = []; for (const c of COMMODITIES){ const q = pl.hold.items[c]; if (q) parts.push((COMMODITY_INFO[c] ? COMMODITY_INFO[c].glyph : c) + q); } if (parts.length) cargo = parts.join(' '); cargo += '  [' + (typeof Cargo !== 'undefined' ? Cargo.used(pl.hold) : 0) + '/' + pl.hold.capacity + ']'; }
-      const src = port.sourceCommodity;
-      const l4 = src ? ('[4] Buy ' + src + '  —  ' + PortEconomy.sellPrice(port, src) + 'g/ea') : '[4] — (no local good)';
-      const crewCap = (typeof ShipTiers !== 'undefined') ? ShipTiers.maxCrew(pl) : (typeof CREW_MAX !== 'undefined' ? CREW_MAX : 40);
-      const crewSpec = (typeof PORT_TYPES !== 'undefined') && PORT_TYPES[port.type];
-      const crewCost = Math.round((typeof CREW_HIRE_COST !== 'undefined' ? CREW_HIRE_COST : 6) * (crewSpec && crewSpec.crewDiscount ? 0.6 : 1));
-      const l5 = ((pl.crew || 0) >= crewCap) ? '[5] Crew full (' + crewCap + ')' : '[5] Hire crew  —  ' + crewCost + 'g';
-      const up = (typeof UpgradeSystem !== 'undefined') ? UpgradeSystem : null;
-      const l6 = up ? '[6] ' + up.sailLabel(gs)   : '';
-      const l7 = up ? '[7] ' + up.cannonLabel(gs) : '';
-      const l8 = up ? '[8] ' + up.shipLabel(gs)   : '';
-      const l9 = (typeof HireSystem !== 'undefined')   ? '[9] ' + HireSystem.hireLabel(gs) : '';
-      const l0 = (typeof BountySystem !== 'undefined') ? '[0] Accept bounty (hunt a pirate)' : '';
-      // SW1 (RULED e): swap is offered in the dock menu whenever a prize is in tow
-      const lV = (gs.tows && gs.tows.length) ? '[V] Make towed prize your flagship' : '';
-      const lB = (port.derelict && typeof ShipTiers !== 'undefined') ? '[B] Buy docked ' + ShipTiers.get(port.derelict.tier).name + '  —  ' + port.derelict.price + 'g' : '';   // PF1
-      const lT = (typeof TavernSystem !== 'undefined') ? '[T] Enter the tavern (missions)' : '';   // TM1
-      // EMPIRE-1a: berthed prize at THIS port — repair/crew gate before it can commission as a runner
-      let lP = '', lK = '';
-      const prize = (gs.berthedPrizes || []).find(pr => pr.dockedAt === port.id);
-      if (prize){
-        const pNeed = prize.maxHull - prize.hull;
-        lP = pNeed <= 0 ? '[P] Prize hull fully repaired' : '[P] Repair prize hull  —  ' + Math.ceil(pNeed * REPAIR_COST_PER_HP) + 'g';
-        const pCap = (typeof ShipTiers !== 'undefined') ? ShipTiers.minCrew(prize) : 0;
-        const pCost = Math.round((typeof CREW_HIRE_COST !== 'undefined' ? CREW_HIRE_COST : 6) * (crewSpec && crewSpec.crewDiscount ? 0.6 : 1));
-        lK = (prize.crew || 0) >= pCap ? '[K] Prize fully crewed (' + pCap + ')' : '[K] Crew prize (' + (prize.crew||0) + '/' + pCap + ')  —  ' + pCost + 'g';
-      }
-      const extra = [l6, l7, l8, l9, l0, lV, lB, lT, lP, lK].filter(Boolean).join('\n');
-      if (!this.tDockMenu.visible || this._dockGo()) this.tDockMenu.setText('⚓  ' + port.name + '   (' + (port.type || 'Port') + ')\n\nGOLD  ' + (pl.bank || 0) + '     HOLD  ' + cargo + '     CREW  ' + (pl.crew || 0) + '/' + crewCap + '\n\n' + l1 + '\n' + l2 + '\n[3] Sell all cargo\n' + l4 + '\n' + l5 + (extra ? '\n' + extra : '') + '\n\n[F] Depart').setVisible(true);
-      this.tDockPrompt.setVisible(false);
     } else if (gs.nearPort){
       let msg;
       if (gs.navyHostile()) msg = '⚓  ' + gs.nearPort.name + ' — PORT CLOSED (WANTED)';
@@ -350,8 +426,9 @@ class HUD {
         : '⚓  Press F to dock at ' + gs.nearPort.name;
       this.tDockPrompt.setText(msg).setVisible(true);
       this.tDockMenu.setVisible(false);
+      this.tLedger.setVisible(false);
     } else {
-      this.tDockPrompt.setVisible(false); this.tDockMenu.setVisible(false);
+      this.tDockPrompt.setVisible(false); this.tDockMenu.setVisible(false); this.tLedger.setVisible(false);
     }
   }
 }

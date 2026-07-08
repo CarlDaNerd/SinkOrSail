@@ -25,6 +25,8 @@ Reality check of the design doc against `main` (commit `c685f2e`, 50 commits). D
 
 ## Recently Added (most recent commits first)
 
+- UI1 — ledger port menu: the flat dock panel becomes a 3-page parchment book (Ship / Goods / Tavern) flipped with ←/→, rows selected with ↑/↓, quantities via a 1/10/MAX chip [Z], SPACE/B/S act, wax-seal or F departs; per-commodity sell rows use live PortEconomy quotes; taps hit the same rects as keys; per-action number keybinds retired
+
 - KS1 — Kenney Pirate Pack ship reskin: sprite hulls (6 faction colours × 4 damage states) replace polygon ships, hit-flash as tint, flags/hull-bars kept as overlays, leak-proof sprite pooling, `SHIP_SPRITES` toggle for instant fallback (CC0, CREDITS.md added)
 
 - DBG1 - Added some crash logging to the game to help troubleshoot crashes.

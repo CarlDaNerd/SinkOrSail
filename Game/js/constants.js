@@ -459,4 +459,7 @@ const HUD_TEXT_INTERVAL_MS = 100;   // PLACEHOLDER — 10 Hz, imperceptible
 // false to fall back to the old Graphics ships instantly (also auto-falls
 // back per-ship if a texture is missing).
 const SHIP_SPRITES = true;
+// UI1 (ledger port menu): all PLACEHOLDER — live feel-tune
+const LEDGER_FONT = "'IM Fell English', Georgia, serif";
+const LEDGER_W = 470, LEDGER_H = 430, LEDGER_LH = 22;   // panel + line height
 const SHIP_SPRITE_SCALE = 0.38;     // PLACEHOLDER — sprite (113px tall) vs old 40px hull at scale 1
